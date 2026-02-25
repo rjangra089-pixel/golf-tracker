@@ -272,6 +272,7 @@
             const [saving, setSaving] = useState(false);
             const [status, setStatus] = useState(null);
             const [roundDate, setRoundDate] = useState(new Date().toISOString().split('T')[0]);
+            const [playingHC, setPlayingHC] = useState(27); // Your current handicap
             
             // Load courses on mount
             useEffect(() => {
@@ -332,6 +333,22 @@
                     setStatus({ type: 'error', message: 'Failed to load holes' });
                 }
             }
+
+            function calculateStableford(hole, score) {
+                if (!score || score === 0) return null;
+                
+                const holeHC = playingHC;
+                const shotsReceived = Math.floor(holeHC / 18) + (hole.stroke_index <= (holeHC % 18) ? 1 : 0);
+                const netScore = score - shotsReceived;
+                const diff = hole.par - netScore;
+                
+                // Stableford points: Eagle+=4, Birdie=3, Par=2, Bogey=1, Double+=0
+                if (diff >= 2) return 4;
+                if (diff === 1) return 3;
+                if (diff === 0) return 2;
+                if (diff === -1) return 1;
+                return 0;
+            }
             
             function updateScore(holeId, field, value) {
                 setScores(prev => ({
@@ -360,6 +377,13 @@
                     const totalScore = Object.values(scores).reduce((sum, s) => {
                         return sum + (parseInt(s.score) || 0);
                     }, 0);
+
+                    const totalStableford = holes.reduce((sum, hole) => {
+                    const score = parseInt(scores[hole.id]?.score);
+                    if (!score) return sum;
+                    const points = calculateStableford(hole, score);
+                    return sum + (points || 0);
+                }, 0);
                     
                     const totalPutts = Object.values(scores).reduce((sum, s) => {
                         return sum + (parseInt(s.putts) || 0);
@@ -379,6 +403,7 @@
                             user_id: userPrefs.user_id,
                             course_id: selectedCourse,
                             date: roundDate,
+                            playing_handicap: playingHC,
                             total_score: totalScore,
                             total_putts: totalPutts,
                             gir_count: girCount,
@@ -470,6 +495,16 @@
                                     </option>
                                 ))}
                             </select>
+                            <label style={{marginTop: '15px'}}>Playing Handicap</label>
+                            <input 
+                                type="number" 
+                                inputMode="numeric"
+                                value={playingHC}
+                                onChange={(e) => setPlayingHC(parseInt(e.target.value) || 0)}
+                                className="score-input"
+                                style={{textAlign: 'center', fontWeight: '700', fontSize: '20px'}}
+                                placeholder="27"
+                            />
                             
                             <label style={{marginTop: '15px'}}>Round Date</label>
                             <input 
@@ -489,6 +524,20 @@
                         
                         <div className="round-info">
                             <div className="info-item">
+                                <div className="info-item" style={{
+                                    gridColumn: '1 / -1',
+                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                }}>
+                                    <div className="info-label" style={{color: 'rgba(255,255,255,0.8)'}}>
+                                        Stableford Points
+                                    </div>
+                                    <div className="info-value" style={{color: '#fff', fontSize: '36px'}}>
+                                        {totalStableford}
+                                    </div>
+                                    <div style={{fontSize: '11px', color: 'rgba(255,255,255,0.9)', marginTop: '4px'}}>
+                                        Target: 36 points = playing to handicap
+                                    </div>
+                                </div>
                                 <div className="info-label">Score</div>
                                 <div className="info-value">{totalScore || 0}</div>
                             </div>
@@ -520,9 +569,33 @@
                                         <span className="hole-num">#{hole.hole_number}</span>
                                         <span className="par-badge">Par {hole.par}</span>
                                     </div>
+                                    <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                                     <div style={{fontSize: '14px', color: '#94a3b8'}}>
                                         SI {hole.stroke_index} • {hole.yardage}y
                                     </div>
+                                    {scores[hole.id]?.score && (
+                                        <div style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            fontWeight: '700',
+                                            background: (() => {
+                                                const pts = calculateStableford(hole, parseInt(scores[hole.id].score));
+                                                if (pts === 4) return '#10b981';
+                                                if (pts === 3) return '#22d3ee';
+                                                if (pts === 2) return '#fbbf24';
+                                                if (pts === 1) return '#fb923c';
+                                                return '#ef4444';
+                                            })(),
+                                            color: (() => {
+                                                const pts = calculateStableford(hole, parseInt(scores[hole.id].score));
+                                                return pts === 0 ? '#fff' : '#000';
+                                            })()
+                                        }}>
+                                            {calculateStableford(hole, parseInt(scores[hole.id].score))} pts
+                                        </div>
+                                    )}
+                                </div>
                                 </div>
                                 
                                 {hole.caddie_tip && (
