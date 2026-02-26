@@ -274,7 +274,21 @@
             async function saveRound() {
                 setSaving(true);
                 try {
-                    const { data: user } = await supabase.from('user_preferences').select('user_id').single();
+                    // Get or create user
+                    let { data: user, error: userError } = await supabase.from('user_preferences').select('user_id').limit(1).single();
+                    
+                    // If no user exists, create one
+                    if (userError || !user) {
+                        const { data: newUser, error: createError } = await supabase
+                            .from('user_preferences')
+                            .insert({ name: 'Rajiv', current_handicap: 27.0, target_handicap: 16.0 })
+                            .select('user_id')
+                            .single();
+                        
+                        if (createError) throw new Error('Could not create user: ' + createError.message);
+                        user = newUser;
+                    }
+                    
                     if (!user) throw new Error('User settings not found');
 
                     const { data: round, error: rErr } = await supabase.from('rounds').insert({
@@ -399,10 +413,10 @@
                                             <select className="score-select" disabled={h.par === 3}
                                                 value={scores[h.id]?.fairway} onChange={e => updateScore(h.id, 'fairway', e.target.value)}>
                                                 <option value="">-</option>
-                                                <option value="C">Center</option>
-                                                <option value="L">Left</option>
-                                                <option value="R">Right</option>
-                                                <option value="X">Miss</option>
+                                                <option value="C">Fairway</option>
+                                                <option value="L">Miss Left</option>
+                                                <option value="R">Miss Right</option>
+                                                <option value="X">OB/Lost</option>
                                             </select>
                                         </div>
                                         <div className="input-group">
