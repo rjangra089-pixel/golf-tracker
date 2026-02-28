@@ -1356,9 +1356,9 @@
         </div>
 
         <!-- Caddie briefing panel -->
-        <div class="caddie-briefing" id="caddie-briefing">
+        <div class="caddie-briefing collapsed" id="caddie-briefing">
             <div class="caddie-briefing-header" onclick="toggleBriefing()">
-                <div class="caddie-briefing-title">🏌️ Caddie Briefing — Hole <span id="cb-hole-num">1</span></div>
+                <div class="caddie-briefing-title">🏌️ Caddie Briefing — Hole <span id="cb-hole-num">1</span> <span style="font-size:9px;opacity:0.6;font-weight:400;letter-spacing:1px">TAP TO EXPAND</span></div>
                 <div class="caddie-briefing-chevron" id="cb-chevron">▼</div>
             </div>
             <div class="caddie-briefing-body">
@@ -2343,6 +2343,7 @@ async function startRound() {
 let briefingCollapsed = false;
 function toggleBriefing() {
     briefingCollapsed = !briefingCollapsed;
+    clearTimeout(window._briefingTimer); // cancel auto-collapse if user taps
     const el = document.getElementById('caddie-briefing');
     el.classList.toggle('collapsed', briefingCollapsed);
 }
@@ -2538,9 +2539,15 @@ function renderHole(idx, fromPrev) {
         dangerBlock.style.display = 'none';
     }
 
-    // Auto-expand briefing on each new hole
+    // Show briefing expanded briefly, then collapse so scoring is visible
     briefingCollapsed = false;
-    document.getElementById('caddie-briefing').classList.remove('collapsed');
+    const briefingEl = document.getElementById('caddie-briefing');
+    briefingEl.classList.remove('collapsed');
+    clearTimeout(window._briefingTimer);
+    window._briefingTimer = setTimeout(() => {
+        briefingCollapsed = true;
+        briefingEl.classList.add('collapsed');
+    }, 4000);
 
     // Score buttons
     const minScore = Math.max(1, h.par - 2);
