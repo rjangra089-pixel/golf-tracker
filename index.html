@@ -602,8 +602,13 @@
         /* ═══════════════════════════════════════════
            PLAY SCREEN
         ═══════════════════════════════════════════ */
-        #screen-play { background: var(--dark); position: relative; }
-        /* screen-play inherits from .screen.active */
+        #screen-play.active {
+            display: block !important;
+            height: 100dvh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            background: var(--dark);
+        }
 
         .topbar {
             background: var(--fairway);
@@ -612,7 +617,9 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 20;
         }
 
         .topbar-hole { font-family: var(--font-display); font-size: 36px; color: var(--green); line-height: 1; }
@@ -625,18 +632,11 @@
         .progress-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--green-light)); transition: width 0.4s ease; }
 
         .play-scroll {
-            position: absolute;
-            top: 83px;
-            bottom: 74px;
-            left: 0;
-            right: 0;
-            overflow-y: scroll;
-            -webkit-overflow-scrolling: touch;
             padding: 14px;
-            padding-bottom: 40px;
+            padding-bottom: 120px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
 
         .hole-info-card {
@@ -790,8 +790,8 @@
             padding-bottom: max(12px, env(safe-area-inset-bottom));
             background: var(--card);
             border-top: 1.5px solid var(--border2);
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
+            position: sticky;
+            bottom: 0;
             z-index: 10;
         }
 
@@ -2606,7 +2606,7 @@ function renderHole(idx, fromPrev) {
 
     document.getElementById('btn-prev').style.visibility = idx===0 ? 'hidden' : 'visible';
     document.getElementById('btn-next').textContent = idx===17 ? 'Finish Round →' : 'Next Hole →';
-    document.getElementById('play-scroll').scrollTo(0,0);
+    document.getElementById('screen-play').scrollTo(0,0);
 }
 
 function updatePointsDisplay(idx) {
