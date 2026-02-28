@@ -954,6 +954,194 @@
             cursor: pointer;
         }
 
+
+        /* ═══════════════════════════════════════════
+           LIVE CADDIE MODE
+        ═══════════════════════════════════════════ */
+
+        /* Pace tracker in topbar */
+        .topbar-pace {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            text-align: center;
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+        }
+        .pace-ahead  { background: rgba(82,183,136,0.2);  color: var(--green-bright); }
+        .pace-behind { background: rgba(244,162,97,0.2);  color: var(--orange); }
+        .pace-on     { background: rgba(116,179,206,0.2); color: #74b3ce; }
+
+        /* Caddie briefing panel */
+        .caddie-briefing {
+            background: linear-gradient(135deg, #0d2b1d 0%, #0e2318 100%);
+            border: 1px solid var(--border2);
+            border-radius: 16px;
+            margin: 0 0 12px 0;
+            overflow: hidden;
+        }
+
+        .caddie-briefing-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .caddie-briefing-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--green-bright);
+        }
+
+        .caddie-briefing-chevron {
+            font-size: 12px;
+            color: var(--gray);
+            transition: transform 0.2s;
+        }
+
+        .caddie-briefing.collapsed .caddie-briefing-chevron { transform: rotate(-90deg); }
+
+        .caddie-briefing-body {
+            padding: 0 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .caddie-briefing.collapsed .caddie-briefing-body { display: none; }
+
+        /* Stats grid inside briefing */
+        .caddie-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .caddie-stat {
+            background: var(--card2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 8px;
+            text-align: center;
+        }
+
+        .caddie-stat-val {
+            font-family: var(--font-display);
+            font-size: 26px;
+            line-height: 1;
+            color: var(--white);
+        }
+
+        .caddie-stat-lbl {
+            font-size: 10px;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 4px;
+        }
+
+        /* Strategy block */
+        .caddie-strategy {
+            background: rgba(82,183,136,0.06);
+            border-left: 3px solid var(--green-bright);
+            border-radius: 0 10px 10px 0;
+            padding: 10px 14px;
+            font-size: 14px;
+            color: var(--green-light);
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        /* Post-hole feedback banner */
+        .hole-feedback {
+            margin: 0 0 12px 0;
+            padding: 14px 16px;
+            border-radius: 14px;
+            display: none;
+            animation: feedbackIn 0.3s cubic-bezier(.34,1.56,.64,1);
+        }
+
+        @keyframes feedbackIn {
+            from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .hole-feedback.visible { display: block; }
+
+        .feedback-pts {
+            font-family: var(--font-display);
+            font-size: 42px;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .feedback-label {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .feedback-vs {
+            font-size: 13px;
+            opacity: 0.85;
+            line-height: 1.4;
+        }
+
+        .feedback-msg {
+            font-size: 13px;
+            margin-top: 8px;
+            font-style: italic;
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+
+        /* Momentum badge */
+        .momentum-badge {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            margin: 0 0 12px 0;
+            font-size: 13px;
+            font-weight: 600;
+            animation: feedbackIn 0.4s cubic-bezier(.34,1.56,.64,1);
+        }
+
+        .momentum-badge.visible { display: flex; }
+        .momentum-badge.hot  { background: rgba(246,216,96,0.12); border: 1px solid rgba(246,216,96,0.3); color: #f6d860; }
+        .momentum-badge.cold { background: rgba(230,57,70,0.10);  border: 1px solid rgba(230,57,70,0.25);  color: var(--red); }
+        .momentum-badge.good { background: rgba(82,183,136,0.10); border: 1px solid rgba(82,183,136,0.25); color: var(--green-bright); }
+
+        .momentum-icon { font-size: 20px; }
+
+        /* Milestone banner */
+        .milestone-banner {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            border-radius: 16px;
+            margin: 0 0 12px 0;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(82,183,136,0.15), rgba(233,196,106,0.1));
+            border: 1px solid var(--border2);
+            animation: feedbackIn 0.4s cubic-bezier(.34,1.56,.64,1);
+        }
+
+        .milestone-banner.visible { display: flex; }
+        .milestone-icon { font-size: 32px; margin-bottom: 6px; }
+        .milestone-title { font-family: var(--font-display); font-size: 22px; color: var(--green-bright); }
+        .milestone-sub { font-size: 13px; color: var(--gray); margin-top: 4px; line-height: 1.4; }
+
         /* Loading */
         .loading-overlay {
             display: flex;
@@ -1136,14 +1324,80 @@
             <div class="topbar-hole" id="tb-hole">HOLE 1</div>
             <div class="topbar-meta">Par <span id="tb-par">5</span> · SI <span id="tb-si">11</span> · <span id="tb-yards">404</span>y</div>
         </div>
-        <div>
+        <div style="text-align:right">
             <div class="topbar-pts-val" id="tb-pts">0</div>
             <div class="topbar-pts-lbl">Points</div>
+            <div class="topbar-pace" id="tb-pace" style="display:none"></div>
         </div>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
 
     <div class="play-scroll" id="play-scroll">
+
+        <!-- Momentum badge -->
+        <div class="momentum-badge" id="momentum-badge">
+            <span class="momentum-icon" id="momentum-icon">🔥</span>
+            <span id="momentum-text">On a roll!</span>
+        </div>
+
+        <!-- Milestone banner -->
+        <div class="milestone-banner" id="milestone-banner">
+            <div class="milestone-icon" id="milestone-icon">🏁</div>
+            <div class="milestone-title" id="milestone-title">Halfway!</div>
+            <div class="milestone-sub" id="milestone-sub"></div>
+        </div>
+
+        <!-- Post-hole feedback (shown after score entered + Next tapped) -->
+        <div class="hole-feedback" id="hole-feedback">
+            <div class="feedback-pts" id="feedback-pts">2</div>
+            <div class="feedback-label" id="feedback-label">Par</div>
+            <div class="feedback-vs" id="feedback-vs"></div>
+            <div class="feedback-msg" id="feedback-msg"></div>
+        </div>
+
+        <!-- Caddie briefing panel -->
+        <div class="caddie-briefing" id="caddie-briefing">
+            <div class="caddie-briefing-header" onclick="toggleBriefing()">
+                <div class="caddie-briefing-title">🏌️ Caddie Briefing — Hole <span id="cb-hole-num">1</span></div>
+                <div class="caddie-briefing-chevron" id="cb-chevron">▼</div>
+            </div>
+            <div class="caddie-briefing-body">
+                <div class="caddie-stats-grid">
+                    <div class="caddie-stat">
+                        <div class="caddie-stat-val" id="cb-avg">—</div>
+                        <div class="caddie-stat-lbl">Your Avg</div>
+                    </div>
+                    <div class="caddie-stat">
+                        <div class="caddie-stat-val" id="cb-target">—</div>
+                        <div class="caddie-stat-lbl">Target</div>
+                    </div>
+                    <div class="caddie-stat">
+                        <div class="caddie-stat-val" id="cb-shots">—</div>
+                        <div class="caddie-stat-lbl">Shots HC</div>
+                    </div>
+                </div>
+                <div class="caddie-stats-grid">
+                    <div class="caddie-stat">
+                        <div class="caddie-stat-val" id="cb-gir" style="font-size:18px">—</div>
+                        <div class="caddie-stat-lbl">GIR %</div>
+                    </div>
+                    <div class="caddie-stat">
+                        <div class="caddie-stat-val" id="cb-putts">—</div>
+                        <div class="caddie-stat-lbl">Avg Putts</div>
+                    </div>
+                    <div class="caddie-stat">
+                        <div class="caddie-stat-val" id="cb-rounds" style="font-size:18px">—</div>
+                        <div class="caddie-stat-lbl">Rounds</div>
+                    </div>
+                </div>
+                <div class="caddie-strategy" id="cb-strategy">Loading strategy...</div>
+                <div id="cb-danger-block" style="display:none;background:rgba(230,57,70,0.08);border:1px solid rgba(230,57,70,0.25);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--red);line-height:1.5">
+                    ⚠️ <strong>Danger hole.</strong> <span id="cb-danger-text"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hole header (compact, always visible) -->
         <div class="hole-info-card" id="hole-info-card">
             <div class="hole-info-header" id="hole-info-header">
                 <div class="hole-title-group">
@@ -1158,12 +1412,6 @@
                     <div class="hole-yardage"><strong id="hi-yards">404</strong>yards</div>
                 </div>
             </div>
-            <div class="my-avg-bar" id="my-avg-bar" style="display:none">
-                <span>📊 Your avg:</span>
-                <span class="my-avg-val" id="my-avg-val">—</span>
-                <span id="my-avg-vs"></span>
-            </div>
-            <div class="caddie-tip" id="hi-tip">Start strong. Fairway over distance.</div>
         </div>
 
         <div class="scoring-card">
@@ -2080,53 +2328,219 @@ function getPointsStyle(pts) {
 // ═══════════════════════════════════════════════════════════════
 //  PLAY SCREEN
 // ═══════════════════════════════════════════════════════════════
-function startRound() {
+async function startRound() {
     playerName = document.getElementById('setup-name').value.trim() || 'Golfer';
     playingHC  = parseInt(document.getElementById('setup-hc').value) || 27;
     roundDate  = document.getElementById('setup-date').value;
     holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null}));
     showScreen('screen-play');
+    // Ensure holeStats are loaded for caddie briefing
+    if (!holeStats.length) await loadStats();
     renderHole(0);
 }
 
-function renderHole(idx) {
+// ── Caddie briefing collapse ──────────────────────────
+let briefingCollapsed = false;
+function toggleBriefing() {
+    briefingCollapsed = !briefingCollapsed;
+    const el = document.getElementById('caddie-briefing');
+    el.classList.toggle('collapsed', briefingCollapsed);
+}
+
+// ── Pace calculation ──────────────────────────────────
+function getPaceInfo(holesPlayed, currentPts) {
+    if (!recentRounds.length || holesPlayed === 0) return null;
+    const avgPtsPerHole = recentRounds
+        .filter(r => r.stableford_points)
+        .reduce((s,r) => s + r.stableford_points, 0) / recentRounds.filter(r=>r.stableford_points).length / 18;
+    const bestRound = Math.max(...recentRounds.filter(r=>r.stableford_points).map(r=>r.stableford_points));
+    const projectedTotal = (currentPts / holesPlayed) * 18;
+    const avgProjected   = avgPtsPerHole * 18;
+    return { projectedTotal, avgProjected, bestRound };
+}
+
+// ── Momentum detection ────────────────────────────────
+function getMomentum(upToHole) {
+    // Look at last 3 completed holes
+    if (upToHole < 3) return null;
+    const last3 = [];
+    for (let i = upToHole - 3; i < upToHole; i++) {
+        if (!holeData[i].score) return null;
+        const pts = calcPoints(i, holeData[i].score);
+        const hStat = holeStats[i];
+        const avg = hStat?.avg || (HOLES[i].par + 1.5); // fallback avg
+        last3.push({ pts, score: holeData[i].score, avg });
+    }
+    const allAboveAvg = last3.every(h => h.score <= h.avg);
+    const allBelowAvg = last3.every(h => h.score >= h.avg + 1);
+    const totalPts = last3.reduce((s,h) => s+h.pts, 0);
+    if (totalPts >= 8) return { type:'hot',  icon:'🔥', text:'On fire! 3 holes above average in a row' };
+    if (totalPts >= 6 && allAboveAvg) return { type:'good', icon:'💪', text:'Solid run — keep this going' };
+    if (totalPts <= 2 && allBelowAvg) return { type:'cold', icon:'🧊', text:'Tough spell — reset, breathe, back to basics' };
+    return null;
+}
+
+// ── Milestone check ───────────────────────────────────
+function checkMilestone(idx) {
+    if (idx !== 9) return null; // only halfway for now
+    const f9pts  = holeData.slice(0,9).reduce((s,h,i) => s + (h.score ? calcPoints(i,h.score) : 0), 0);
+    const f9avg  = recentRounds.length
+        ? recentRounds.reduce((s,r) => {
+            const f9shots = (r.shots||[]).filter(s=>s.hole_number<=9);
+            return s + f9shots.reduce((ss,s)=>ss+calcPoints(s.hole_number-1,s.score),0);
+        }, 0) / recentRounds.length
+        : null;
+    const projTotal = f9pts * 2;
+    const best = Math.max(...recentRounds.filter(r=>r.stableford_points).map(r=>r.stableford_points), 0);
+    let sub = `Front 9: ${f9pts} pts`;
+    if (projTotal >= best && best > 0) sub += ` · 🏆 On pace to beat your best (${best} pts)!`;
+    else if (f9avg !== null) sub += ` · Projected: ~${projTotal} pts (avg: ${Math.round(f9avg*2)})`;
+    return { icon:'🏁', title:'Halfway There!', sub };
+}
+
+// ── Post-hole feedback ────────────────────────────────
+function showHoleFeedback(fromIdx) {
+    const h    = HOLES[fromIdx];
+    const d    = holeData[fromIdx];
+    if (!d.score) return;
+    const pts  = calcPoints(fromIdx, d.score);
+    const ps   = getPointsStyle(pts);
+    const stat = holeStats[fromIdx];
+
+    const fb   = document.getElementById('hole-feedback');
+    fb.style.background = ps.bg + '18';
+    fb.style.border     = `1px solid ${ps.bg}44`;
+    fb.style.color      = ps.bg;
+    fb.classList.add('visible');
+
+    document.getElementById('feedback-pts').textContent  = pts + ' pt' + (pts!==1?'s':'');
+    document.getElementById('feedback-pts').style.color  = ps.bg;
+    document.getElementById('feedback-label').textContent = getScoreLabel(h.par, d.score) + ` on Hole ${h.num}`;
+
+    // vs average
+    let vsText = '';
+    if (stat?.avg !== null && stat?.avg !== undefined) {
+        const diff = d.score - stat.avg;
+        if (diff < -0.5)      vsText = `${Math.abs(diff).toFixed(1)} shots better than your average here ✅`;
+        else if (diff < 0.5)  vsText = `Right on your average for this hole`;
+        else                   vsText = `${diff.toFixed(1)} shots above your average — target is ${stat.targetScore}`;
+    }
+    document.getElementById('feedback-vs').textContent  = vsText;
+    document.getElementById('feedback-vs').style.color  = 'rgba(255,255,255,0.7)';
+
+    // motivational message
+    const totalPts = getTotalPoints();
+    const holesIn  = holeData.slice(0, fromIdx+1).filter(h=>h.score).length;
+    const pace     = getPaceInfo(holesIn, totalPts);
+    let msg = '';
+    if (pts >= 4)      msg = "Eagle or better — that's what dreams are made of! 🦅";
+    else if (pts === 3) msg = "Birdie! Keep attacking. You're playing well. 🐦";
+    else if (pts === 2) msg = "Par — banker point in the bag. Solid. 💼";
+    else if (pts === 1) msg = "Bogey — still a point. Reset and move on. 👊";
+    else if (pts === 0 && d.score <= h.par + 3) msg = "Tough one. Forget it — next hole is a fresh start.";
+    else msg = "Rough hole. Deep breath. The card's still in play.";
+    document.getElementById('feedback-msg').textContent = msg;
+    document.getElementById('feedback-msg').style.color = 'rgba(255,255,255,0.6)';
+}
+
+function renderHole(idx, fromPrev) {
     currentHole = idx;
     const h = HOLES[idx];
     const d = holeData[idx];
     const isPar3 = h.par === 3;
 
+    // Hide feedback/milestone/momentum on new hole render (unless coming from prev)
+    document.getElementById('hole-feedback').classList.remove('visible');
+    document.getElementById('milestone-banner').classList.remove('visible');
+    document.getElementById('momentum-badge').classList.remove('visible');
+
+    // Topbar
     document.getElementById('tb-hole').textContent  = `HOLE ${h.num}`;
     document.getElementById('tb-par').textContent   = h.par;
     document.getElementById('tb-si').textContent    = h.si;
     document.getElementById('tb-yards').textContent = h.yards;
-    document.getElementById('tb-pts').textContent   = getTotalPoints();
+
+    const totalPts   = getTotalPoints();
+    const holesPlayed = holeData.slice(0, idx).filter(h=>h.score).length;
+    document.getElementById('tb-pts').textContent = totalPts;
+
+    // Pace badge
+    const paceEl = document.getElementById('tb-pace');
+    if (holesPlayed >= 3) {
+        const pace = getPaceInfo(holesPlayed, totalPts);
+        if (pace) {
+            paceEl.style.display = 'block';
+            const proj = Math.round(pace.projectedTotal);
+            const diff = proj - Math.round(pace.avgProjected);
+            if (diff >= 2) {
+                paceEl.textContent = `↑ On pace for ${proj} pts`;
+                paceEl.className = 'topbar-pace pace-ahead';
+            } else if (diff <= -2) {
+                paceEl.textContent = `↓ Pace: ~${proj} pts`;
+                paceEl.className = 'topbar-pace pace-behind';
+            } else {
+                paceEl.textContent = `→ Avg pace: ~${proj} pts`;
+                paceEl.className = 'topbar-pace pace-on';
+            }
+        }
+    } else {
+        paceEl.style.display = 'none';
+    }
 
     document.getElementById('progress-fill').style.width = `${(idx/18)*100}%`;
 
+    // Hole info card
     const card = document.getElementById('hole-info-card');
     card.className = `hole-info-card${h.danger?' danger':''}`;
     document.getElementById('hi-num').textContent   = h.num;
     document.getElementById('hi-par').textContent   = `Par ${h.par}`;
     document.getElementById('hi-si').textContent    = `SI ${h.si}`;
     document.getElementById('hi-yards').textContent = h.yards;
-    document.getElementById('hi-tip').textContent   = h.tip;
     document.getElementById('hi-danger').style.display = h.danger ? 'block' : 'none';
 
-    // Show historical avg for this hole if available
-    const hStat = holeStats[idx];
-    const avgBar = document.getElementById('my-avg-bar');
-    if (hStat && hStat.avg !== null) {
-        avgBar.style.display = 'flex';
-        document.getElementById('my-avg-val').textContent = hStat.avg.toFixed(1);
-        const diff = hStat.avg - h.par;
-        const col = diff <= 0.5 ? 'var(--green-bright)' : diff <= 1.5 ? 'var(--orange)' : 'var(--red)';
-        document.getElementById('my-avg-val').style.color = col;
-        const vsText = diff > 0 ? `(+${diff.toFixed(1)} vs par · target ${hStat.targetScore})` : `(under par! · target ${hStat.targetScore})`;
-        document.getElementById('my-avg-vs').textContent = vsText;
-        document.getElementById('my-avg-vs').style.color = 'var(--gray)';
+    // Caddie briefing
+    const hStat   = holeStats[idx];
+    const shotsRec = getShotsReceived(idx);
+    document.getElementById('cb-hole-num').textContent = h.num;
+    document.getElementById('cb-shots').textContent    = shotsRec;
+    document.getElementById('cb-target').textContent   = hStat?.targetScore ?? (h.par + shotsRec);
+    document.getElementById('cb-rounds').textContent   = hStat?.count ?? '—';
+
+    if (hStat?.avg !== null && hStat?.avg !== undefined) {
+        const avgCol = hStat.avg - h.par <= 0.5 ? 'var(--green-bright)' : hStat.avg - h.par <= 1.5 ? 'var(--orange)' : 'var(--red)';
+        document.getElementById('cb-avg').textContent  = hStat.avg.toFixed(1);
+        document.getElementById('cb-avg').style.color  = avgCol;
     } else {
-        avgBar.style.display = 'none';
+        document.getElementById('cb-avg').textContent  = '—';
+        document.getElementById('cb-avg').style.color  = 'var(--gray)';
     }
+
+    document.getElementById('cb-gir').textContent   = hStat?.girPct  !== null && hStat?.girPct  !== undefined ? hStat.girPct  + '%' : '—';
+    document.getElementById('cb-putts').textContent = hStat?.avgPutts !== null && hStat?.avgPutts !== undefined ? hStat.avgPutts.toFixed(1) : '—';
+    document.getElementById('cb-strategy').textContent = h.tip;
+
+    const dangerBlock = document.getElementById('cb-danger-block');
+    if (h.danger) {
+        dangerBlock.style.display = 'block';
+        const dangerTips = {
+            3: 'Stay left. That sharp drop on the left punishes anything wayward.',
+            4: 'Accept bogey here. A 5 is a great score. Do not go for the hero shot.',
+            5: 'Lay up short of the danger zone. A comfortable chip beats a risky approach.',
+            7: 'Find the fairway first. Long and tight — bogey is a win here.',
+            8: 'Club up on the approach. That elevated green eats short shots.',
+            11: 'Keep it simple: fairway, pitch short, two putts. Do not be greedy.',
+            13: 'Two solid shots then wedge. Do not try to reach in two.',
+            15: 'SI 2 — this is hard. Fairway is everything. Stay conservative.',
+            17: 'This is your worst hole. Lay up to 80-100y. Do NOT go for the green in two.',
+        };
+        document.getElementById('cb-danger-text').textContent = dangerTips[h.num] || 'Play conservatively. Take your medicine.';
+    } else {
+        dangerBlock.style.display = 'none';
+    }
+
+    // Auto-expand briefing on each new hole
+    briefingCollapsed = false;
+    document.getElementById('caddie-briefing').classList.remove('collapsed');
 
     // Score buttons
     const minScore = Math.max(1, h.par - 2);
@@ -2142,10 +2556,8 @@ function renderHole(idx) {
         container.appendChild(wrap);
     }
 
-    // Putts
     document.querySelectorAll('.putt-btn').forEach(btn => btn.classList.toggle('selected', parseInt(btn.dataset.putts)===d.putts));
 
-    // Fairway
     const fwGroup = document.getElementById('fairway-group');
     fwGroup.style.opacity = isPar3 ? '0.3' : '1';
     fwGroup.style.pointerEvents = isPar3 ? 'none' : 'auto';
@@ -2155,7 +2567,6 @@ function renderHole(idx) {
     fwBtns.forEach(b => b.className='toggle-btn');
     if (d.fairway) { const i=fwMap[d.fairway]; fwBtns[i].classList.add(fwCls[d.fairway]); }
 
-    // GIR
     const girBtns = document.querySelectorAll('#screen-play .stats-row > div:last-child .toggle-btn');
     girBtns[0].classList.toggle('hit', d.gir===true);
     girBtns[1].classList.toggle('hit', d.gir===false);
@@ -2212,8 +2623,44 @@ function selectGIR(val) {
     btns[1].classList.toggle('hit', val===false);
 }
 
-function prevHole() { if (currentHole>0) renderHole(currentHole-1); }
-function nextHole() { currentHole<17 ? renderHole(currentHole+1) : showSummary(); }
+function prevHole() {
+    if (currentHole > 0) renderHole(currentHole - 1, true);
+}
+
+function nextHole() {
+    const prev = currentHole;
+    if (currentHole < 17) {
+        const next = currentHole + 1;
+        renderHole(next);
+
+        // Show post-hole feedback for the hole we just left
+        if (holeData[prev].score) {
+            showHoleFeedback(prev);
+        }
+
+        // Momentum check (after hole 3+)
+        const momentum = getMomentum(next);
+        const badge = document.getElementById('momentum-badge');
+        if (momentum) {
+            badge.className = 'momentum-badge visible ' + momentum.type;
+            document.getElementById('momentum-icon').textContent = momentum.icon;
+            document.getElementById('momentum-text').textContent = momentum.text;
+        }
+
+        // Milestone check (halfway)
+        const milestone = checkMilestone(next);
+        if (milestone) {
+            const mb = document.getElementById('milestone-banner');
+            mb.classList.add('visible');
+            document.getElementById('milestone-icon').textContent  = milestone.icon;
+            document.getElementById('milestone-title').textContent = milestone.title;
+            document.getElementById('milestone-sub').textContent   = milestone.sub;
+        }
+
+    } else {
+        showSummary();
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  SUMMARY
