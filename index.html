@@ -992,8 +992,13 @@
         <div class="hc-track">
             <div class="hc-track-header">
                 <div>
-                    <div class="hc-current" id="home-hc">27.0</div>
-                    <div class="hc-label">Current HC</div>
+                    <div class="hc-target-edit">
+                        <input class="hc-target-input" id="home-hc" type="number" min="0" max="54" step="0.1" value="27.0"
+                            style="color:var(--green-bright);width:80px;font-size:44px"
+                            oninput="onCurrentHCChange()" onblur="saveCurrentHC()">
+                        <button class="hc-save-btn" id="hc-current-save-btn" onclick="saveCurrentHC()">Save</button>
+                    </div>
+                    <div class="hc-label" style="margin-top:4px">Current HC</div>
                 </div>
                 <div class="hc-target-block">
                     <div class="hc-target-edit">
@@ -1317,7 +1322,7 @@ async function loadHomeData() {
         document.getElementById('home-name').textContent = playerName;
         document.getElementById('setup-name').value = playerName;
         document.getElementById('setup-hc').value   = playingHC;
-        document.getElementById('home-hc').textContent = playingHC.toFixed(1);
+        document.getElementById('home-hc').value = playingHC.toFixed(1);
         document.getElementById('home-target-hc').value = targetHC;
 
         // HC bar — how far progressed from starting HC (assume 28 start) to target
@@ -1476,149 +1481,367 @@ async function loadStats() {
             </div>`;
         scroll.appendChild(sumSection);
 
-        // ── Projection cards ──
+        // ── Data setup ──
         const sortedRounds = [...rounds].reverse(); // oldest first
-        const roundDates   = sortedRounds.map(r => new Date(r.date+'T12:00:00').getTime());
-        const scorePoints  = sortedRounds.filter(r=>r.total_score).map((r,i) => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.total_score }));
+        const scorePoints  = sortedRounds.filter(r=>r.total_score).map(r => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.total_score }));
         const ptsPoints    = sortedRounds.filter(r=>r.stableford_points).map(r => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.stableford_points }));
+        const puttsPoints  = sortedRounds.filter(r=>r.total_putts).map(r => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.total_putts }));
 
         const scoreReg = linearRegression(scorePoints);
         const ptsReg   = linearRegression(ptsPoints);
 
         const targetScore = calcTargetGrossScore(targetHC);
-        const targetPts   = 36; // stableford par
+        const targetPts   = 36;
 
         const projByScore = scoreReg ? projectDate(scoreReg, targetScore, 'down') : null;
         const projByPts   = ptsReg   ? projectDate(ptsReg,   targetPts,  'up')   : null;
 
-        const fmtProj = d => d ? d.toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : 'Not yet clear';
+        // Extended labels — go to the furthest projection date
+        const lastRoundDate = new Date(sortedRounds[sortedRounds.length-1].date+'T12:00:00');
+        const projEndDate   = projByScore && projByPts 
+            ? new Date(Math.max(projByScore.getTime(), projByPts.getTime()))
+            : projByScore || projByPts || new Date(lastRoundDate.getTime() + 180*24*60*60*1000);
 
+        // Build extended x-axis: all round dates + monthly steps to projection end
+        const extendedDates = [...sortedRounds.map(r => new Date(r.date+'T12:00:00'))];
+        let cursor = new Date(lastRoundDate);
+        cursor.setDate(1);
+        cursor.setMonth(cursor.getMonth()+1);
+        while (cursor <= projEndDate) {
+            extendedDates.push(new Date(cursor));
+            cursor.setMonth(cursor.getMonth()+1);
+        }
+        // Deduplicate and sort
+        const extDedupe = [...new Map(extendedDates.map(d=>[d.toDateString(),d])).values()].sort((a,b)=>a-b);
+        const extLabels = extDedupe.map(d => d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}));
+        const extMs     = extDedupe.map(d => d.getTime());
+
+        // Map actual round data to extended labels
+        const roundMs = sortedRounds.map(r => new Date(r.date+'T12:00:00').getTime());
+        const mapToExt = (arr, key) => extMs.map(ms => {
+            const idx = roundMs.indexOf(ms);
+            return idx >= 0 ? (arr[idx][key] || null) : null;
+        });
+
+        const extScoreData = extMs.map(ms => {
+            const idx = roundMs.indexOf(ms);
+            return idx >= 0 ? (sortedRounds[idx].total_score || null) : null;
+        });
+        const extPtsData = extMs.map(ms => {
+            const idx = roundMs.indexOf(ms);
+            return idx >= 0 ? (sortedRounds[idx].stableford_points || null) : null;
+        });
+        const extPuttsData = extMs.map(ms => {
+            const idx = roundMs.indexOf(ms);
+            return idx >= 0 ? (sortedRounds[idx].total_putts || null) : null;
+        });
+
+        // Trend lines across full extended range
+        const extScoreTrend = scoreReg ? extMs.map(ms => parseFloat(scoreReg.predict(ms).toFixed(1))) : null;
+        const extPtsTrend   = ptsReg   ? extMs.map(ms => parseFloat(ptsReg.predict(ms).toFixed(1)))   : null;
+
+        const fmtProj = d => d ? d.toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : 'Keep playing!';
+
+        // ── Projection cards ──
         const projCard = document.createElement('div');
         projCard.className = 'chart-card';
         projCard.innerHTML = `
-            <div class="chart-title">HC ${targetHC} Projection</div>
-            <div class="chart-sub">Two methods, based on your improvement rate</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+            <div class="chart-title">HC \${targetHC} Projection</div>
+            <div class="chart-sub">Based on your improvement rate — two methods</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
                 <div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center">
-                    <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Score Trend</div>
-                    <div style="font-family:var(--font-display);font-size:22px;color:var(--green-bright)">${fmtProj(projByScore)}</div>
-                    <div style="font-size:10px;color:var(--gray);margin-top:4px">Target: ${targetScore} gross</div>
+                    <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Via Score</div>
+                    <div style="font-family:var(--font-display);font-size:20px;color:var(--green-bright)">\${fmtProj(projByScore)}</div>
+                    <div style="font-size:10px;color:var(--gray);margin-top:4px">Target \${targetScore} gross</div>
                 </div>
                 <div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center">
-                    <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Points Trend</div>
-                    <div style="font-family:var(--font-display);font-size:22px;color:var(--sand)">${fmtProj(projByPts)}</div>
-                    <div style="font-size:10px;color:var(--gray);margin-top:4px">Target: 36 pts avg</div>
+                    <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Via Points</div>
+                    <div style="font-family:var(--font-display);font-size:20px;color:var(--sand)">\${fmtProj(projByPts)}</div>
+                    <div style="font-size:10px;color:var(--gray);margin-top:4px">Target 36 pts avg</div>
                 </div>
+            </div>
+            <div style="font-size:11px;color:var(--gray);margin-top:12px;line-height:1.5;font-style:italic">
+                Score trend is more conservative (raw improvement). Points trend reflects handicap-adjusted form. Truth is between the two.
             </div>`;
         scroll.appendChild(projCard);
 
-        // ── Points trend chart ──
+        // ── Points trend chart (extended to projection) ──
         const trendCard = document.createElement('div');
         trendCard.className = 'chart-card';
         trendCard.innerHTML = `
             <div class="chart-title">Points Trend</div>
-            <div class="chart-sub">Stableford points per round — target 36</div>
-            <div class="chart-wrap"><canvas id="chart-trend"></canvas></div>`;
+            <div class="chart-sub">Stableford points — projected to HC \${targetHC} target</div>
+            <div class="chart-wrap" style="height:200px"><canvas id="chart-trend"></canvas></div>`;
         scroll.appendChild(trendCard);
 
         await sleep(50);
-        const trendLabels = sortedRounds.map(r => new Date(r.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}));
-        const trendData   = sortedRounds.map(r => r.stableford_points||0);
         statsCharts.trend = new Chart(document.getElementById('chart-trend'), {
             type: 'line',
             data: {
-                labels: trendLabels,
+                labels: extLabels,
                 datasets: [
                     {
                         label: 'Points',
-                        data: trendData,
+                        data: extPtsData,
                         borderColor: '#52b788',
                         backgroundColor: 'rgba(82,183,136,0.08)',
                         fill: true, tension: 0.4,
-                        pointBackgroundColor: '#52b788', pointRadius: 4,
+                        pointBackgroundColor: '#52b788',
+                        pointRadius: extPtsData.map(v => v !== null ? 4 : 0),
+                        spanGaps: false,
                     },
                     {
-                        label: 'Target (36)',
-                        data: trendLabels.map(() => 36),
+                        label: 'Trend',
+                        data: extPtsTrend,
+                        borderColor: 'rgba(82,183,136,0.4)',
+                        borderDash: [4,4], borderWidth: 1.5,
+                        pointRadius: 0, fill: false,
+                    },
+                    {
+                        label: 'Target 36',
+                        data: extLabels.map(() => 36),
                         borderColor: '#e9c46a',
-                        borderDash: [6,4],
-                        borderWidth: 1.5,
-                        pointRadius: 0,
-                        fill: false,
+                        borderDash: [6,4], borderWidth: 1.5,
+                        pointRadius: 0, fill: false,
                     }
                 ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:12 } } },
+                plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:10 } } },
                 scales: {
-                    x: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} },
-                    y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, min:0 }
+                    x: { ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
+                    y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, min:15, max:45 }
                 }
             }
         });
 
-        // ── Score vs target gross score chart ──
+        // ── Score vs target chart (extended) ──
         const scoreCard = document.createElement('div');
         scoreCard.className = 'chart-card';
         scoreCard.innerHTML = `
             <div class="chart-title">Score vs Target</div>
-            <div class="chart-sub">Gross score vs HC ${targetHC} target (${targetScore})</div>
-            <div class="chart-wrap"><canvas id="chart-score-trend"></canvas></div>`;
+            <div class="chart-sub">Gross score — projected to HC \${targetHC} target (\${targetScore})</div>
+            <div class="chart-wrap" style="height:200px"><canvas id="chart-score-trend"></canvas></div>`;
         scroll.appendChild(scoreCard);
 
         await sleep(50);
-        const scoreData = sortedRounds.map(r => r.total_score || null);
-
-        // Build projection line — extend 3 rounds beyond last round
-        const projScoreData = sortedRounds.map((r,i) => {
-            if (!scoreReg) return null;
-            const x = new Date(r.date+'T12:00:00').getTime();
-            return parseFloat(scoreReg.predict(x).toFixed(1));
-        });
-
         statsCharts.scoreTrend = new Chart(document.getElementById('chart-score-trend'), {
             type: 'line',
             data: {
-                labels: trendLabels,
+                labels: extLabels,
                 datasets: [
                     {
                         label: 'Gross Score',
-                        data: scoreData,
+                        data: extScoreData,
                         borderColor: '#74b3ce',
                         backgroundColor: 'rgba(116,179,206,0.08)',
                         fill: true, tension: 0.3,
-                        pointBackgroundColor: '#74b3ce', pointRadius: 4,
-                    },
-                    {
-                        label: `Target ${targetScore}`,
-                        data: trendLabels.map(() => targetScore),
-                        borderColor: '#52b788',
-                        borderDash: [6,4],
-                        borderWidth: 1.5,
-                        pointRadius: 0,
-                        fill: false,
+                        pointBackgroundColor: '#74b3ce',
+                        pointRadius: extScoreData.map(v => v !== null ? 4 : 0),
+                        spanGaps: false,
                     },
                     {
                         label: 'Trend',
-                        data: projScoreData,
-                        borderColor: 'rgba(244,162,97,0.6)',
-                        borderDash: [3,3],
-                        borderWidth: 1.5,
-                        pointRadius: 0,
-                        fill: false,
+                        data: extScoreTrend,
+                        borderColor: 'rgba(244,162,97,0.5)',
+                        borderDash: [4,4], borderWidth: 1.5,
+                        pointRadius: 0, fill: false,
+                    },
+                    {
+                        label: `Target \${targetScore}`,
+                        data: extLabels.map(() => targetScore),
+                        borderColor: '#52b788',
+                        borderDash: [6,4], borderWidth: 1.5,
+                        pointRadius: 0, fill: false,
                     }
                 ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:12 } } },
+                plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:10 } } },
                 scales: {
-                    x: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} },
-                    y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, reverse: true }
+                    x: { ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
+                    y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, reverse:true }
                 }
             }
         });
+
+        // ── Putts per round trend ──
+        const puttsCard = document.createElement('div');
+        puttsCard.className = 'chart-card';
+        puttsCard.innerHTML = `
+            <div class="chart-title">Putts Per Round</div>
+            <div class="chart-sub">Lower is better — tour average ~30, target for HC 16: ~34</div>
+            <div class="chart-wrap" style="height:180px"><canvas id="chart-putts"></canvas></div>`;
+        scroll.appendChild(puttsCard);
+
+        await sleep(50);
+        const puttsReg = linearRegression(puttsPoints);
+        const extPuttsTrend = puttsReg ? extMs.map(ms => parseFloat(puttsReg.predict(ms).toFixed(1))) : null;
+        statsCharts.putts = new Chart(document.getElementById('chart-putts'), {
+            type: 'line',
+            data: {
+                labels: extLabels,
+                datasets: [
+                    {
+                        label: 'Putts',
+                        data: extPuttsData,
+                        borderColor: '#c77dff',
+                        backgroundColor: 'rgba(199,125,255,0.08)',
+                        fill: true, tension: 0.4,
+                        pointBackgroundColor: '#c77dff',
+                        pointRadius: extPuttsData.map(v => v !== null ? 4 : 0),
+                        spanGaps: false,
+                    },
+                    {
+                        label: 'Trend',
+                        data: extPuttsTrend,
+                        borderColor: 'rgba(199,125,255,0.4)',
+                        borderDash: [4,4], borderWidth: 1.5,
+                        pointRadius: 0, fill: false,
+                    },
+                    {
+                        label: 'Target 34',
+                        data: extLabels.map(() => 34),
+                        borderColor: '#52b788',
+                        borderDash: [6,4], borderWidth: 1.5,
+                        pointRadius: 0, fill: false,
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:10 } } },
+                scales: {
+                    x: { ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
+                    y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, min:28, max:46 }
+                }
+            }
+        });
+
+        // ── Scoring zones donut ──
+        const zoneCounts = {eagle:0,birdie:0,par:0,bogey:0,double:0,triple:0,worse:0};
+        rounds.forEach(r => {
+            (r.shots||[]).forEach(s => {
+                if (!s.score) return;
+                const h = HOLES[s.hole_number-1];
+                const diff = s.score - h.par;
+                if (diff <= -2) zoneCounts.eagle++;
+                else if (diff === -1) zoneCounts.birdie++;
+                else if (diff === 0) zoneCounts.par++;
+                else if (diff === 1) zoneCounts.bogey++;
+                else if (diff === 2) zoneCounts.double++;
+                else if (diff === 3) zoneCounts.triple++;
+                else zoneCounts.worse++;
+            });
+        });
+        const totalHoles = Object.values(zoneCounts).reduce((a,b)=>a+b,0);
+
+        const zoneRows = [
+            {k:'eagle',  label:'Eagle+',      col:'#f6d860'},
+            {k:'birdie', label:'Birdie',       col:'#52b788'},
+            {k:'par',    label:'Par',          col:'#74b3ce'},
+            {k:'bogey',  label:'Bogey',        col:'#f4a261'},
+            {k:'double', label:'Double',       col:'#e63946'},
+            {k:'triple', label:'Triple',       col:'#888'},
+            {k:'worse',  label:'+4 or worse',  col:'#555'},
+        ].map(z => {
+            const pct = totalHoles ? Math.round((zoneCounts[z.k]/totalHoles)*100) : 0;
+            return '<div style="display:flex;align-items:center;gap:6px">'
+                + '<div style="width:10px;height:10px;border-radius:2px;background:' + z.col + ';flex-shrink:0"></div>'
+                + '<span style="color:var(--gray);flex:1">' + z.label + '</span>'
+                + '<span style="color:var(--white);font-weight:600">' + zoneCounts[z.k] + '</span>'
+                + '<span style="color:var(--gray)">' + pct + '%</span>'
+                + '</div>';
+        }).join('');
+
+        const donutCard = document.createElement('div');
+        donutCard.className = 'chart-card';
+        donutCard.innerHTML = `
+            <div class="chart-title">Scoring Zones</div>
+            <div class="chart-sub">Breakdown across all ${totalHoles} holes played</div>
+            <div style="display:flex;gap:12px;align-items:center">
+                <div class="chart-wrap" style="height:180px;flex:1"><canvas id="chart-donut"></canvas></div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px;font-size:11px">${zoneRows}</div>
+            </div>`;
+        scroll.appendChild(donutCard);
+
+        await sleep(50);
+        statsCharts.donut = new Chart(document.getElementById('chart-donut'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Eagle+','Birdie','Par','Bogey','Double','Triple','+4'],
+                datasets: [{
+                    data: [zoneCounts.eagle,zoneCounts.birdie,zoneCounts.par,zoneCounts.bogey,zoneCounts.double,zoneCounts.triple,zoneCounts.worse],
+                    backgroundColor: ['#f6d860','#52b788','#74b3ce','#f4a261','#e63946','#888','#555'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // ── Front 9 vs Back 9 ──
+        const f9scores=[], b9scores=[], f9pts=[], b9pts=[];
+        rounds.forEach(r => {
+            const shots = r.shots || [];
+            let f9s=0,b9s=0,f9p=0,b9p=0,f9c=0,b9c=0;
+            shots.forEach(s => {
+                if (!s.score) return;
+                const pts = calcPoints(s.hole_number-1, s.score);
+                if (s.hole_number <= 9) { f9s+=s.score; f9p+=pts; f9c++; }
+                else { b9s+=s.score; b9p+=pts; b9c++; }
+            });
+            if (f9c>=9) { f9scores.push(f9s); f9pts.push(f9p); }
+            if (b9c>=9) { b9scores.push(b9s); b9pts.push(b9p); }
+        });
+
+        const avg = arr => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length) : null;
+        const f9AvgScore = avg(f9scores), b9AvgScore = avg(b9scores);
+        const f9AvgPts = avg(f9pts), b9AvgPts = avg(b9pts);
+
+        // Par for each 9
+        const f9Par = HOLES.slice(0,9).reduce((a,h)=>a+h.par,0); // 36
+        const b9Par = HOLES.slice(9,18).reduce((a,h)=>a+h.par,0); // 36
+
+        const splitCard = document.createElement('div');
+        splitCard.className = 'chart-card';
+
+        const halfCards = [
+            {label:'Front 9', par:f9Par, avgScore:f9AvgScore, avgPts:f9AvgPts, col:'#74b3ce'},
+            {label:'Back 9',  par:b9Par, avgScore:b9AvgScore, avgPts:b9AvgPts, col:'#52b788'},
+        ].map(h => {
+            const scoreDiff = h.avgScore !== null ? (h.avgScore - h.par).toFixed(1) : null;
+            const diffCol = !scoreDiff ? 'var(--gray)' : scoreDiff > 0 ? 'var(--orange)' : 'var(--green-bright)';
+            return '<div style="background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center">'
+                + '<div style="font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">' + h.label + '</div>'
+                + '<div style="font-family:var(--font-display);font-size:36px;color:' + h.col + '">' + (h.avgScore ? h.avgScore.toFixed(1) : '—') + '</div>'
+                + '<div style="font-size:11px;color:' + diffCol + ';margin-top:2px">' + (scoreDiff ? (scoreDiff > 0 ? '+' : '') + scoreDiff + ' vs par' : '') + '</div>'
+                + '<div style="font-size:11px;color:var(--gray);margin-top:8px">' + (h.avgPts ? h.avgPts.toFixed(1) + ' pts avg' : '') + '</div>'
+                + '</div>';
+        }).join('');
+
+        splitCard.innerHTML = `
+            <div class="chart-title">Front 9 vs Back 9</div>
+            <div class="chart-sub">Average performance on each half</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">${halfCards}</div>
+            <div style="margin-top:12px;font-size:12px;color:var(--gray);line-height:1.5" id="f9b9-insight"></div>`;
+        scroll.appendChild(splitCard);
+
+        // Insight text
+        if (f9AvgScore && b9AvgScore) {
+            const diff = f9AvgScore - b9AvgScore;
+            const insight = diff > 1.5
+                ? `⚠️ You're averaging \${Math.abs(diff).toFixed(1)} shots more on the front 9. Holes 3, 4, 5 and 7 are likely the culprits — your danger holes are clustered there.`
+                : diff < -1.5
+                ? `⚠️ You're struggling more on the back 9 (+\${Math.abs(diff).toFixed(1)} shots). Holes 11, 13, 15 and 17 need attention — especially 17 which is your worst hole.`
+                : `✅ You're remarkably consistent across both halves — only \${Math.abs(diff).toFixed(1)} shots difference. That's a good sign of a balanced game.`;
+            document.getElementById('f9b9-insight').textContent = insight;
+        }
 
         // ── Avg score per hole chart ──
         const holesWithData = holeStats.filter(h => h.avg !== null);
@@ -2109,6 +2332,34 @@ function showScreen(id) {
 
 function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
 
+
+
+// ═══════════════════════════════════════════════════════════════
+//  CURRENT HC — EDITABLE (MYEG updates)
+// ═══════════════════════════════════════════════════════════════
+function onCurrentHCChange() {
+    document.getElementById('hc-current-save-btn').style.display = 'block';
+}
+
+async function saveCurrentHC() {
+    const val = parseFloat(document.getElementById('home-hc').value);
+    if (isNaN(val) || val < 0 || val > 54) return;
+    playingHC = val;
+    document.getElementById('hc-current-save-btn').style.display = 'none';
+    document.getElementById('setup-hc').value = playingHC;
+    try {
+        const { data: prefs } = await sb.from('user_preferences').select('user_id').limit(1).single();
+        if (prefs) {
+            await sb.from('user_preferences').update({ current_handicap: playingHC }).eq('user_id', prefs.user_id);
+        }
+    } catch(e) { console.warn('Could not save current HC:', e); }
+    // Refresh progress bar
+    const startHC = 36;
+    const progress = Math.min(100, Math.max(0, ((startHC - playingHC) / (startHC - targetHC)) * 100));
+    document.getElementById('home-hc-bar').style.width = progress + '%';
+    const needed = playingHC - targetHC;
+    document.getElementById('home-hc-bar-lbl').textContent = needed > 0 ? `${needed.toFixed(1)} shots to go` : '🎉 Target reached!';
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  TARGET HC — EDITABLE
