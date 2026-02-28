@@ -599,7 +599,8 @@
         /* ═══════════════════════════════════════════
            PLAY SCREEN
         ═══════════════════════════════════════════ */
-        #screen-play { background: var(--dark); overflow: hidden; display: flex; flex-direction: column; }
+        #screen-play { background: var(--dark); }
+        #screen-play.active { display: flex; flex-direction: column; overflow: hidden; }
 
         .topbar {
             background: var(--fairway);
@@ -622,10 +623,10 @@
 
         .play-scroll {
             flex: 1;
-            overflow-y: scroll;
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             padding: 14px;
-            padding-bottom: 24px;
+            padding-bottom: 80px;
             display: flex;
             flex-direction: column;
             gap: 12px;
