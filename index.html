@@ -1072,7 +1072,7 @@
 <div id="screen-stats" class="screen">
     <div class="stats-topbar">
         <div class="stats-topbar-title">MY GAME</div>
-        <div class="stats-topbar-sub" id="stats-sub">Last 10 rounds · Hoebridge</div>
+        <div class="stats-topbar-sub" id="stats-sub">Last 20 rounds · Hoebridge</div>
     </div>
 
     <div class="stats-scroll" id="stats-scroll">
@@ -1336,7 +1336,7 @@ async function loadHomeData() {
 
         // Load recent rounds
         const { data: rounds } = await sb.from('rounds')
-            .select('*').order('date', {ascending:false}).limit(10);
+            .select('*').order('date', {ascending:false}).limit(20);
 
         recentRounds = rounds || [];
         document.getElementById('home-rounds-played').textContent = `${recentRounds.length} rounds logged`;
@@ -1408,7 +1408,7 @@ async function loadStats() {
     try {
         // Load rounds with shots
         const { data: rounds } = await sb.from('rounds')
-            .select('*, shots(*)').order('date',{ascending:false}).limit(10);
+            .select('*, shots(*)').order('date',{ascending:false}).limit(20);
 
         if (!rounds || !rounds.length) {
             scroll.innerHTML = `<div class="empty-state" style="padding:60px 20px">
