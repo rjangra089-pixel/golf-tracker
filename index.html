@@ -599,7 +599,7 @@
         /* ═══════════════════════════════════════════
            PLAY SCREEN
         ═══════════════════════════════════════════ */
-        #screen-play { background: var(--dark); }
+        #screen-play { background: var(--dark); overflow: hidden; display: flex; flex-direction: column; }
 
         .topbar {
             background: var(--fairway);
@@ -622,12 +622,14 @@
 
         .play-scroll {
             flex: 1;
-            overflow-y: auto;
+            overflow-y: scroll;
             -webkit-overflow-scrolling: touch;
             padding: 14px;
+            padding-bottom: 24px;
             display: flex;
             flex-direction: column;
             gap: 12px;
+            min-height: 0;
         }
 
         .hole-info-card {
@@ -732,7 +734,7 @@
         .score-btn.bogey.selected  { box-shadow: 0 0 0 3px rgba(244,162,97,0.4); }
         .score-btn.double.selected { box-shadow: 0 0 0 3px rgba(230,57,70,0.35); }
 
-        .points-result { margin: 0 18px 14px; padding: 12px; border-radius: 12px; text-align: center; display: none; }
+        .points-result { margin: 0 18px 10px; padding: 10px 12px; border-radius: 12px; text-align: center; display: none; }
         .points-result.visible { display: block; }
         .points-result-val { font-family: var(--font-display); font-size: 40px; line-height: 1; }
         .points-result-name { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
@@ -1324,9 +1326,18 @@
             <div class="topbar-hole" id="tb-hole">HOLE 1</div>
             <div class="topbar-meta">Par <span id="tb-par">5</span> · SI <span id="tb-si">11</span> · <span id="tb-yards">404</span>y</div>
         </div>
-        <div style="text-align:right">
-            <div class="topbar-pts-val" id="tb-pts">0</div>
-            <div class="topbar-pts-lbl">Points</div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+            <div style="display:flex;align-items:baseline;gap:8px">
+                <div style="text-align:right">
+                    <div class="topbar-pts-val" id="tb-hole-pts" style="font-size:28px;color:var(--gray)">—</div>
+                    <div class="topbar-pts-lbl">This Hole</div>
+                </div>
+                <div style="color:var(--border2);font-size:20px;margin-bottom:2px">|</div>
+                <div style="text-align:right">
+                    <div class="topbar-pts-val" id="tb-pts">0</div>
+                    <div class="topbar-pts-lbl">Total</div>
+                </div>
+            </div>
             <div class="topbar-pace" id="tb-pace" style="display:none"></div>
         </div>
     </div>
@@ -1423,15 +1434,6 @@
                 <div class="points-result-val" id="pr-val">2</div>
                 <div class="points-result-name" id="pr-name">Par</div>
             </div>
-            <div class="putts-section">
-                <div class="section-label">Putts</div>
-                <div class="putts-buttons">
-                    <button class="putt-btn" data-putts="1" onclick="selectPutts(1)">1</button>
-                    <button class="putt-btn" data-putts="2" onclick="selectPutts(2)">2</button>
-                    <button class="putt-btn" data-putts="3" onclick="selectPutts(3)">3</button>
-                    <button class="putt-btn" data-putts="4" onclick="selectPutts(4)">4</button>
-                </div>
-            </div>
             <div class="stats-row">
                 <div id="fairway-group">
                     <div class="section-label">Fairway</div>
@@ -1448,6 +1450,15 @@
                         <button class="toggle-btn" onclick="selectGIR(true)">Yes</button>
                         <button class="toggle-btn" onclick="selectGIR(false)">No</button>
                     </div>
+                </div>
+            </div>
+            <div class="putts-section">
+                <div class="section-label">Putts</div>
+                <div class="putts-buttons">
+                    <button class="putt-btn" data-putts="1" onclick="selectPutts(1)">1</button>
+                    <button class="putt-btn" data-putts="2" onclick="selectPutts(2)">2</button>
+                    <button class="putt-btn" data-putts="3" onclick="selectPutts(3)">3</button>
+                    <button class="putt-btn" data-putts="4" onclick="selectPutts(4)">4</button>
                 </div>
             </div>
         </div>
@@ -2464,6 +2475,16 @@ function renderHole(idx, fromPrev) {
     const totalPts   = getTotalPoints();
     const holesPlayed = holeData.slice(0, idx).filter(h=>h.score).length;
     document.getElementById('tb-pts').textContent = totalPts;
+    // Show this hole's pts if already scored (e.g. going back)
+    const thisPts = holeData[idx].score ? calcPoints(idx, holeData[idx].score) : null;
+    const holePtsEl = document.getElementById('tb-hole-pts');
+    if (thisPts !== null) {
+        holePtsEl.textContent = thisPts;
+        holePtsEl.style.color = getPointsStyle(thisPts).bg;
+    } else {
+        holePtsEl.textContent = '—';
+        holePtsEl.style.color = 'var(--gray)';
+    }
 
     // Pace badge
     const paceEl = document.getElementById('tb-pace');
@@ -2606,6 +2627,11 @@ function selectScore(score) {
     document.querySelectorAll('#score-buttons .score-btn').forEach((btn,i) => btn.classList.toggle('selected', (min+i)===score));
     updatePointsDisplay(currentHole);
     document.getElementById('tb-pts').textContent = getTotalPoints();
+    // Update this-hole pts in topbar
+    const pts = calcPoints(currentHole, score);
+    const holePtsEl = document.getElementById('tb-hole-pts');
+    holePtsEl.textContent = pts;
+    holePtsEl.style.color = getPointsStyle(pts).bg;
 }
 
 function selectPutts(putts) {
