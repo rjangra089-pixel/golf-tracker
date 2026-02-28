@@ -627,11 +627,12 @@
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             padding: 14px;
-            padding-bottom: 120px;
+            padding-bottom: 100px;
             display: flex;
             flex-direction: column;
             gap: 8px;
             min-height: 0;
+            height: 0;
         }
 
         .hole-info-card {
@@ -1371,7 +1372,7 @@
         <!-- Caddie briefing panel -->
         <div class="caddie-briefing collapsed" id="caddie-briefing">
             <div class="caddie-briefing-header" onclick="toggleBriefing()">
-                <div class="caddie-briefing-title">🏌️ Caddie Briefing — Hole <span id="cb-hole-num">1</span> <span style="font-size:9px;opacity:0.6;font-weight:400;letter-spacing:1px">TAP TO EXPAND</span></div>
+                <div class="caddie-briefing-title">🏌️ Caddie Briefing — Hole <span id="cb-hole-num">1</span> <span style="font-size:10px;opacity:0.6;font-weight:500;letter-spacing:0.5px">— tap for stats & strategy</span></div>
                 <div class="caddie-briefing-chevron" id="cb-chevron">▼</div>
             </div>
             <div class="caddie-briefing-body">
@@ -2562,15 +2563,9 @@ function renderHole(idx, fromPrev) {
         dangerBlock.style.display = 'none';
     }
 
-    // Show briefing expanded briefly, then collapse so scoring is visible
-    briefingCollapsed = false;
-    const briefingEl = document.getElementById('caddie-briefing');
-    briefingEl.classList.remove('collapsed');
-    clearTimeout(window._briefingTimer);
-    window._briefingTimer = setTimeout(() => {
-        briefingCollapsed = true;
-        briefingEl.classList.add('collapsed');
-    }, 4000);
+    // Always start collapsed — user taps to expand
+    briefingCollapsed = true;
+    document.getElementById('caddie-briefing').classList.add('collapsed');
 
     // Score buttons
     const minScore = Math.max(1, h.par - 2);
