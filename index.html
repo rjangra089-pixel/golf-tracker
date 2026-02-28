@@ -856,6 +856,103 @@
         .save-status.success { display: block; background: rgba(82,183,136,0.12); color: var(--green-bright); border: 1px solid rgba(82,183,136,0.3); }
         .save-status.error { display: block; background: rgba(230,57,70,0.1); color: var(--red); border: 1px solid rgba(230,57,70,0.3); }
 
+        /* HC edit */
+        .hc-target-edit {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            justify-content: flex-end;
+        }
+
+        .hc-target-input {
+            width: 64px;
+            background: var(--rough);
+            border: 1.5px solid var(--border2);
+            border-radius: 8px;
+            color: var(--sand);
+            font-family: var(--font-display);
+            font-size: 28px;
+            padding: 2px 8px;
+            text-align: center;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .hc-target-input:focus { border-color: var(--sand); }
+
+        .hc-save-btn {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--green-bright);
+            background: rgba(82,183,136,0.15);
+            border: 1px solid var(--border2);
+            border-radius: 6px;
+            padding: 4px 8px;
+            cursor: pointer;
+            display: none;
+        }
+
+        /* Delete round */
+        .rhi-delete {
+            background: none;
+            border: none;
+            color: var(--gray);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .rhi-delete:hover { color: var(--red); background: rgba(230,57,70,0.1); }
+
+        .delete-confirm {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .delete-confirm-box {
+            background: var(--card2);
+            border: 1px solid var(--border2);
+            border-radius: 20px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .delete-confirm-title {
+            font-family: var(--font-display);
+            font-size: 24px;
+            color: var(--red);
+            margin-bottom: 8px;
+        }
+
+        .delete-confirm-sub { font-size: 13px; color: var(--gray); margin-bottom: 20px; }
+
+        .delete-confirm-btns { display: flex; gap: 10px; }
+
+        .delete-cancel {
+            flex: 1; height: 48px; border-radius: 12px;
+            background: var(--card); border: 1.5px solid var(--border);
+            color: var(--gray); font-family: var(--font-body); font-size: 14px;
+            font-weight: 500; cursor: pointer;
+        }
+
+        .delete-go {
+            flex: 1; height: 48px; border-radius: 12px;
+            background: var(--red); border: none;
+            color: #fff; font-family: var(--font-display); font-size: 20px;
+            cursor: pointer;
+        }
+
         /* Loading */
         .loading-overlay {
             display: flex;
@@ -899,8 +996,12 @@
                     <div class="hc-label">Current HC</div>
                 </div>
                 <div class="hc-target-block">
-                    <div class="hc-target" id="home-target-hc">16</div>
-                    <div class="hc-label">Target HC</div>
+                    <div class="hc-target-edit">
+                        <input class="hc-target-input" id="home-target-hc" type="number" min="0" max="54" value="16"
+                            oninput="onTargetHCChange()" onblur="saveTargetHC()">
+                        <button class="hc-save-btn" id="hc-save-btn" onclick="saveTargetHC()">Save</button>
+                    </div>
+                    <div class="hc-label" style="text-align:right;margin-top:4px">Target HC</div>
                 </div>
             </div>
             <div class="hc-bar-track">
@@ -1217,7 +1318,7 @@ async function loadHomeData() {
         document.getElementById('setup-name').value = playerName;
         document.getElementById('setup-hc').value   = playingHC;
         document.getElementById('home-hc').textContent = playingHC.toFixed(1);
-        document.getElementById('home-target-hc').textContent = targetHC;
+        document.getElementById('home-target-hc').value = targetHC;
 
         // HC bar — how far progressed from starting HC (assume 28 start) to target
         const startHC = 28;
@@ -1375,41 +1476,146 @@ async function loadStats() {
             </div>`;
         scroll.appendChild(sumSection);
 
+        // ── Projection cards ──
+        const sortedRounds = [...rounds].reverse(); // oldest first
+        const roundDates   = sortedRounds.map(r => new Date(r.date+'T12:00:00').getTime());
+        const scorePoints  = sortedRounds.filter(r=>r.total_score).map((r,i) => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.total_score }));
+        const ptsPoints    = sortedRounds.filter(r=>r.stableford_points).map(r => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.stableford_points }));
+
+        const scoreReg = linearRegression(scorePoints);
+        const ptsReg   = linearRegression(ptsPoints);
+
+        const targetScore = calcTargetGrossScore(targetHC);
+        const targetPts   = 36; // stableford par
+
+        const projByScore = scoreReg ? projectDate(scoreReg, targetScore, 'down') : null;
+        const projByPts   = ptsReg   ? projectDate(ptsReg,   targetPts,  'up')   : null;
+
+        const fmtProj = d => d ? d.toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : 'Not yet clear';
+
+        const projCard = document.createElement('div');
+        projCard.className = 'chart-card';
+        projCard.innerHTML = `
+            <div class="chart-title">HC ${targetHC} Projection</div>
+            <div class="chart-sub">Two methods, based on your improvement rate</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+                <div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center">
+                    <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Score Trend</div>
+                    <div style="font-family:var(--font-display);font-size:22px;color:var(--green-bright)">${fmtProj(projByScore)}</div>
+                    <div style="font-size:10px;color:var(--gray);margin-top:4px">Target: ${targetScore} gross</div>
+                </div>
+                <div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center">
+                    <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Points Trend</div>
+                    <div style="font-family:var(--font-display);font-size:22px;color:var(--sand)">${fmtProj(projByPts)}</div>
+                    <div style="font-size:10px;color:var(--gray);margin-top:4px">Target: 36 pts avg</div>
+                </div>
+            </div>`;
+        scroll.appendChild(projCard);
+
         // ── Points trend chart ──
         const trendCard = document.createElement('div');
         trendCard.className = 'chart-card';
         trendCard.innerHTML = `
             <div class="chart-title">Points Trend</div>
-            <div class="chart-sub">Stableford points per round (newest right)</div>
+            <div class="chart-sub">Stableford points per round — target 36</div>
             <div class="chart-wrap"><canvas id="chart-trend"></canvas></div>`;
         scroll.appendChild(trendCard);
 
         await sleep(50);
-        const trendLabels = [...rounds].reverse().map((r,i) => {
-            const d = new Date(r.date+'T12:00:00');
-            return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-        });
-        const trendData = [...rounds].reverse().map(r => r.stableford_points||0);
+        const trendLabels = sortedRounds.map(r => new Date(r.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}));
+        const trendData   = sortedRounds.map(r => r.stableford_points||0);
         statsCharts.trend = new Chart(document.getElementById('chart-trend'), {
             type: 'line',
             data: {
                 labels: trendLabels,
-                datasets: [{
-                    data: trendData,
-                    borderColor: '#52b788',
-                    backgroundColor: 'rgba(82,183,136,0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#52b788',
-                    pointRadius: 4,
-                }]
+                datasets: [
+                    {
+                        label: 'Points',
+                        data: trendData,
+                        borderColor: '#52b788',
+                        backgroundColor: 'rgba(82,183,136,0.08)',
+                        fill: true, tension: 0.4,
+                        pointBackgroundColor: '#52b788', pointRadius: 4,
+                    },
+                    {
+                        label: 'Target (36)',
+                        data: trendLabels.map(() => 36),
+                        borderColor: '#e9c46a',
+                        borderDash: [6,4],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false,
+                    }
+                ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:12 } } },
                 scales: {
-                    x: { ticks: { color: '#8fa898', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
-                    y: { ticks: { color: '#8fa898', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.06)' } }
+                    x: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} },
+                    y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, min:0 }
+                }
+            }
+        });
+
+        // ── Score vs target gross score chart ──
+        const scoreCard = document.createElement('div');
+        scoreCard.className = 'chart-card';
+        scoreCard.innerHTML = `
+            <div class="chart-title">Score vs Target</div>
+            <div class="chart-sub">Gross score vs HC ${targetHC} target (${targetScore})</div>
+            <div class="chart-wrap"><canvas id="chart-score-trend"></canvas></div>`;
+        scroll.appendChild(scoreCard);
+
+        await sleep(50);
+        const scoreData = sortedRounds.map(r => r.total_score || null);
+
+        // Build projection line — extend 3 rounds beyond last round
+        const projScoreData = sortedRounds.map((r,i) => {
+            if (!scoreReg) return null;
+            const x = new Date(r.date+'T12:00:00').getTime();
+            return parseFloat(scoreReg.predict(x).toFixed(1));
+        });
+
+        statsCharts.scoreTrend = new Chart(document.getElementById('chart-score-trend'), {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [
+                    {
+                        label: 'Gross Score',
+                        data: scoreData,
+                        borderColor: '#74b3ce',
+                        backgroundColor: 'rgba(116,179,206,0.08)',
+                        fill: true, tension: 0.3,
+                        pointBackgroundColor: '#74b3ce', pointRadius: 4,
+                    },
+                    {
+                        label: `Target ${targetScore}`,
+                        data: trendLabels.map(() => targetScore),
+                        borderColor: '#52b788',
+                        borderDash: [6,4],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false,
+                    },
+                    {
+                        label: 'Trend',
+                        data: projScoreData,
+                        borderColor: 'rgba(244,162,97,0.6)',
+                        borderDash: [3,3],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false,
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:12 } } },
+                scales: {
+                    x: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} },
+                    y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, reverse: true }
                 }
             }
         });
@@ -1551,20 +1757,26 @@ async function loadStats() {
         scroll.appendChild(histHeader);
 
         const histList = document.createElement('div');
-        histList.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding-bottom:8px';
+        histList.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding-bottom:24px';
         rounds.forEach(r => {
             const pts = r.stableford_points||0;
             const ps = getPointsStyle(pts);
             const d = new Date(r.date+'T12:00:00');
+            const dateStr = d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
             const item = document.createElement('div');
             item.className = 'round-history-item';
             item.innerHTML = `
                 <div class="rhi-left">
-                    <div class="rhi-date">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</div>
+                    <div class="rhi-date">${dateStr}</div>
                     <div class="rhi-sub">HC ${r.playing_handicap||'?'} · ${r.total_putts||'?'} putts · ${r.gir_count||0} GIR</div>
                 </div>
                 <div class="rhi-score">${r.total_score||'—'}</div>
-                <div class="rhi-pts" style="background:${ps.bg}22;color:${ps.bg};border:1px solid ${ps.bg}44">${pts} pts</div>`;
+                <div class="rhi-pts" style="background:${ps.bg}22;color:${ps.bg};border:1px solid ${ps.bg}44">${pts} pts</div>
+                <button class="rhi-delete" onclick="confirmDelete('${r.id}','${dateStr}')" title="Delete round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                    </svg>
+                </button>`;
             histList.appendChild(item);
         });
         scroll.appendChild(histList);
@@ -1896,6 +2108,112 @@ function showScreen(id) {
 }
 
 function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+
+// ═══════════════════════════════════════════════════════════════
+//  TARGET HC — EDITABLE
+// ═══════════════════════════════════════════════════════════════
+function onTargetHCChange() {
+    document.getElementById('hc-save-btn').style.display = 'block';
+}
+
+async function saveTargetHC() {
+    const val = parseFloat(document.getElementById('home-target-hc').value);
+    if (isNaN(val) || val < 0 || val > 54) return;
+    targetHC = val;
+    document.getElementById('hc-save-btn').style.display = 'none';
+    try {
+        const { data: prefs } = await sb.from('user_preferences').select('user_id').limit(1).single();
+        if (prefs) {
+            await sb.from('user_preferences').update({ target_handicap: targetHC }).eq('user_id', prefs.user_id);
+        }
+    } catch(e) { console.warn('Could not save target HC:', e); }
+    // Refresh progress bar
+    const startHC = 36;
+    const progress = Math.min(100, Math.max(0, ((startHC - playingHC) / (startHC - targetHC)) * 100));
+    document.getElementById('home-hc-bar').style.width = progress + '%';
+    const needed = playingHC - targetHC;
+    document.getElementById('home-hc-bar-lbl').textContent = needed > 0 ? `${needed.toFixed(1)} shots to go` : '🎉 Target reached!';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DELETE ROUND
+// ═══════════════════════════════════════════════════════════════
+let pendingDeleteId = null;
+
+function confirmDelete(roundId, dateStr) {
+    pendingDeleteId = roundId;
+    const box = document.createElement('div');
+    box.className = 'delete-confirm';
+    box.id = 'delete-confirm-overlay';
+    box.innerHTML = `
+        <div class="delete-confirm-box">
+            <div class="delete-confirm-title">Delete Round?</div>
+            <div class="delete-confirm-sub">${dateStr} — this cannot be undone</div>
+            <div class="delete-confirm-btns">
+                <button class="delete-cancel" onclick="cancelDelete()">Cancel</button>
+                <button class="delete-go" onclick="executeDelete()">Delete</button>
+            </div>
+        </div>`;
+    document.body.appendChild(box);
+}
+
+function cancelDelete() {
+    pendingDeleteId = null;
+    const el = document.getElementById('delete-confirm-overlay');
+    if (el) el.remove();
+}
+
+async function executeDelete() {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    cancelDelete();
+    try {
+        await sb.from('shots').delete().eq('round_id', id);
+        await sb.from('rounds').delete().eq('id', id);
+        recentRounds = recentRounds.filter(r => r.id !== id);
+        await loadStats();
+        await loadHomeData();
+    } catch(e) {
+        alert('Could not delete round: ' + e.message);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PROJECTION HELPERS
+// ═══════════════════════════════════════════════════════════════
+function calcTargetGrossScore(hc) {
+    // Hoebridge: course rating 69, slope 116, par 72
+    // Playing HC = (slope/113) * handicap index ≈ handicap index for simplicity
+    // Target gross = par + hc adjusted for course
+    // Simple: par 72 + (hc - 0) where scratch = 72 (par)
+    // More accurate: course handicap = HC * (slope/113), target score = par + course_hc
+    const courseHC = Math.round(hc * (116 / 113));
+    return 72 + courseHC;
+}
+
+function linearRegression(points) {
+    // points = [{x: timestamp_ms, y: value}]
+    const n = points.length;
+    if (n < 2) return null;
+    const sumX  = points.reduce((s,p) => s + p.x, 0);
+    const sumY  = points.reduce((s,p) => s + p.y, 0);
+    const sumXY = points.reduce((s,p) => s + p.x * p.y, 0);
+    const sumX2 = points.reduce((s,p) => s + p.x * p.x, 0);
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    return { slope, intercept, predict: x => slope * x + intercept };
+}
+
+function projectDate(regression, targetY, direction) {
+    // direction: 'down' if improving score (lower), 'up' if improving pts (higher)
+    if (!regression) return null;
+    if (regression.slope === 0) return null;
+    const x = (targetY - regression.intercept) / regression.slope;
+    if (x < Date.now()) return null; // already passed
+    if (x > Date.now() + 1000 * 60 * 60 * 24 * 365 * 5) return null; // > 5 years, unrealistic
+    return new Date(x);
+}
 
 // ─── Boot ───────────────────────────────────────────────────────
 init();
