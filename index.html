@@ -601,7 +601,7 @@
            PLAY SCREEN
         ═══════════════════════════════════════════ */
         #screen-play { background: var(--dark); }
-        #screen-play.active { display: flex; flex-direction: column; overflow: hidden; }
+        #screen-play.active { display: flex; flex-direction: column; overflow: hidden; height: 100dvh; }
 
         .topbar {
             background: var(--fairway);
@@ -613,10 +613,10 @@
             flex-shrink: 0;
         }
 
-        .topbar-hole { font-family: var(--font-display); font-size: 36px; color: var(--green-bright); line-height: 1; }
+        .topbar-hole { font-family: var(--font-display); font-size: 36px; color: var(--green); line-height: 1; }
         .topbar-meta { font-size: 13px; color: var(--gray); }
         .topbar-meta span { color: var(--green); font-weight: 600; }
-        .topbar-pts-val { font-family: var(--font-display); font-size: 36px; color: var(--sand); line-height: 1; text-align: right; }
+        .topbar-pts-val { font-family: var(--font-display); font-size: 36px; color: #b5860a; line-height: 1; text-align: right; }
         .topbar-pts-lbl { font-size: 12px; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; text-align: right; }
 
         .progress-bar { height: 3px; background: var(--card); flex-shrink: 0; }
@@ -627,12 +627,11 @@
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             padding: 14px;
-            padding-bottom: 100px;
+            padding-bottom: 120px;
             display: flex;
             flex-direction: column;
             gap: 8px;
             min-height: 0;
-            height: 0;
         }
 
         .hole-info-card {
@@ -700,8 +699,8 @@
             overflow: hidden;
         }
 
-        .score-section { padding: 8px 12px; }
-        .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gray); margin-bottom: 6px; }
+        .score-section { padding: 14px 16px; }
+        .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gray); margin-bottom: 8px; }
 
         .score-buttons { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
         .score-buttons::-webkit-scrollbar { display: none; }
@@ -737,12 +736,12 @@
         .score-btn.bogey.selected  { box-shadow: 0 0 0 3px rgba(224,92,26,0.4); }
         .score-btn.double.selected { box-shadow: 0 0 0 3px rgba(230,57,70,0.35); }
 
-        .points-result { margin: 0; padding: 8px 14px; border-radius: 0; border-top: 1px solid var(--border2); display: none; flex-direction: row; align-items: center; gap: 10px; }
+        .points-result { margin: 0; padding: 10px 16px; border-radius: 0; border-top: 1px solid var(--border2); display: none; flex-direction: row; align-items: center; gap: 12px; }
         .points-result.visible { display: flex; }
         .points-result-val { font-family: var(--font-display); font-size: 28px; line-height: 1; }
         .points-result-name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
 
-        .putts-section { border-top: 1px solid var(--border); padding: 8px 12px; }
+        .putts-section { border-top: 1px solid var(--border); padding: 14px 16px; }
         .putts-buttons { display: flex; gap: 10px; }
 
         .putt-btn {
@@ -759,7 +758,7 @@
 
         .putt-btn.selected { background: rgba(46,168,84,0.12); border-color: var(--green); color: var(--green); }
 
-        .stats-row { border-top: 1px solid var(--border); padding: 8px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stats-row { border-top: 1px solid var(--border); padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
         .toggle-group { display: flex; gap: 6px; }
 
@@ -1040,12 +1039,12 @@
             font-family: var(--font-display);
             font-size: 26px;
             line-height: 1;
-            color: var(--white);
+            color: #111111;
         }
 
         .caddie-stat-lbl {
             font-size: 10px;
-            color: var(--gray);
+            color: #555555;
             text-transform: uppercase;
             letter-spacing: 0.8px;
             margin-top: 4px;
@@ -1145,7 +1144,7 @@
         .milestone-banner.visible { display: flex; }
         .milestone-icon { font-size: 32px; margin-bottom: 6px; }
         .milestone-title { font-family: var(--font-display); font-size: 22px; color: var(--green); }
-        .milestone-sub { font-size: 13px; color: var(--gray); margin-top: 4px; line-height: 1.4; }
+        .milestone-sub { font-size: 13px; color: #444444; margin-top: 4px; line-height: 1.4; }
 
         /* Loading */
         .loading-overlay {
@@ -2441,7 +2440,7 @@ function showHoleFeedback(fromIdx) {
         else                   vsText = `${diff.toFixed(1)} shots above your average — target is ${stat.targetScore}`;
     }
     document.getElementById('feedback-vs').textContent  = vsText;
-    document.getElementById('feedback-vs').style.color  = 'rgba(255,255,255,0.7)';
+    document.getElementById('feedback-vs').style.color  = 'var(--gray)';
 
     // motivational message
     const totalPts = getTotalPoints();
@@ -2455,7 +2454,7 @@ function showHoleFeedback(fromIdx) {
     else if (pts === 0 && d.score <= h.par + 3) msg = "Tough one. Forget it — next hole is a fresh start.";
     else msg = "Rough hole. Deep breath. The card's still in play.";
     document.getElementById('feedback-msg').textContent = msg;
-    document.getElementById('feedback-msg').style.color = 'rgba(255,255,255,0.6)';
+    document.getElementById('feedback-msg').style.color = 'var(--gray)';
 }
 
 function renderHole(idx, fromPrev) {
