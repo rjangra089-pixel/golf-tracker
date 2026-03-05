@@ -413,6 +413,40 @@
 
         .stats-topbar-sub { font-size: 14px; color: var(--gray); margin-top: 2px; }
 
+        .stats-filter-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .stats-filter-pill {
+            font-family: var(--font-body);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1.5px solid var(--border2);
+            background: transparent;
+            color: var(--gray);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .stats-filter-pill.active {
+            background: var(--green-bright);
+            border-color: var(--green-bright);
+            color: #fff;
+        }
+
+        body.dark-mode .stats-filter-pill.active {
+            color: var(--rough);
+        }
+
+
+
         .stats-scroll {
             flex: 1;
             overflow-y: auto;
@@ -1355,6 +1389,7 @@
     <div class="stats-topbar">
         <div class="stats-topbar-title">MY GAME</div>
         <div class="stats-topbar-sub" id="stats-sub">Last 20 rounds · All Courses</div>
+        <div class="stats-filter-row" id="stats-filter-row"></div>
     </div>
 
     <div class="stats-scroll" id="stats-scroll">
@@ -1677,6 +1712,7 @@ let holeStats   = []; // per-hole averages from DB
 let holeData = Array.from({length:18}, () => ({ score:null, putts:null, fairway:null, gir:null }));
 
 let statsCharts = {};
+let statsFilterSlug = null; // null = all courses
 
 // ═══════════════════════════════════════════════════════════════
 //  INIT
@@ -1826,12 +1862,12 @@ async function loadStats() {
     statsCharts = {};
 
     try {
-        // Load rounds with shots — sorted by actual played date
+        // Load all rounds with shots + their course info
         const { data: roundsRaw } = await sb.from('rounds')
-            .select('*, shots(*)').order('date',{ascending:false}).limit(20);
-        const rounds = (roundsRaw || []).sort((a,b) => new Date(b.date) - new Date(a.date));
+            .select('*, shots(*), courses(name, slug)').order('date',{ascending:false}).limit(50);
+        const allRounds = (roundsRaw || []).sort((a,b) => new Date(b.date) - new Date(a.date));
 
-        if (!rounds || !rounds.length) {
+        if (!allRounds.length) {
             scroll.innerHTML = `<div class="empty-state" style="padding:60px 20px">
                 <div class="empty-state-icon">📊</div>
                 <div class="empty-state-title">No Data Yet</div>
@@ -1840,11 +1876,52 @@ async function loadStats() {
             return;
         }
 
-        document.getElementById('stats-sub').textContent = `Last ${rounds.length} round${rounds.length>1?'s':''} · All Courses`;
+        // Build filter pills from courses that actually have rounds
+        const seenSlugs = new Map();
+        allRounds.forEach(r => {
+            if (r.courses && !seenSlugs.has(r.courses.slug)) {
+                seenSlugs.set(r.courses.slug, r.courses.name);
+            }
+        });
 
-        // Compute per-hole stats
+        const filterRow = document.getElementById('stats-filter-row');
+        filterRow.innerHTML = '';
+        const allPill = document.createElement('button');
+        allPill.className = 'stats-filter-pill' + (statsFilterSlug === null ? ' active' : '');
+        allPill.textContent = 'All';
+        allPill.onclick = () => { statsFilterSlug = null; loadStats(); };
+        filterRow.appendChild(allPill);
+
+        seenSlugs.forEach((name, slug) => {
+            const pill = document.createElement('button');
+            pill.className = 'stats-filter-pill' + (statsFilterSlug === slug ? ' active' : '');
+            // Show short name: first word of course name
+            const shortName = name.split(' ')[0];
+            pill.textContent = shortName;
+            pill.title = name;
+            pill.onclick = () => { statsFilterSlug = slug; loadStats(); };
+            filterRow.appendChild(pill);
+        });
+
+        // Apply filter
+        const rounds = statsFilterSlug
+            ? allRounds.filter(r => r.courses && r.courses.slug === statsFilterSlug)
+            : allRounds;
+
+        // Hole data — use the correct course's HOLES array for filtered view
+        const activeHoles = statsFilterSlug && HOLES_BY_COURSE[statsFilterSlug]
+            ? HOLES_BY_COURSE[statsFilterSlug]
+            : HOLES_BY_COURSE['hoebridge-golf-centre'];
+
+        const courseLabel = statsFilterSlug
+            ? (seenSlugs.get(statsFilterSlug) || statsFilterSlug)
+            : 'All Courses';
+
+        document.getElementById('stats-sub').textContent = `Last ${rounds.length} round${rounds.length>1?'s':''} · ${courseLabel}`;
+
+        // Compute per-hole stats (use the correct course's hole data)
         const holeAgg = Array.from({length:18}, (_,i) => ({
-            num: i+1, par: HOLES[i].par, si: HOLES[i].si,
+            num: i+1, par: activeHoles[i].par, si: activeHoles[i].si,
             scores: [], putts: [], girs: 0, firs: 0, count: 0,
         }));
 
@@ -2131,7 +2208,7 @@ async function loadStats() {
         rounds.forEach(r => {
             (r.shots||[]).forEach(s => {
                 if (!s.score) return;
-                const h = HOLES[s.hole_number-1];
+                const h = activeHoles[s.hole_number-1];
                 const diff = s.score - h.par;
                 if (diff <= -2) zoneCounts.eagle++;
                 else if (diff === -1) zoneCounts.birdie++;
