@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Golf Tracker Pro — Hoebridge</title>
+    <title>Golf Tracker Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -1262,7 +1263,7 @@
         <div class="home-hero">
             <div class="home-greeting">Welcome back</div>
             <div class="home-name" id="home-name">Rajiv</div>
-            <div class="home-course">Hoebridge Golf Centre · <span>Par 72</span></div>
+            <div class="home-course" id="home-course-display">Hoebridge Golf Centre · <span>Par 72</span></div>
         </div>
 
         <!-- HC Progress -->
@@ -1353,7 +1354,7 @@
 <div id="screen-stats" class="screen">
     <div class="stats-topbar">
         <div class="stats-topbar-title">MY GAME</div>
-        <div class="stats-topbar-sub" id="stats-sub">Last 20 rounds · Hoebridge</div>
+        <div class="stats-topbar-sub" id="stats-sub">Last 20 rounds · All Courses</div>
     </div>
 
     <div class="stats-scroll" id="stats-scroll">
@@ -1387,7 +1388,10 @@
     <div style="flex:1; overflow-y:auto; display:flex; align-items:center; justify-content:center; padding:30px 24px;">
         <div style="width:100%; max-width:380px; display:flex; flex-direction:column; gap:0; align-items:center;">
             <div class="setup-logo">TEE OFF</div>
-            <div class="setup-course-tag">Hoebridge · Par 72</div>
+            <div class="setup-course-tag" id="setup-course-tag">Loading courses...</div>
+            <select class="field-input" id="setup-course-select" style="margin-top:-20px;margin-bottom:12px;text-align:center;font-size:13px;cursor:pointer;" onchange="onCourseChange()">
+                <option value="">Loading...</option>
+            </select>
 
             <div class="setup-card">
                 <div>
@@ -1602,28 +1606,60 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ═══════════════════════════════════════════════════════════════
-//  HOLES DATA
+//  HOLES DATA — PER COURSE
 // ═══════════════════════════════════════════════════════════════
-const HOLES = [
-    { num:1,  par:5, si:11, yards:404, danger:false, tip:"Start strong. Fairway over distance. Uphill approach — club up." },
-    { num:2,  par:3, si:17, yards:167, danger:false, tip:"Elevated tee. Centre green mentality — take what it gives you." },
-    { num:3,  par:5, si:7,  yards:505, danger:true,  tip:"Slopes! Stay left of fairway. Sharp drop on left — stay safe." },
-    { num:4,  par:4, si:1,  yards:389, danger:true,  tip:"HARDEST HOLE. Tight driving corridor. Aim left-centre. Accept bogey." },
-    { num:5,  par:4, si:3,  yards:333, danger:true,  tip:"Danger zone. Fairway is everything. Aim 30y short of the green." },
-    { num:6,  par:3, si:15, yards:162, danger:false, tip:"Mid-length par 3. Club selection is crucial — trust your yardage." },
-    { num:7,  par:4, si:5,  yards:458, danger:true,  tip:"Long and tough. Find the fairway first. Accept bogey as a win." },
-    { num:8,  par:4, si:9,  yards:364, danger:true,  tip:"Elevated green. Remember to club up on your approach shot." },
-    { num:9,  par:5, si:13, yards:505, danger:false, tip:"Finish the front 9 strong. Lay up short, then wedge it in close." },
-    { num:10, par:4, si:12, yards:315, danger:false, tip:"YOUR BEST PAR 4! Keep doing exactly what works here." },
-    { num:11, par:4, si:4,  yards:364, danger:true,  tip:"Problem hole. Fairway → Aim short → Chip → 2 putts. Keep it simple." },
-    { num:12, par:3, si:18, yards:180, danger:false, tip:"SUPERSTAR HOLE! You've got this figured out. Trust your instincts." },
-    { num:13, par:5, si:8,  yards:514, danger:true,  tip:"Lay up strategy here. Two solid shots then wedge to the green." },
-    { num:14, par:4, si:14, yards:344, danger:false, tip:"Solid bogey golf works here. Same approach, same result." },
-    { num:15, par:4, si:2,  yards:389, danger:true,  tip:"SI 2 means this is tough. Fairway priority. Stay conservative." },
-    { num:16, par:3, si:10, yards:180, danger:false, tip:"Aim for the fat part of the green. No heroics needed." },
-    { num:17, par:5, si:6,  yards:514, danger:true,  tip:"YOUR WORST HOLE. Lay up to 80-100y. Do NOT go for the green in two." },
-    { num:18, par:3, si:16, yards:167, danger:false, tip:"Strong finish. You've earned it. Confidence and a smile." },
-];
+const HOLES_BY_COURSE = {
+    'hoebridge-golf-centre': [
+        { num:1,  par:5, si:11, yards:404, danger:false, tip:"Start strong. Fairway over distance. Uphill approach — club up." },
+        { num:2,  par:3, si:17, yards:167, danger:false, tip:"Elevated tee. Centre green mentality — take what it gives you." },
+        { num:3,  par:5, si:7,  yards:505, danger:true,  tip:"Slopes! Stay left of fairway. Sharp drop on left — stay safe." },
+        { num:4,  par:4, si:1,  yards:389, danger:true,  tip:"HARDEST HOLE. Tight driving corridor. Aim left-centre. Accept bogey." },
+        { num:5,  par:4, si:3,  yards:333, danger:true,  tip:"Danger zone. Fairway is everything. Aim 30y short of the green." },
+        { num:6,  par:3, si:15, yards:162, danger:false, tip:"Mid-length par 3. Club selection is crucial — trust your yardage." },
+        { num:7,  par:4, si:5,  yards:458, danger:true,  tip:"Long and tough. Find the fairway first. Accept bogey as a win." },
+        { num:8,  par:4, si:9,  yards:364, danger:true,  tip:"Elevated green. Remember to club up on your approach shot." },
+        { num:9,  par:5, si:13, yards:505, danger:false, tip:"Finish the front 9 strong. Lay up short, then wedge it in close." },
+        { num:10, par:4, si:12, yards:315, danger:false, tip:"YOUR BEST PAR 4! Keep doing exactly what works here." },
+        { num:11, par:4, si:4,  yards:364, danger:true,  tip:"Problem hole. Fairway → Aim short → Chip → 2 putts. Keep it simple." },
+        { num:12, par:3, si:18, yards:180, danger:false, tip:"SUPERSTAR HOLE! You've got this figured out. Trust your instincts." },
+        { num:13, par:5, si:8,  yards:514, danger:true,  tip:"Lay up strategy here. Two solid shots then wedge to the green." },
+        { num:14, par:4, si:14, yards:344, danger:false, tip:"Solid bogey golf works here. Same approach, same result." },
+        { num:15, par:4, si:2,  yards:389, danger:true,  tip:"SI 2 means this is tough. Fairway priority. Stay conservative." },
+        { num:16, par:3, si:10, yards:180, danger:false, tip:"Aim for the fat part of the green. No heroics needed." },
+        { num:17, par:5, si:6,  yards:514, danger:true,  tip:"YOUR WORST HOLE. Lay up to 80-100y. Do NOT go for the green in two." },
+        { num:18, par:3, si:16, yards:167, danger:false, tip:"Strong finish. You've earned it. Confidence and a smile." },
+    ],
+    'richings-park-golf-country-club': [
+        { num:1,  par:4, si:12, yards:279, danger:false, tip:"Home Wood. Short opener — find the fairway and settle into your round." },
+        { num:2,  par:3, si:8,  yards:199, danger:false, tip:"Partridge Way. Long par 3. Club up and commit — centre of the green." },
+        { num:3,  par:5, si:6,  yards:536, danger:false, tip:"Langley Walk. Long par 5. Lay up off the tee, then wedge in for a birdie chance." },
+        { num:4,  par:4, si:18, yards:343, danger:false, tip:"Skylark Bend. Easiest hole on the card. Attack this one — go for par or better." },
+        { num:5,  par:4, si:10, yards:328, danger:false, tip:"The Old Gate. Straight hitter's hole. Fairway first, straightforward approach." },
+        { num:6,  par:3, si:16, yards:165, danger:false, tip:"Home Farm. Short par 3. Pick your club, commit, take dead aim." },
+        { num:7,  par:4, si:2,  yards:407, danger:true,  tip:"Oak Corner. SI 2 — second hardest hole. Find the fairway. Bogey is a solid result here." },
+        { num:8,  par:4, si:14, yards:341, danger:false, tip:"Foxes Covert. Manageable length. Stay patient and execute your approach." },
+        { num:9,  par:4, si:4,  yards:421, danger:true,  tip:"Vixen Crossing. Long par 4, SI 4. Tough finish to the front 9. Fairway and accept bogey." },
+        { num:10, par:3, si:15, yards:169, danger:false, tip:"The Ha Ha. Short par 3 to start the back 9. Get a par and build momentum." },
+        { num:11, par:4, si:3,  yards:413, danger:true,  tip:"Chestnut Bend. SI 3 — one of the toughest. Long par 4. Fairway priority, accept bogey." },
+        { num:12, par:4, si:17, yards:323, danger:false, tip:"The Swannery. Second easiest on the card. Take aim and be aggressive." },
+        { num:13, par:4, si:7,  yards:349, danger:false, tip:"Pheasants. SI 7. Solid par 4. Steady approach and you'll walk away happy." },
+        { num:14, par:3, si:11, yards:195, danger:false, tip:"Mansion Copse. Longer par 3. Club selection is key — don't short-side yourself." },
+        { num:15, par:4, si:1,  yards:410, danger:true,  tip:"Lime Walk. HARDEST HOLE — SI 1. Tight driving hole. Fairway is everything. Accept bogey." },
+        { num:16, par:4, si:5,  yards:425, danger:true,  tip:"Rushes. SI 5. Long demanding par 4. Play conservative off the tee and build the hole." },
+        { num:17, par:5, si:13, yards:534, danger:false, tip:"Ice House. Par 5. Lay up strategy — two good shots then wedge in. Good birdie chance." },
+        { num:18, par:4, si:9,  yards:395, danger:false, tip:"Wilby Brook. Solid finishing hole. Play to the fat of the fairway and finish strong." },
+    ],
+};
+
+// Course metadata (rating, slope, par) for Stableford target calc
+const COURSE_META = {
+    'hoebridge-golf-centre':           { name:'Hoebridge Golf Centre',             par:72, rating:69.0, slope:116 },
+    'richings-park-golf-country-club': { name:'Richings Park Golf & Country Club', par:70, rating:70.7, slope:125 },
+};
+
+// Active course — defaults to Hoebridge, updated when player picks a course
+let selectedCourseSlug = 'hoebridge-golf-centre';
+let HOLES = HOLES_BY_COURSE[selectedCourseSlug];
 
 // ═══════════════════════════════════════════════════════════════
 //  GLOBAL STATE
@@ -1654,13 +1690,43 @@ async function init() {
 
 async function loadCourseData() {
     try {
-        const { data: course } = await sb.from('courses').select('id').eq('slug','hoebridge-golf-centre').single();
+        const { data: courses } = await sb.from('courses').select('id,name,slug,par').order('name');
+        if (!courses || !courses.length) return;
+
+        const select = document.getElementById('setup-course-select');
+        select.innerHTML = courses.map(c =>
+            `<option value="${c.slug}" ${c.slug === selectedCourseSlug ? 'selected' : ''}>${c.name} · Par ${c.par}</option>`
+        ).join('');
+
+        await switchCourse(selectedCourseSlug);
+    } catch(e) { console.warn('Course load:', e); }
+}
+
+async function switchCourse(slug) {
+    try {
+        if (HOLES_BY_COURSE[slug]) {
+            selectedCourseSlug = slug;
+            HOLES = HOLES_BY_COURSE[slug];
+        }
+
+        const { data: course } = await sb.from('courses').select('id,name,par').eq('slug', slug).single();
         if (course) {
             courseId = course.id;
             const { data: holes } = await sb.from('holes').select('id,hole_number').eq('course_id', courseId).order('hole_number');
             if (holes) holeIds = holes.map(h => h.id);
+
+            const meta = COURSE_META[slug];
+            const displayName = meta ? meta.name : course.name;
+            const par = meta ? meta.par : course.par;
+            document.getElementById('setup-course-tag').textContent = displayName;
+            document.getElementById('home-course-display').innerHTML = `${displayName} · <span>Par ${par}</span>`;
         }
-    } catch(e) { console.warn('Course load:', e); }
+    } catch(e) { console.warn('Switch course:', e); }
+}
+
+function onCourseChange() {
+    const slug = document.getElementById('setup-course-select').value;
+    if (slug) switchCourse(slug);
 }
 
 async function loadHomeData() {
@@ -1688,7 +1754,7 @@ async function loadHomeData() {
         document.getElementById('home-hc-bar-lbl').textContent =
             needed > 0 ? `${needed.toFixed(1)} shots to go` : '🎉 Target reached!';
 
-        // Load recent rounds — sorted by played date descending
+        // Load recent rounds — sorted by actual played date
         const { data: rounds } = await sb.from('rounds')
             .select('*').order('date', {ascending:false}).limit(20);
 
@@ -1774,7 +1840,7 @@ async function loadStats() {
             return;
         }
 
-        document.getElementById('stats-sub').textContent = `Last ${rounds.length} round${rounds.length>1?'s':''} · Hoebridge`;
+        document.getElementById('stats-sub').textContent = `Last ${rounds.length} round${rounds.length>1?'s':''} · All Courses`;
 
         // Compute per-hole stats
         const holeAgg = Array.from({length:18}, (_,i) => ({
@@ -1836,13 +1902,14 @@ async function loadStats() {
             </div>`;
         scroll.appendChild(sumSection);
 
-        // ── Data setup ──
-        // Sort by actual played date ascending (not insert order)
+        // ── Data setup — sorted by actual played date ──
         const sortedRounds = [...rounds].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        const scorePoints  = sortedRounds.filter(r=>r.total_score).map(r => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.total_score }));
-        const ptsPoints    = sortedRounds.filter(r=>r.stableford_points).map(r => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.stableford_points }));
-        const puttsPoints  = sortedRounds.filter(r=>r.total_putts).map(r => ({ x: new Date(r.date+'T12:00:00').getTime(), y: r.total_putts }));
+        const toMs = dateStr => new Date(dateStr + 'T12:00:00').getTime();
+
+        const scorePoints = sortedRounds.filter(r=>r.total_score).map(r => ({ x: toMs(r.date), y: r.total_score }));
+        const ptsPoints   = sortedRounds.filter(r=>r.stableford_points).map(r => ({ x: toMs(r.date), y: r.stableford_points }));
+        const puttsPoints = sortedRounds.filter(r=>r.total_putts).map(r => ({ x: toMs(r.date), y: r.total_putts }));
 
         const scoreReg = linearRegression(scorePoints);
         const ptsReg   = linearRegression(ptsPoints);
@@ -1853,50 +1920,36 @@ async function loadStats() {
         const projByScore = scoreReg ? projectDate(scoreReg, targetScore, 'down') : null;
         const projByPts   = ptsReg   ? projectDate(ptsReg,   targetPts,  'up')   : null;
 
-        // Extended labels — go to the furthest projection date
-        const lastRoundDate = new Date(sortedRounds[sortedRounds.length-1].date+'T12:00:00');
-        const projEndDate   = projByScore && projByPts 
+        // Projection end date
+        const lastRoundDate = new Date(sortedRounds[sortedRounds.length-1].date + 'T12:00:00');
+        const projEndDate   = projByScore && projByPts
             ? new Date(Math.max(projByScore.getTime(), projByPts.getTime()))
             : projByScore || projByPts || new Date(lastRoundDate.getTime() + 180*24*60*60*1000);
 
-        // Build extended x-axis: all round dates + monthly 1st markers to projection end
-        // Use YYYY-MM-DD string as dedup key to avoid timezone/ms mismatches
-        const roundDateStrings = sortedRounds.map(r => r.date); // e.g. "2025-08-22"
-        const extendedDateMap = new Map();
-        sortedRounds.forEach(r => extendedDateMap.set(r.date, new Date(r.date+'T12:00:00')));
-
-        let cursor = new Date(lastRoundDate);
-        cursor.setDate(1);
-        cursor.setMonth(cursor.getMonth()+1);
-        while (cursor <= projEndDate) {
-            const key = cursor.toISOString().split('T')[0];
-            if (!extendedDateMap.has(key)) extendedDateMap.set(key, new Date(cursor));
-            cursor.setMonth(cursor.getMonth()+1);
+        // Monthly points from last round to projection end (for trend extension)
+        const trendPoints = [];
+        let cur = new Date(lastRoundDate);
+        cur.setDate(1); cur.setMonth(cur.getMonth() + 1);
+        while (cur <= projEndDate) {
+            trendPoints.push(cur.getTime());
+            cur = new Date(cur); cur.setMonth(cur.getMonth() + 1);
         }
 
-        // Sort all keys chronologically
-        const extKeys   = [...extendedDateMap.keys()].sort();
-        const extDates  = extKeys.map(k => extendedDateMap.get(k));
-        const extLabels = extDates.map(d => d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}));
-        const extMs     = extDates.map(d => d.getTime());
+        // Trend lines across actual rounds + future monthly ticks
+        const allTrendMs = [...sortedRounds.map(r => toMs(r.date)), ...trendPoints];
+        const extScoreTrend = scoreReg ? allTrendMs.map(ms => ({ x: ms, y: parseFloat(scoreReg.predict(ms).toFixed(1)) })) : null;
+        const extPtsTrend   = ptsReg   ? allTrendMs.map(ms => ({ x: ms, y: parseFloat(ptsReg.predict(ms).toFixed(1)) }))   : null;
 
-        // Map round data to extended labels using date string matching (no ms ambiguity)
-        const extScoreData = extKeys.map(k => {
-            const r = sortedRounds.find(r => r.date === k);
-            return r ? (r.total_score || null) : null;
-        });
-        const extPtsData = extKeys.map(k => {
-            const r = sortedRounds.find(r => r.date === k);
-            return r ? (r.stableford_points || null) : null;
-        });
-        const extPuttsData = extKeys.map(k => {
-            const r = sortedRounds.find(r => r.date === k);
-            return r ? (r.total_putts || null) : null;
-        });
+        // Target lines spanning full chart range
+        const chartStartMs = toMs(sortedRounds[0].date);
+        const chartEndMs   = projEndDate.getTime();
+        const targetPtsLine   = [{ x: chartStartMs, y: 36 },         { x: chartEndMs, y: 36 }];
+        const targetScoreLine = [{ x: chartStartMs, y: targetScore }, { x: chartEndMs, y: targetScore }];
 
-        // Trend lines across full extended range
-        const extScoreTrend = scoreReg ? extMs.map(ms => parseFloat(scoreReg.predict(ms).toFixed(1))) : null;
-        const extPtsTrend   = ptsReg   ? extMs.map(ms => parseFloat(ptsReg.predict(ms).toFixed(1)))   : null;
+        // Putts
+        const puttsReg = linearRegression(puttsPoints);
+        const extPuttsTrend   = puttsReg ? allTrendMs.map(ms => ({ x: ms, y: parseFloat(puttsReg.predict(ms).toFixed(1)) })) : null;
+        const targetPuttsLine = [{ x: chartStartMs, y: 34 }, { x: chartEndMs, y: 34 }];
 
         const fmtProj = d => d ? d.toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : 'Keep playing!';
 
@@ -1936,17 +1989,15 @@ async function loadStats() {
         statsCharts.trend = new Chart(document.getElementById('chart-trend'), {
             type: 'line',
             data: {
-                labels: extLabels,
                 datasets: [
                     {
                         label: 'Points',
-                        data: extPtsData,
+                        data: ptsPoints,
                         borderColor: '#2ea854',
                         backgroundColor: 'rgba(82,183,136,0.08)',
                         fill: true, tension: 0.4,
                         pointBackgroundColor: '#2ea854',
-                        pointRadius: extPtsData.map(v => v !== null ? 4 : 0),
-                        spanGaps: false,
+                        pointRadius: 4, spanGaps: false,
                     },
                     {
                         label: 'Trend',
@@ -1957,7 +2008,7 @@ async function loadStats() {
                     },
                     {
                         label: 'Target 36',
-                        data: extLabels.map(() => 36),
+                        data: targetPtsLine,
                         borderColor: '#e9c46a',
                         borderDash: [6,4], borderWidth: 1.5,
                         pointRadius: 0, fill: false,
@@ -1968,7 +2019,8 @@ async function loadStats() {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:10 } } },
                 scales: {
-                    x: { ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
+                    x: { type:'time', time:{ unit:'month', displayFormats:{ month:'MMM yy' } },
+                         ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
                     y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, min:15, max:45 }
                 }
             }
@@ -1987,17 +2039,15 @@ async function loadStats() {
         statsCharts.scoreTrend = new Chart(document.getElementById('chart-score-trend'), {
             type: 'line',
             data: {
-                labels: extLabels,
                 datasets: [
                     {
                         label: 'Gross Score',
-                        data: extScoreData,
+                        data: scorePoints,
                         borderColor: '#1565c0',
                         backgroundColor: 'rgba(116,179,206,0.08)',
                         fill: true, tension: 0.3,
                         pointBackgroundColor: '#1565c0',
-                        pointRadius: extScoreData.map(v => v !== null ? 4 : 0),
-                        spanGaps: false,
+                        pointRadius: 4, spanGaps: false,
                     },
                     {
                         label: 'Trend',
@@ -2008,7 +2058,7 @@ async function loadStats() {
                     },
                     {
                         label: `Target ${targetScore}`,
-                        data: extLabels.map(() => targetScore),
+                        data: targetScoreLine,
                         borderColor: '#2ea854',
                         borderDash: [6,4], borderWidth: 1.5,
                         pointRadius: 0, fill: false,
@@ -2019,7 +2069,8 @@ async function loadStats() {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:10 } } },
                 scales: {
-                    x: { ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
+                    x: { type:'time', time:{ unit:'month', displayFormats:{ month:'MMM yy' } },
+                         ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
                     y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, reverse:true }
                 }
             }
@@ -2035,22 +2086,18 @@ async function loadStats() {
         scroll.appendChild(puttsCard);
 
         await sleep(50);
-        const puttsReg = linearRegression(puttsPoints);
-        const extPuttsTrend = puttsReg ? extMs.map(ms => parseFloat(puttsReg.predict(ms).toFixed(1))) : null;
         statsCharts.putts = new Chart(document.getElementById('chart-putts'), {
             type: 'line',
             data: {
-                labels: extLabels,
                 datasets: [
                     {
                         label: 'Putts',
-                        data: extPuttsData,
+                        data: puttsPoints,
                         borderColor: '#c77dff',
                         backgroundColor: 'rgba(199,125,255,0.08)',
                         fill: true, tension: 0.4,
                         pointBackgroundColor: '#c77dff',
-                        pointRadius: extPuttsData.map(v => v !== null ? 4 : 0),
-                        spanGaps: false,
+                        pointRadius: 4, spanGaps: false,
                     },
                     {
                         label: 'Trend',
@@ -2061,7 +2108,7 @@ async function loadStats() {
                     },
                     {
                         label: 'Target 34',
-                        data: extLabels.map(() => 34),
+                        data: targetPuttsLine,
                         borderColor: '#2ea854',
                         borderDash: [6,4], borderWidth: 1.5,
                         pointRadius: 0, fill: false,
@@ -2072,7 +2119,8 @@ async function loadStats() {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { labels: { color:'#8fa898', font:{size:10}, boxWidth:10 } } },
                 scales: {
-                    x: { ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
+                    x: { type:'time', time:{ unit:'month', displayFormats:{ month:'MMM yy' } },
+                         ticks:{color:'#8fa898',font:{size:9},maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.04)'} },
                     y: { ticks:{color:'#8fa898',font:{size:10}}, grid:{color:'rgba(255,255,255,0.06)'}, min:28, max:46 }
                 }
             }
@@ -2442,8 +2490,11 @@ async function startRound() {
     playingHC  = parseInt(document.getElementById('setup-hc').value) || 27;
     roundDate  = document.getElementById('setup-date').value;
     holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null}));
+
+    const slug = document.getElementById('setup-course-select').value;
+    if (slug && slug !== selectedCourseSlug) await switchCourse(slug);
+
     showScreen('screen-play');
-    // Ensure holeStats are loaded for caddie briefing
     if (!holeStats.length) await loadStats();
     renderHole(0);
 }
@@ -2642,7 +2693,7 @@ function renderHole(idx, fromPrev) {
     const dangerBlock = document.getElementById('cb-danger-block');
     if (h.danger) {
         dangerBlock.style.display = 'block';
-        const dangerTips = {
+        const dangerTipsHoebridge = {
             3: 'Stay left. That sharp drop on the left punishes anything wayward.',
             4: 'Accept bogey here. A 5 is a great score. Do not go for the hero shot.',
             5: 'Lay up short of the danger zone. A comfortable chip beats a risky approach.',
@@ -2653,6 +2704,15 @@ function renderHole(idx, fromPrev) {
             15: 'SI 2 — this is hard. Fairway is everything. Stay conservative.',
             17: 'This is your worst hole. Lay up to 80-100y. Do NOT go for the green in two.',
         };
+        const dangerTipsRichings = {
+            7:  'SI 2. Long and tight. Find the fairway first — bogey is a great score.',
+            9:  'Long par 4 to finish the front 9. Play conservatively off the tee. Accept bogey.',
+            11: 'SI 3. One of the toughest holes on the course. Fairway, lay up, chip, two putts.',
+            15: 'SI 1 — hardest hole on the card. Tight driving hole. Fairway is everything.',
+            16: 'SI 5. Long demanding par 4. Conservative tee shot, build the hole from there.',
+        };
+        const dangerTips = selectedCourseSlug === 'richings-park-golf-country-club'
+            ? dangerTipsRichings : dangerTipsHoebridge;
         document.getElementById('cb-danger-text').textContent = dangerTips[h.num] || 'Play conservatively. Take your medicine.';
     } else {
         dangerBlock.style.display = 'none';
@@ -3007,13 +3067,9 @@ async function executeDelete() {
 //  PROJECTION HELPERS
 // ═══════════════════════════════════════════════════════════════
 function calcTargetGrossScore(hc) {
-    // Hoebridge: course rating 69, slope 116, par 72
-    // Playing HC = (slope/113) * handicap index ≈ handicap index for simplicity
-    // Target gross = par + hc adjusted for course
-    // Simple: par 72 + (hc - 0) where scratch = 72 (par)
-    // More accurate: course handicap = HC * (slope/113), target score = par + course_hc
-    const courseHC = Math.round(hc * (116 / 113));
-    return 72 + courseHC;
+    const meta = COURSE_META[selectedCourseSlug] || COURSE_META['hoebridge-golf-centre'];
+    const courseHC = Math.round(hc * (meta.slope / 113));
+    return meta.par + courseHC;
 }
 
 function linearRegression(points) {
