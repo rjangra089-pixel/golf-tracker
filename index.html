@@ -3799,6 +3799,7 @@ Write a debrief in this EXACT JSON structure (respond with JSON only, no markdow
         }
 
         const data = await response.json();
+        if (data.error) throw new Error(data.error);
         const rawText = data.content?.map(b => b.text || '').join('') || '';
         const clean = rawText.replace(/```json|```/g, '').trim();
 
