@@ -3799,15 +3799,21 @@ Write a debrief in this EXACT JSON structure (respond with JSON only, no markdow
         }
 
         const data = await response.json();
-        if (data.error) throw new Error(data.error);
+        if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
         const rawText = data.content?.map(b => b.text || '').join('') || '';
-        const clean = rawText.replace(/```json|```/g, '').trim();
+        console.log('AI RAW RESPONSE:', rawText.substring(0, 500));
+
+        // Strip markdown fences and find the JSON object
+        let clean = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        // Extract just the JSON object if there's surrounding text
+        const jsonMatch = clean.match(/\{[\s\S]*\}/);
+        if (jsonMatch) clean = jsonMatch[0];
 
         let assessment;
         try { assessment = JSON.parse(clean); }
         catch(e) {
             scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">😬</div><div class="assess-loading-title">Hmm, try again</div><div class="assess-loading-sub">Couldn't parse the AI response. Tap back and try again.</div></div>`;
-            console.error('Parse error:', rawText);
+            console.error('Parse error, raw was:', rawText);
             return;
         }
 
