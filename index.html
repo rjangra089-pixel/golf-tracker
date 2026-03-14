@@ -1598,19 +1598,216 @@
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
+        /* ═══════════════════════════════════════════
+           AUTH SCREENS
+        ═══════════════════════════════════════════ */
+        #screen-auth, #screen-onboarding {
+            background: linear-gradient(160deg, #e8f5ee 0%, var(--dark) 55%);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-wrap {
+            width: 100%;
+            max-width: 380px;
+            padding: 32px 24px 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+        }
+
+        .auth-logo {
+            font-size: 56px;
+            margin-bottom: 8px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .auth-title {
+            font-family: var(--font-display);
+            font-size: 44px;
+            color: var(--green-bright);
+            letter-spacing: 3px;
+            margin-bottom: 4px;
+        }
+
+        .auth-sub {
+            font-size: 16px;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 28px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            width: 100%;
+            background: var(--card2);
+            border-radius: 12px;
+            padding: 3px;
+            margin-bottom: 20px;
+            gap: 3px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            height: 38px;
+            border: none;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--gray);
+            font-family: var(--font-body);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .auth-tab.active {
+            background: var(--card);
+            color: var(--green-bright);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+
+        .auth-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .auth-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .auth-error {
+            font-size: 15px;
+            color: var(--red);
+            text-align: center;
+            min-height: 18px;
+            font-weight: 500;
+        }
+
+        .auth-footer {
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--gray);
+            opacity: 0.6;
+        }
+
+        /* Sign out button in home */
+        .signout-btn {
+            background: none;
+            border: 1px solid var(--border2);
+            border-radius: 8px;
+            color: var(--gray);
+            font-size: 14px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-family: var(--font-body);
+        }
+
+        .signout-btn:active { opacity: 0.7; }
+
     </style>
 </head>
 <body>
 
 <!-- ══════════════════════════════════════
+     SCREEN: AUTH (Login / Signup)
+══════════════════════════════════════ -->
+<div id="screen-auth" class="screen active">
+    <div class="auth-wrap">
+        <div class="auth-logo">⛳</div>
+        <div class="auth-title">GOLF TRACKER</div>
+        <div class="auth-sub">Track. Analyse. Improve.</div>
+
+        <!-- Tab switcher -->
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+            <button class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
+        </div>
+
+        <!-- Login form -->
+        <div id="auth-login-form" class="auth-form">
+            <div class="auth-field">
+                <div class="field-label">Email</div>
+                <input class="field-input" id="login-email" type="email" placeholder="your@email.com" autocomplete="email">
+            </div>
+            <div class="auth-field">
+                <div class="field-label">Password</div>
+                <input class="field-input" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            <div class="auth-error" id="login-error"></div>
+            <button class="btn-teeoff" id="btn-login" onclick="doLogin()">SIGN IN</button>
+        </div>
+
+        <!-- Signup form -->
+        <div id="auth-signup-form" class="auth-form" style="display:none">
+            <div class="auth-field">
+                <div class="field-label">Your Name</div>
+                <input class="field-input" id="signup-name" type="text" placeholder="e.g. Rajiv">
+            </div>
+            <div class="auth-field">
+                <div class="field-label">Email</div>
+                <input class="field-input" id="signup-email" type="email" placeholder="your@email.com" autocomplete="email">
+            </div>
+            <div class="auth-field">
+                <div class="field-label">Password</div>
+                <input class="field-input" id="signup-password" type="password" placeholder="Min. 6 characters" autocomplete="new-password">
+            </div>
+            <div class="auth-error" id="signup-error"></div>
+            <button class="btn-teeoff" id="btn-signup" onclick="doSignup()">CREATE ACCOUNT</button>
+        </div>
+
+        <div class="auth-footer">Golf Tracker Pro · Beta</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN: ONBOARDING (new users)
+══════════════════════════════════════ -->
+<div id="screen-onboarding" class="screen">
+    <div class="auth-wrap">
+        <div class="auth-logo">🏌️</div>
+        <div class="auth-title">WELCOME!</div>
+        <div class="auth-sub">Let's set up your profile</div>
+
+        <div class="auth-form">
+            <div class="auth-field">
+                <div class="field-label">Your Name</div>
+                <input class="field-input" id="onboard-name" type="text" placeholder="First name">
+            </div>
+            <div class="auth-field">
+                <div class="field-label">Current Handicap</div>
+                <input class="field-input" id="onboard-hc" type="number" min="0" max="54" step="0.1" placeholder="e.g. 24.0">
+            </div>
+            <div class="auth-field">
+                <div class="field-label">Target Handicap</div>
+                <input class="field-input" id="onboard-target" type="number" min="0" max="54" step="0.1" placeholder="e.g. 18.0">
+            </div>
+            <div class="auth-error" id="onboard-error"></div>
+            <button class="btn-teeoff" id="btn-onboard" onclick="doOnboard()">LET'S PLAY →</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
      SCREEN: HOME / CLUBHOUSE
 ══════════════════════════════════════ -->
-<div id="screen-home" class="screen active">
+<div id="screen-home" class="screen">
     <div class="home-scroll">
         <div class="home-hero">
-            <div class="home-greeting">Welcome back</div>
-            <div class="home-name" id="home-name">Rajiv</div>
-            <div class="home-course" id="home-course-display">Hoebridge Golf Centre · <span>Par 72</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div>
+                    <div class="home-greeting">Welcome back</div>
+                    <div class="home-name" id="home-name">—</div>
+                    <div class="home-course" id="home-course-display">Loading...</div>
+                </div>
+                <button class="signout-btn" onclick="doSignOut()">Sign out</button>
+            </div>
         </div>
 
         <!-- HC Progress -->
@@ -2060,6 +2257,7 @@ let statsCharts = {};
 document.getElementById('setup-date').value = new Date().toISOString().split('T')[0];
 
 async function init() {
+    // init() is now called by bootApp() after auth check
     await loadCourseData();
     await loadHomeData();
 }
@@ -2107,12 +2305,29 @@ function onCourseChange() {
 
 async function loadHomeData() {
     try {
-        // Get user prefs
-        const { data: prefs } = await sb.from('user_preferences').select('*').limit(1).single();
-        if (prefs) {
-            playerName = prefs.name || 'Rajiv';
-            playingHC  = prefs.current_handicap || 27;
-            targetHC   = prefs.target_handicap  || 16;
+        // Get user prefs — scoped to current user
+        const uid = currentUser?.id;
+        let prefs = null;
+        if (uid) {
+            const { data } = await sb.from('user_preferences')
+                .select('*').eq('user_id', uid).maybeSingle();
+            prefs = data;
+        }
+        if (!prefs) {
+            // Fallback: try profile table
+            if (uid) {
+                const { data: prof } = await sb.from('profiles')
+                    .select('*').eq('id', uid).maybeSingle();
+                if (prof) {
+                    playerName = prof.name || 'Golfer';
+                    playingHC  = prof.current_handicap || 28;
+                    targetHC   = prof.target_handicap  || 18;
+                }
+            }
+        } else {
+            playerName = prefs.name || 'Golfer';
+            playingHC  = prefs.current_handicap || 28;
+            targetHC   = prefs.target_handicap  || 18;
         }
 
         document.getElementById('home-name').textContent = playerName;
@@ -2130,9 +2345,10 @@ async function loadHomeData() {
         document.getElementById('home-hc-bar-lbl').textContent =
             needed > 0 ? `${needed.toFixed(1)} shots to go` : '🎉 Target reached!';
 
-        // Load recent rounds — sorted by actual played date
-        const { data: rounds } = await sb.from('rounds')
-            .select('*').order('date', {ascending:false}).limit(20);
+        // Load recent rounds — scoped to current user
+        let roundsQuery = sb.from('rounds').select('*').order('date', {ascending:false}).limit(20);
+        if (currentUser?.id) roundsQuery = roundsQuery.eq('user_id', currentUser.id);
+        const { data: rounds } = await roundsQuery;
 
         recentRounds = (rounds || []).sort((a,b) => new Date(b.date) - new Date(a.date));
         document.getElementById('home-rounds-played').textContent = `${recentRounds.length} rounds logged`;
@@ -2203,9 +2419,10 @@ async function loadStats() {
     statsCharts = {};
 
     try {
-        // Load rounds with shots — sorted by actual played date
-        const { data: roundsRaw } = await sb.from('rounds')
-            .select('*, shots(*)').order('date',{ascending:false}).limit(20);
+        // Load rounds with shots — scoped to current user
+        let statsQuery = sb.from('rounds').select('*, shots(*)').order('date',{ascending:false}).limit(20);
+        if (currentUser?.id) statsQuery = statsQuery.eq('user_id', currentUser.id);
+        const { data: roundsRaw } = await statsQuery;
         const rounds = (roundsRaw || []).sort((a,b) => new Date(b.date) - new Date(a.date));
 
         if (!rounds || !rounds.length) {
@@ -2878,21 +3095,11 @@ async function startRound() {
 
     // Create the round record immediately so every hole auto-saves into it
     try {
-        let userId;
-        const { data: prefs } = await sb.from('user_preferences').select('user_id').limit(1).single();
-        if (prefs) {
-            userId = prefs.user_id;
-        } else {
-            const { data: nu } = await sb.from('user_preferences')
-                .insert({name:playerName, current_handicap:playingHC, target_handicap:targetHC})
-                .select('user_id').single();
-            userId = nu?.user_id;
-        }
-        if (!userId) throw new Error('No user');
+        if (!currentUser?.id) throw new Error('Not logged in');
         if (!courseId) throw new Error('No course selected');
 
         const { data: round, error: rErr } = await sb.from('rounds').insert({
-            user_id: userId, course_id: courseId, date: roundDate,
+            user_id: currentUser.id, course_id: courseId, date: roundDate,
             playing_handicap: playingHC, total_score: 0, total_putts: 0,
             gir_count: 0, stableford_points: 0,
         }).select().single();
@@ -3378,21 +3585,11 @@ async function saveRound() {
 
         } else {
             // Fallback: round was never pre-created, do full insert
-            let userId;
-            const { data: prefs } = await sb.from('user_preferences').select('user_id').limit(1).single();
-            if (prefs) {
-                userId = prefs.user_id;
-            } else {
-                const { data: nu } = await sb.from('user_preferences')
-                    .insert({name:playerName, current_handicap:playingHC, target_handicap:targetHC})
-                    .select('user_id').single();
-                userId = nu?.user_id;
-            }
-            if (!userId) throw new Error('Could not find user');
+            if (!currentUser?.id) throw new Error('Not logged in');
             if (!courseId) throw new Error('No course — please restart the round');
 
             const { data: round, error: rErr } = await sb.from('rounds').insert({
-                user_id: userId, course_id: courseId, date: roundDate,
+                user_id: currentUser.id, course_id: courseId, date: roundDate,
                 playing_handicap: playingHC, total_score: totalScore,
                 total_putts: totalPutts, gir_count: totalGIR, stableford_points: totalPts,
             }).select().single();
@@ -3459,9 +3656,9 @@ async function saveCurrentHC() {
     document.getElementById('hc-current-save-btn').style.display = 'none';
     document.getElementById('setup-hc').value = playingHC;
     try {
-        const { data: prefs } = await sb.from('user_preferences').select('user_id').limit(1).single();
-        if (prefs) {
-            await sb.from('user_preferences').update({ current_handicap: playingHC }).eq('user_id', prefs.user_id);
+        if (currentUser?.id) {
+            await sb.from('user_preferences').update({ current_handicap: playingHC }).eq('user_id', currentUser.id);
+            await sb.from('profiles').update({ current_handicap: playingHC }).eq('id', currentUser.id);
         }
     } catch(e) { console.warn('Could not save current HC:', e); }
     // Refresh progress bar
@@ -3485,9 +3682,9 @@ async function saveTargetHC() {
     targetHC = val;
     document.getElementById('hc-save-btn').style.display = 'none';
     try {
-        const { data: prefs } = await sb.from('user_preferences').select('user_id').limit(1).single();
-        if (prefs) {
-            await sb.from('user_preferences').update({ target_handicap: targetHC }).eq('user_id', prefs.user_id);
+        if (currentUser?.id) {
+            await sb.from('user_preferences').update({ target_handicap: targetHC }).eq('user_id', currentUser.id);
+            await sb.from('profiles').update({ target_handicap: targetHC }).eq('id', currentUser.id);
         }
     } catch(e) { console.warn('Could not save target HC:', e); }
     // Refresh progress bar
@@ -3573,11 +3770,136 @@ function projectDate(regression, targetY, direction) {
     return new Date(x);
 }
 
-// ─── Boot ───────────────────────────────────────────────────────
-init();
+// ═══════════════════════════════════════════════════════════════
+//  AUTH — LOGIN / SIGNUP / ONBOARDING
+// ═══════════════════════════════════════════════════════════════
+let currentUser = null;
+
+// Check session on load
+sb.auth.onAuthStateChange(async (event, session) => {
+    currentUser = session?.user || null;
+    if (currentUser) {
+        await bootApp();
+    } else {
+        showScreen('screen-auth');
+    }
+});
+
+function switchAuthTab(tab) {
+    document.getElementById('auth-login-form').style.display  = tab === 'login'  ? 'flex' : 'none';
+    document.getElementById('auth-signup-form').style.display = tab === 'signup' ? 'flex' : 'none';
+    document.getElementById('tab-login').classList.toggle('active',  tab === 'login');
+    document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+}
+
+async function doLogin() {
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl    = document.getElementById('login-error');
+    const btn      = document.getElementById('btn-login');
+
+    if (!email || !password) { errEl.textContent = 'Please fill in all fields'; return; }
+    errEl.textContent = '';
+    btn.textContent = 'Signing in...'; btn.disabled = true;
+
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    btn.textContent = 'SIGN IN'; btn.disabled = false;
+    if (error) { errEl.textContent = error.message; return; }
+    // onAuthStateChange handles the rest
+}
+
+async function doSignup() {
+    const name     = document.getElementById('signup-name').value.trim();
+    const email    = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const errEl    = document.getElementById('signup-error');
+    const btn      = document.getElementById('btn-signup');
+
+    if (!name || !email || !password) { errEl.textContent = 'Please fill in all fields'; return; }
+    if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; return; }
+    errEl.textContent = '';
+    btn.textContent = 'Creating...'; btn.disabled = true;
+
+    const { error } = await sb.auth.signUp({
+        email, password,
+        options: { data: { name } }
+    });
+    btn.textContent = 'CREATE ACCOUNT'; btn.disabled = false;
+    if (error) { errEl.textContent = error.message; return; }
+    // onAuthStateChange handles the rest — will detect new user needs onboarding
+}
+
+async function doOnboard() {
+    const name   = document.getElementById('onboard-name').value.trim();
+    const hc     = parseFloat(document.getElementById('onboard-hc').value);
+    const target = parseFloat(document.getElementById('onboard-target').value);
+    const errEl  = document.getElementById('onboard-error');
+    const btn    = document.getElementById('btn-onboard');
+
+    if (!name) { errEl.textContent = 'Please enter your name'; return; }
+    if (isNaN(hc) || hc < 0 || hc > 54)     { errEl.textContent = 'Please enter a valid handicap (0–54)'; return; }
+    if (isNaN(target) || target < 0 || target > 54) { errEl.textContent = 'Please enter a valid target handicap'; return; }
+    errEl.textContent = '';
+    btn.textContent = 'Saving...'; btn.disabled = true;
+
+    try {
+        // Upsert profile
+        await sb.from('profiles').upsert({
+            id: currentUser.id,
+            name,
+            current_handicap: hc,
+            target_handicap: target,
+        });
+
+        // Also upsert user_preferences so existing queries keep working
+        const { data: existing } = await sb.from('user_preferences')
+            .select('id').eq('user_id', currentUser.id).maybeSingle();
+        if (!existing) {
+            await sb.from('user_preferences').insert({
+                user_id: currentUser.id,
+                name,
+                current_handicap: hc,
+                target_handicap: target,
+            });
+        }
+
+        await bootApp();
+    } catch(e) {
+        errEl.textContent = e.message;
+        btn.textContent = 'LET\'S PLAY →'; btn.disabled = false;
+    }
+}
+
+async function doSignOut() {
+    await sb.auth.signOut();
+    currentUser = null;
+    showScreen('screen-auth');
+}
+
+async function bootApp() {
+    // Check if user has a profile (i.e. completed onboarding)
+    const { data: profile } = await sb.from('profiles')
+        .select('name, current_handicap, target_handicap')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
+    if (!profile || !profile.name) {
+        // Pre-fill name from signup metadata if available
+        const metaName = currentUser.user_metadata?.name || '';
+        if (metaName) document.getElementById('onboard-name').value = metaName;
+        showScreen('screen-onboarding');
+        return;
+    }
+
+    // User is fully set up — load the app
+    await loadCourseData();
+    await loadHomeData();
+    showScreen('screen-home');
+}
 
 // ═══════════════════════════════════════════════════════════════
-//  DARK / LIGHT MODE TOGGLE
+//  INIT
+// ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
 function toggleDarkMode() {
     const isDark = document.body.classList.toggle('dark-mode');
@@ -3638,11 +3960,13 @@ async function openAssessment() {
         </div>`;
 
     try {
-        // Fetch last round with shots + course name
-        const { data: rounds } = await sb.from('rounds')
+        // Fetch last round with shots + course name — scoped to current user
+        let debriefQuery = sb.from('rounds')
             .select('*, shots(*), courses(name, slug)')
             .order('date', { ascending: false })
             .limit(6);
+        if (currentUser?.id) debriefQuery = debriefQuery.eq('user_id', currentUser.id);
+        const { data: rounds } = await debriefQuery;
 
         if (!rounds || !rounds.length) {
             scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">🏌️</div><div class="assess-loading-title">No Rounds Yet</div><div class="assess-loading-sub">Play and save a round first to get your AI debrief.</div></div>`;
