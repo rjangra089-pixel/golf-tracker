@@ -2431,7 +2431,7 @@ async function loadStats() {
             scroll.innerHTML = `<div class="empty-state" style="padding:60px 20px">
                 <div class="empty-state-icon">📊</div>
                 <div class="empty-state-title">No Data Yet</div>
-                <div class="empty-state-text">Complete and save a round to see your full performance dashboard here.</div>
+                <div class="empty-state-text">Complete and save at least <strong>3 rounds</strong> to unlock your full stats dashboard and AI coaching insights.</div>
             </div>`;
             return;
         }
@@ -4061,7 +4061,33 @@ async function openAssessment() {
         const rounds = await sbFetch('rounds?select=*,shots(*),courses(name,slug)&order=date.desc&limit=6' + (debriefUid ? '&user_id=eq.' + debriefUid : ''));
 
         if (!rounds || !rounds.length) {
-            scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">🏌️</div><div class="assess-loading-title">No Rounds Yet</div><div class="assess-loading-sub">Play and save a round first to get your AI debrief.</div></div>`;
+            scroll.innerHTML = `<div class="assess-loading" style="padding:32px 24px;text-align:center">
+                <div style="font-size:52px;margin-bottom:16px">🤖</div>
+                <div class="assess-loading-title" style="margin-bottom:12px">AI INSIGHTS</div>
+                <div class="assess-loading-sub" style="margin-bottom:24px">Your personal AI caddie analyses your game and gives you coaching tips — but needs at least <strong>3 completed rounds</strong> to spot patterns.</div>
+                <div style="background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:20px;text-align:left;margin-bottom:20px">
+                    <div style="font-family:var(--font-display);font-size:18px;color:var(--green);margin-bottom:12px">HOW TO GET STARTED</div>
+                    <div style="display:flex;flex-direction:column;gap:10px">
+                        <div style="display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--gray)">
+                            <span style="background:var(--green);color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">1</span>
+                            <span>Tap <strong style="color:var(--white)">Play</strong> and start a round at your course</span>
+                        </div>
+                        <div style="display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--gray)">
+                            <span style="background:var(--green);color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</span>
+                            <span>Enter your score, putts, GIR and fairway for each hole</span>
+                        </div>
+                        <div style="display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--gray)">
+                            <span style="background:var(--green);color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">3</span>
+                            <span>Save your round at the end</span>
+                        </div>
+                        <div style="display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--gray)">
+                            <span style="background:var(--sand);color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">🤖</span>
+                            <span>After <strong style="color:var(--white)">3 rounds</strong> your AI caddie unlocks and starts coaching you</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-teeoff" onclick="showScreen('screen-setup')" style="width:100%">START A ROUND →</button>
+            </div>`;
             return;
         }
 
