@@ -3802,10 +3802,12 @@ async function doLogin() {
     errEl.textContent = '';
     btn.textContent = 'Signing in...'; btn.disabled = true;
 
-    const { error } = await sb.auth.signInWithPassword({ email, password });
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
     btn.textContent = 'SIGN IN'; btn.disabled = false;
     if (error) { errEl.textContent = error.message; return; }
-    // onAuthStateChange handles the rest
+    // Directly boot the app — don't rely on onAuthStateChange
+    currentUser = data.user;
+    await bootApp();
 }
 
 async function doSignup() {
@@ -3820,13 +3822,15 @@ async function doSignup() {
     errEl.textContent = '';
     btn.textContent = 'Creating...'; btn.disabled = true;
 
-    const { error } = await sb.auth.signUp({
+    const { data, error } = await sb.auth.signUp({
         email, password,
         options: { data: { name } }
     });
     btn.textContent = 'CREATE ACCOUNT'; btn.disabled = false;
     if (error) { errEl.textContent = error.message; return; }
-    // onAuthStateChange handles the rest — will detect new user needs onboarding
+    // Directly boot the app — new user will hit onboarding
+    currentUser = data.user;
+    await bootApp();
 }
 
 async function doOnboard() {
