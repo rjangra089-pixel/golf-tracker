@@ -2264,7 +2264,7 @@ async function init() {
 
 async function loadCourseData() {
     try {
-        const { data: courses } = await sb.from('courses').select('id,name,slug,par').order('name');
+        const courses = await sbFetch('courses?select=id,name,slug,par&order=name');
         if (!courses || !courses.length) return;
 
         const select = document.getElementById('setup-course-select');
@@ -2283,10 +2283,11 @@ async function switchCourse(slug) {
             HOLES = HOLES_BY_COURSE[slug];
         }
 
-        const { data: course } = await sb.from('courses').select('id,name,par').eq('slug', slug).single();
+        const _courseRows = await sbFetch('courses?select=id,name,par&slug=eq.' + slug);
+        const course = _courseRows?.[0] || null;
         if (course) {
             courseId = course.id;
-            const { data: holes } = await sb.from('holes').select('id,hole_number').eq('course_id', courseId).order('hole_number');
+            const holes = await sbFetch('holes?select=id,hole_number&course_id=eq.' + courseId + '&order=hole_number');
             if (holes) holeIds = holes.map(h => h.id);
 
             const meta = COURSE_META[slug];
@@ -2309,15 +2310,14 @@ async function loadHomeData() {
         const uid = currentUser?.id;
         let prefs = null;
         if (uid) {
-            const { data } = await sb.from('user_preferences')
-                .select('*').eq('user_id', uid).maybeSingle();
-            prefs = data;
+            const _prefRows = await sbFetch('user_preferences?select=*&user_id=eq.' + uid);
+            prefs = _prefRows?.[0] || null;
         }
         if (!prefs) {
             // Fallback: try profile table
             if (uid) {
-                const { data: prof } = await sb.from('profiles')
-                    .select('*').eq('id', uid).maybeSingle();
+                const _profRows = await sbFetch('profiles?select=*&id=eq.' + uid);
+                const prof = _profRows?.[0] || null;
                 if (prof) {
                     playerName = prof.name || 'Golfer';
                     playingHC  = prof.current_handicap || 28;
@@ -2346,9 +2346,9 @@ async function loadHomeData() {
             needed > 0 ? `${needed.toFixed(1)} shots to go` : '🎉 Target reached!';
 
         // Load recent rounds — scoped to current user
-        let roundsQuery = sb.from('rounds').select('*').order('date', {ascending:false}).limit(20);
-        if (currentUser?.id) roundsQuery = roundsQuery.eq('user_id', currentUser.id);
-        const { data: rounds } = await roundsQuery;
+        const uid2 = currentUser?.id;
+        const roundsUrl = 'rounds?select=*&order=date.desc&limit=20' + (uid2 ? '&user_id=eq.' + uid2 : '');
+        const rounds = await sbFetch(roundsUrl);
 
         recentRounds = (rounds || []).sort((a,b) => new Date(b.date) - new Date(a.date));
         document.getElementById('home-rounds-played').textContent = `${recentRounds.length} rounds logged`;
@@ -2420,9 +2420,9 @@ async function loadStats() {
 
     try {
         // Load rounds with shots — scoped to current user
-        let statsQuery = sb.from('rounds').select('*, shots(*)').order('date',{ascending:false}).limit(20);
-        if (currentUser?.id) statsQuery = statsQuery.eq('user_id', currentUser.id);
-        const { data: roundsRaw } = await statsQuery;
+        const statsUid = currentUser?.id;
+        const statsUrl = 'rounds?select=*,shots(*)&order=date.desc&limit=20' + (statsUid ? '&user_id=eq.' + statsUid : '');
+        const roundsRaw = await sbFetch(statsUrl);
         const rounds = (roundsRaw || []).sort((a,b) => new Date(b.date) - new Date(a.date));
 
         if (!rounds || !rounds.length) {
@@ -3098,14 +3098,13 @@ async function startRound() {
         if (!currentUser?.id) throw new Error('Not logged in');
         if (!courseId) throw new Error('No course selected');
 
-        const { data: round, error: rErr } = await sb.from('rounds').insert({
+        const _newRound = await sbFetch('rounds', { method: 'POST', body: JSON.stringify({
             user_id: currentUser.id, course_id: courseId, date: roundDate,
             playing_handicap: playingHC, total_score: 0, total_putts: 0,
             gir_count: 0, stableford_points: 0,
-        }).select().single();
-        if (rErr) throw rErr;
-
-        activeRoundId = round.id;
+        })});
+        if (!_newRound?.[0]?.id) throw new Error('Failed to create round');
+        activeRoundId = _newRound[0].id;
         console.log('Round created:', activeRoundId);
     } catch(e) {
         console.warn('Could not pre-create round:', e.message);
@@ -3435,17 +3434,11 @@ async function autoSaveHole(holeIdx) {
     try {
         const holeId = holeIds[holeIdx] || null;
         // Upsert shot for this hole (delete + insert to keep it simple)
-        await sb.from('shots')
-            .delete()
-            .eq('round_id', activeRoundId)
-            .eq('hole_number', holeIdx + 1);
-
-        await sb.from('shots').insert({
-            round_id: activeRoundId,
-            hole_id: holeId,
-            hole_number: holeIdx + 1,
+        await sbFetch('shots?round_id=eq.' + activeRoundId + '&hole_number=eq.' + (holeIdx + 1), { method: 'DELETE', prefer: '' });
+        await sbFetch('shots', { method: 'POST', body: JSON.stringify({
+            round_id: activeRoundId, hole_id: holeId, hole_number: holeIdx + 1,
             score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir,
-        });
+        })});
 
         // Update round totals
         let totalScore=0, totalPutts=0, totalGIR=0, totalPts=0;
@@ -3455,10 +3448,9 @@ async function autoSaveHole(holeIdx) {
             if (h.gir===true) totalGIR++;
         });
 
-        await sb.from('rounds').update({
-            total_score: totalScore, total_putts: totalPutts,
-            gir_count: totalGIR, stableford_points: totalPts,
-        }).eq('id', activeRoundId);
+        await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'PATCH', body: JSON.stringify({
+            total_score: totalScore, total_putts: totalPutts, gir_count: totalGIR, stableford_points: totalPts,
+        })});
 
     } catch(e) {
         console.warn('Auto-save hole', holeIdx+1, ':', e.message);
@@ -3572,35 +3564,34 @@ async function saveRound() {
 
         if (activeRoundId) {
             // Round already exists — just do a final sync of totals + all shots
-            await sb.from('shots').delete().eq('round_id', activeRoundId);
+            await sbFetch('shots?round_id=eq.' + activeRoundId, { method: 'DELETE', prefer: '' });
             const shots = holeData.map((d,i) => ({
                 round_id: activeRoundId, hole_id: holeIds[i]||null,
                 hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir,
             })).filter(s => s.score);
-            if (shots.length) await sb.from('shots').insert(shots);
-            await sb.from('rounds').update({
-                total_score: totalScore, total_putts: totalPutts,
-                gir_count: totalGIR, stableford_points: totalPts,
-            }).eq('id', activeRoundId);
+            if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
+            await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'PATCH', body: JSON.stringify({
+                total_score: totalScore, total_putts: totalPutts, gir_count: totalGIR, stableford_points: totalPts,
+            })});
 
         } else {
             // Fallback: round was never pre-created, do full insert
             if (!currentUser?.id) throw new Error('Not logged in');
             if (!courseId) throw new Error('No course — please restart the round');
 
-            const { data: round, error: rErr } = await sb.from('rounds').insert({
+            const _savedRound = await sbFetch('rounds', { method: 'POST', body: JSON.stringify({
                 user_id: currentUser.id, course_id: courseId, date: roundDate,
                 playing_handicap: playingHC, total_score: totalScore,
                 total_putts: totalPutts, gir_count: totalGIR, stableford_points: totalPts,
-            }).select().single();
-            if (rErr) throw rErr;
-            activeRoundId = round.id;
+            })});
+            if (!_savedRound?.[0]?.id) throw new Error('Failed to save round');
+            activeRoundId = _savedRound[0].id;
 
             const shots = holeData.map((d,i) => ({
                 round_id: activeRoundId, hole_id: holeIds[i]||null,
                 hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir,
             })).filter(s => s.score);
-            if (shots.length) await sb.from('shots').insert(shots);
+            if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
         }
 
         statusEl.className = 'save-status success';
@@ -3657,8 +3648,8 @@ async function saveCurrentHC() {
     document.getElementById('setup-hc').value = playingHC;
     try {
         if (currentUser?.id) {
-            await sb.from('user_preferences').update({ current_handicap: playingHC }).eq('user_id', currentUser.id);
-            await sb.from('profiles').update({ current_handicap: playingHC }).eq('id', currentUser.id);
+            await sbFetch('user_preferences?user_id=eq.' + currentUser.id, { method: 'PATCH', body: JSON.stringify({ current_handicap: playingHC }) });
+            await sbFetch('profiles?id=eq.' + currentUser.id, { method: 'PATCH', body: JSON.stringify({ current_handicap: playingHC }) });
         }
     } catch(e) { console.warn('Could not save current HC:', e); }
     // Refresh progress bar
@@ -3683,8 +3674,8 @@ async function saveTargetHC() {
     document.getElementById('hc-save-btn').style.display = 'none';
     try {
         if (currentUser?.id) {
-            await sb.from('user_preferences').update({ target_handicap: targetHC }).eq('user_id', currentUser.id);
-            await sb.from('profiles').update({ target_handicap: targetHC }).eq('id', currentUser.id);
+            await sbFetch('user_preferences?user_id=eq.' + currentUser.id, { method: 'PATCH', body: JSON.stringify({ target_handicap: targetHC }) });
+            await sbFetch('profiles?id=eq.' + currentUser.id, { method: 'PATCH', body: JSON.stringify({ target_handicap: targetHC }) });
         }
     } catch(e) { console.warn('Could not save target HC:', e); }
     // Refresh progress bar
@@ -3728,8 +3719,8 @@ async function executeDelete() {
     const id = pendingDeleteId;
     cancelDelete();
     try {
-        await sb.from('shots').delete().eq('round_id', id);
-        await sb.from('rounds').delete().eq('id', id);
+        await sbFetch('shots?round_id=eq.' + id, { method: 'DELETE', prefer: '' });
+        await sbFetch('rounds?id=eq.' + id, { method: 'DELETE', prefer: '' });
         recentRounds = recentRounds.filter(r => r.id !== id);
         await loadStats();
         await loadHomeData();
@@ -3977,12 +3968,8 @@ async function openAssessment() {
 
     try {
         // Fetch last round with shots + course name — scoped to current user
-        let debriefQuery = sb.from('rounds')
-            .select('*, shots(*), courses(name, slug)')
-            .order('date', { ascending: false })
-            .limit(6);
-        if (currentUser?.id) debriefQuery = debriefQuery.eq('user_id', currentUser.id);
-        const { data: rounds } = await debriefQuery;
+        const debriefUid = currentUser?.id;
+        const rounds = await sbFetch('rounds?select=*,shots(*),courses(name,slug)&order=date.desc&limit=6' + (debriefUid ? '&user_id=eq.' + debriefUid : ''));
 
         if (!rounds || !rounds.length) {
             scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">🏌️</div><div class="assess-loading-title">No Rounds Yet</div><div class="assess-loading-sub">Play and save a round first to get your AI debrief.</div></div>`;
