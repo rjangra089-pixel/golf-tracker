@@ -3878,13 +3878,12 @@ async function doSignOut() {
 
 // ── Direct Supabase REST helper (bypasses JS client CORS issue) ──
 async function sbFetch(path, opts = {}) {
-    const session = await sb.auth.getSession();
-    const token = session?.data?.session?.access_token || SUPABASE_KEY;
+    // Direct REST fetch — no sb client session lookup needed
     const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
         ...opts,
         headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + token,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
             'Content-Type': 'application/json',
             'Prefer': opts.prefer || 'return=representation',
             ...(opts.headers || {})
