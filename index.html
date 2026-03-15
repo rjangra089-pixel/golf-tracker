@@ -1993,9 +1993,10 @@
 ══════════════════════════════════════ -->
 <div id="screen-play" class="screen">
     <div class="topbar">
-        <div>
+        <div style="display:flex;flex-direction:column;gap:2px">
             <div class="topbar-hole" id="tb-hole">HOLE 1</div>
             <div class="topbar-meta">Par <span id="tb-par">5</span> · SI <span id="tb-si">11</span> · <span id="tb-yards">404</span>y</div>
+            <button onclick="confirmCancelRound()" style="background:none;border:none;color:var(--red);font-size:13px;font-family:var(--font-body);cursor:pointer;padding:0;text-align:left;opacity:0.8">✕ Cancel round</button>
         </div>
         <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
             <div style="display:flex;align-items:baseline;gap:8px">
@@ -3875,6 +3876,42 @@ async function doOnboard() {
         errEl.textContent = e.message;
         btn.textContent = 'LET\'S PLAY →'; btn.disabled = false;
     }
+}
+
+function confirmCancelRound() {
+    // Show confirmation overlay
+    const box = document.createElement('div');
+    box.id = 'cancel-round-overlay';
+    box.className = 'delete-confirm';
+    box.innerHTML = `
+        <div class="delete-confirm-box">
+            <div class="delete-confirm-title">Cancel Round?</div>
+            <div class="delete-confirm-sub">Your progress won't be saved. This can't be undone.</div>
+            <div class="delete-confirm-btns">
+                <button class="delete-cancel" onclick="document.getElementById('cancel-round-overlay').remove()">Keep Playing</button>
+                <button class="delete-confirm-btn" onclick="cancelRound()">Yes, Cancel</button>
+            </div>
+        </div>`;
+    document.body.appendChild(box);
+}
+
+async function cancelRound() {
+    // Delete the pre-created round if it exists
+    if (activeRoundId) {
+        try {
+            await sbFetch('shots?round_id=eq.' + activeRoundId, { method: 'DELETE', prefer: '' });
+            await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'DELETE', prefer: '' });
+        } catch(e) { console.warn('Could not delete cancelled round:', e); }
+    }
+    // Reset round state
+    activeRoundId = null;
+    holeData = Array.from({length:18}, () => ({ score:0, putts:0, fairway:null, gir:null }));
+    currentHole = 0;
+    // Remove overlay and go home
+    const overlay = document.getElementById('cancel-round-overlay');
+    if (overlay) overlay.remove();
+    showScreen('screen-home');
+    await loadHomeData();
 }
 
 async function showForgotPassword() {
