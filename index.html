@@ -2413,6 +2413,7 @@ function updateHomeStats() {
 //  STATS SCREEN
 // ═══════════════════════════════════════════════════════════════
 async function loadStats() {
+    track('stats_viewed');
     const scroll = document.getElementById('stats-scroll');
     scroll.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Crunching your numbers...</div>';
 
@@ -3107,6 +3108,7 @@ async function startRound() {
         })});
         if (!_newRound?.[0]?.id) throw new Error('Failed to create round');
         activeRoundId = _newRound[0].id;
+        track('round_started', { course: selectedCourseSlug, handicap: playingHC });
         console.log('Round created:', activeRoundId);
     } catch(e) {
         console.warn('Could not pre-create round:', e.message);
@@ -3596,6 +3598,7 @@ async function saveRound() {
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
         }
 
+        track('round_saved', { course: selectedCourseSlug, score: totalScore, points: totalPts, holes: holeData.filter(h=>h.score).length });
         statusEl.className = 'save-status success';
         statusEl.textContent = '✓ Round saved!';
         btn.textContent = 'SAVED ✓';
@@ -3800,6 +3803,7 @@ async function doLogin() {
     if (error) { errEl.textContent = error.message; return; }
     // Directly boot the app — don't rely on onAuthStateChange
     currentUser = data.user;
+    track('signed_in', { email });
     await bootApp();
 }
 
@@ -3822,6 +3826,7 @@ async function doSignup() {
     btn.textContent = 'CREATE ACCOUNT'; btn.disabled = false;
     if (error) { errEl.textContent = error.message; return; }
 
+    track('signed_up', { email });
     // Supabase requires email verification — show confirmation message
     const form = document.getElementById('auth-signup-form');
     form.innerHTML = `
@@ -3907,6 +3912,7 @@ async function cancelRound() {
     activeRoundId = null;
     holeData = Array.from({length:18}, () => ({ score:0, putts:0, fairway:null, gir:null }));
     currentHole = 0;
+    track('round_cancelled', { course: selectedCourseSlug, hole: currentHole + 1 });
     // Remove overlay and go home
     const overlay = document.getElementById('cancel-round-overlay');
     if (overlay) overlay.remove();
@@ -3972,6 +3978,17 @@ async function sbFetch(path, opts = {}) {
     if (!res.ok) { const e = await res.text(); throw new Error(e); }
     const text = await res.text();
     return text ? JSON.parse(text) : [];
+}
+
+// ── Analytics tracker ──────────────────────────────────────────
+function track(event, properties = {}) {
+    try {
+        const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
+        sbFetch('events', {
+            method: 'POST',
+            body: JSON.stringify({ user_id: uid, event, properties })
+        }).catch(() => {}); // fire and forget — never block the UI
+    } catch(e) {}
 }
 
 async function bootApp() {
@@ -4047,6 +4064,7 @@ async function openAssessment() {
     showScreen('screen-assessment');
     const scroll = document.getElementById('assess-scroll');
 
+    track('ai_debrief_viewed');
     // Show loading state
     scroll.innerHTML = `
         <div class="assess-loading">
