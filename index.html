@@ -1742,6 +1742,7 @@
             </div>
             <div class="auth-error" id="login-error"></div>
             <button class="btn-teeoff" id="btn-login" onclick="doLogin()">SIGN IN</button>
+            <button onclick="showForgotPassword()" style="background:none;border:none;color:var(--gray);font-size:15px;font-family:var(--font-body);cursor:pointer;margin-top:4px;text-decoration:underline">Forgot password?</button>
         </div>
 
         <!-- Signup form -->
@@ -3819,9 +3820,24 @@ async function doSignup() {
     });
     btn.textContent = 'CREATE ACCOUNT'; btn.disabled = false;
     if (error) { errEl.textContent = error.message; return; }
-    // Directly boot the app — new user will hit onboarding
-    currentUser = data.user;
-    await bootApp();
+
+    // Supabase requires email verification — show confirmation message
+    const form = document.getElementById('auth-signup-form');
+    form.innerHTML = `
+        <div style="text-align:center;padding:24px 0">
+            <div style="font-size:48px;margin-bottom:16px">📧</div>
+            <div style="font-family:var(--font-display);font-size:26px;color:var(--green);margin-bottom:12px">CHECK YOUR EMAIL</div>
+            <div style="font-size:17px;color:var(--gray);line-height:1.6;margin-bottom:8px">
+                We've sent a verification link to<br>
+                <strong style="color:var(--white)">${email}</strong>
+            </div>
+            <div style="font-size:15px;color:var(--gray);margin-top:12px;line-height:1.6">
+                Click the link in the email to verify your account, then come back and sign in.
+            </div>
+            <div style="font-size:13px;color:var(--gray);margin-top:16px">
+                Can't find it? Check your spam folder.
+            </div>
+        </div>`;
 }
 
 async function doOnboard() {
@@ -3859,6 +3875,42 @@ async function doOnboard() {
         errEl.textContent = e.message;
         btn.textContent = 'LET\'S PLAY →'; btn.disabled = false;
     }
+}
+
+async function showForgotPassword() {
+    const form = document.getElementById('auth-login-form');
+    form.innerHTML = `
+        <div class="auth-field">
+            <div class="field-label">Email</div>
+            <input class="field-input" id="reset-email" type="email" placeholder="your@email.com" autocomplete="email">
+        </div>
+        <div class="auth-error" id="reset-error"></div>
+        <button class="btn-teeoff" id="btn-reset" onclick="doResetPassword()">SEND RESET LINK</button>
+        <button onclick="switchAuthTab('login')" style="background:none;border:none;color:var(--gray);font-size:15px;font-family:var(--font-body);cursor:pointer;margin-top:4px;text-decoration:underline">Back to sign in</button>`;
+}
+
+async function doResetPassword() {
+    const email = document.getElementById('reset-email')?.value.trim();
+    const errEl = document.getElementById('reset-error');
+    const btn   = document.getElementById('btn-reset');
+    if (!email) { errEl.textContent = 'Please enter your email'; return; }
+    errEl.textContent = '';
+    btn.textContent = 'Sending...'; btn.disabled = true;
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://golf-tracker-snowy.vercel.app'
+    });
+    btn.textContent = 'SEND RESET LINK'; btn.disabled = false;
+    if (error) { errEl.textContent = error.message; return; }
+    const form = document.getElementById('auth-login-form');
+    form.innerHTML = `
+        <div style="text-align:center;padding:24px 0">
+            <div style="font-size:48px;margin-bottom:16px">📧</div>
+            <div style="font-family:var(--font-display);font-size:26px;color:var(--green);margin-bottom:12px">EMAIL SENT</div>
+            <div style="font-size:17px;color:var(--gray);line-height:1.6">
+                Check your inbox at<br><strong style="color:var(--white)">${email}</strong><br>for a password reset link.
+            </div>
+            <div style="font-size:13px;color:var(--gray);margin-top:16px">Can't find it? Check your spam folder.</div>
+        </div>`;
 }
 
 async function doSignOut() {
