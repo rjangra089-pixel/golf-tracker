@@ -8,7 +8,7 @@
     <title>Golf Tracker Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
@@ -3844,22 +3844,18 @@ async function doOnboard() {
 
     try {
         // Upsert profile
-        await sb.from('profiles').upsert({
-            id: currentUser.id,
-            name,
-            current_handicap: hc,
-            target_handicap: target,
+        await sbFetch('profiles', {
+            method: 'POST',
+            prefer: 'resolution=merge-duplicates',
+            body: JSON.stringify({ id: currentUser.id, name, current_handicap: hc, target_handicap: target })
         });
 
         // Also upsert user_preferences so existing queries keep working
-        const { data: existing } = await sb.from('user_preferences')
-            .select('id').eq('user_id', currentUser.id).maybeSingle();
-        if (!existing) {
-            await sb.from('user_preferences').insert({
-                user_id: currentUser.id,
-                name,
-                current_handicap: hc,
-                target_handicap: target,
+        const _existingPrefs = await sbFetch('user_preferences?select=id&user_id=eq.' + currentUser.id);
+        if (!_existingPrefs || _existingPrefs.length === 0) {
+            await sbFetch('user_preferences', {
+                method: 'POST',
+                body: JSON.stringify({ user_id: currentUser.id, name, current_handicap: hc, target_handicap: target })
             });
         }
 
@@ -3876,12 +3872,29 @@ async function doSignOut() {
     showScreen('screen-auth');
 }
 
+// ── Direct Supabase REST helper (bypasses JS client CORS issue) ──
+async function sbFetch(path, opts = {}) {
+    const session = await sb.auth.getSession();
+    const token = session?.data?.session?.access_token || SUPABASE_KEY;
+    const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+        ...opts,
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json',
+            'Prefer': opts.prefer || 'return=representation',
+            ...(opts.headers || {})
+        }
+    });
+    if (!res.ok) { const e = await res.text(); throw new Error(e); }
+    const text = await res.text();
+    return text ? JSON.parse(text) : [];
+}
+
 async function bootApp() {
     // Check if user has a profile (i.e. completed onboarding)
-    const { data: profile } = await sb.from('profiles')
-        .select('name, current_handicap, target_handicap')
-        .eq('id', currentUser.id)
-        .maybeSingle();
+    const rows = await sbFetch('profiles?select=name,current_handicap,target_handicap&id=eq.' + currentUser.id);
+    const profile = rows?.[0] || null;
 
     if (!profile || !profile.name) {
         // Pre-fill name from signup metadata if available
