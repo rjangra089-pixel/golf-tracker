@@ -530,7 +530,7 @@ async function checkAdminAndLoad() {
     // Check is_admin flag on profiles
     const { data, error } = await sb
         .from('profiles')
-        .select('is_admin, email')
+        .select('is_admin')
         .eq('id', currentUser.id)
         .single();
 
@@ -555,7 +555,7 @@ async function doSignOut() {
 // ── DATA ──
 async function loadDashboard() {
     const [profilesRes, roundsRes] = await Promise.all([
-        sb.from('profiles').select('id, name, email, current_handicap, target_handicap, created_at, last_active_at'),
+        sb.from('profiles').select('id, name, current_handicap, target_handicap, created_at'),
         sb.from('rounds').select('id, user_id, date, stableford_points, course_id, courses(name)')
     ]);
 
@@ -572,7 +572,8 @@ function renderStats(profiles, rounds) {
     const now = new Date();
     const sevenDaysAgo = new Date(now - 7 * 86400000);
 
-    const activeUsers = profiles.filter(p => p.last_active_at && new Date(p.last_active_at) > sevenDaysAgo);
+    // Derive "active" from rounds in last 7 days since we have no last_active_at
+    const activeUserIds = new Set(rounds.filter(r => new Date(r.date) > sevenDaysAgo).map(r => r.user_id));
     const avgRounds = profiles.length ? (rounds.length / profiles.length).toFixed(1) : 0;
     const ptsRounds = rounds.filter(r => r.stableford_points);
     const avgPts = ptsRounds.length ? Math.round(ptsRounds.reduce((s, r) => s + r.stableford_points, 0) / ptsRounds.length) : '—';
@@ -584,7 +585,7 @@ function renderStats(profiles, rounds) {
 
     document.getElementById('stat-users').textContent      = profiles.length;
     document.getElementById('stat-users-sub').textContent  = `${profiles.length} signed up`;
-    document.getElementById('stat-active').textContent     = activeUsers.length;
+    document.getElementById('stat-active').textContent     = activeUserIds.size;
     document.getElementById('stat-rounds').textContent     = rounds.length;
     document.getElementById('stat-rounds-sub').textContent = `${roundsThisWeek} this week`;
     document.getElementById('stat-avg-rounds').textContent = avgRounds;
@@ -597,11 +598,13 @@ function renderUsersTable(profiles, rounds) {
     const sevenDaysAgo  = new Date(now - 7 * 86400000);
     const thirtyDaysAgo = new Date(now - 30 * 86400000);
 
-    // Rounds per user
-    const roundsByUser = {};
-    const ptsByUser    = {};
+    // Rounds per user + last round date
+    const roundsByUser  = {};
+    const ptsByUser     = {};
+    const lastRoundDate = {};
     rounds.forEach(r => {
         roundsByUser[r.user_id] = (roundsByUser[r.user_id] || 0) + 1;
+        if (!lastRoundDate[r.user_id] || r.date > lastRoundDate[r.user_id]) lastRoundDate[r.user_id] = r.date;
         if (r.stableford_points) {
             if (!ptsByUser[r.user_id]) ptsByUser[r.user_id] = [];
             ptsByUser[r.user_id].push(r.stableford_points);
@@ -612,16 +615,16 @@ function renderUsersTable(profiles, rounds) {
         const numRounds = roundsByUser[p.id] || 0;
         const pts = ptsByUser[p.id] || [];
         const avgPts = pts.length ? Math.round(pts.reduce((a, b) => a + b, 0) / pts.length) : null;
-        const lastActive = p.last_active_at ? new Date(p.last_active_at) : null;
+        const lastRound = lastRoundDate[p.id] ? new Date(lastRoundDate[p.id]) : null;
         const joined = p.created_at ? new Date(p.created_at) : null;
 
         let statusClass, statusLabel, dotClass;
-        if (lastActive && lastActive > sevenDaysAgo) {
+        if (lastRound && lastRound > sevenDaysAgo) {
             statusClass = 'badge-green'; statusLabel = 'Active'; dotClass = 'dot-active';
-        } else if (lastActive && lastActive > thirtyDaysAgo) {
+        } else if (lastRound && lastRound > thirtyDaysAgo) {
             statusClass = 'badge-sand'; statusLabel = 'Recent'; dotClass = 'dot-recent';
         } else {
-            statusClass = 'badge-gray'; statusLabel = 'Quiet'; dotClass = 'dot-inactive';
+            statusClass = 'badge-gray'; statusLabel = numRounds === 0 ? 'No rounds' : 'Quiet'; dotClass = 'dot-inactive';
         }
 
         const hcGap = p.current_handicap && p.target_handicap
@@ -631,12 +634,12 @@ function renderUsersTable(profiles, rounds) {
         return `<tr>
             <td>
                 <div style="font-weight:500;">${p.name || '—'}</div>
-                <div style="font-size:11px;color:var(--gray);margin-top:2px;">${p.email || ''}</div>
+                <div style="font-size:11px;color:var(--gray);margin-top:2px;">Joined ${joined ? fmtDate(joined) : '—'}</div>
             </td>
             <td style="color:var(--gray);font-size:13px;">${joined ? fmtDate(joined) : '—'}</td>
             <td style="color:var(--gray);font-size:13px;">
                 <span class="activity-dot ${dotClass}"></span>
-                ${lastActive ? timeAgo(lastActive) : 'Never'}
+                ${lastRound ? timeAgo(lastRound) : 'Never'}
             </td>
             <td>
                 <span style="font-family:var(--font-mono);font-size:14px;">${numRounds}</span>
