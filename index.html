@@ -2238,7 +2238,7 @@ const COURSE_META = {
 };
 
 // Active course — defaults to Hoebridge, updated when player picks a course
-let selectedCourseSlug = 'hoebridge-golf-centre';
+let selectedCourseSlug = localStorage.getItem('lastCourseSlug') || 'hoebridge-golf-centre';
 let HOLES = HOLES_BY_COURSE[selectedCourseSlug];
 
 // ═══════════════════════════════════════════════════════════════
@@ -2309,7 +2309,10 @@ async function switchCourse(slug) {
 
 function onCourseChange() {
     const slug = document.getElementById('setup-course-select').value;
-    if (slug) switchCourse(slug);
+    if (slug) {
+        localStorage.setItem('lastCourseSlug', slug);
+        switchCourse(slug);
+    }
 }
 
 async function loadHomeData() {
