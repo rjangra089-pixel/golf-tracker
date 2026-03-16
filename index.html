@@ -1302,17 +1302,23 @@
         }
 
         .hc-target-input {
-            width: 64px;
+            width: 72px;
             background: var(--card2);
             border: 1.5px solid var(--border2);
             border-radius: 8px;
             color: var(--sand);
             font-family: var(--font-display);
-            font-size: 18px;
-            padding: 2px 4px;
+            font-size: 16px;
+            padding: 4px 4px;
             text-align: center;
             outline: none;
             -webkit-appearance: none;
+            -moz-appearance: textfield;
+        }
+        .hc-target-input::-webkit-inner-spin-button,
+        .hc-target-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
 
         .hc-target-input:focus { border-color: var(--sand); }
