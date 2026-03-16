@@ -4207,7 +4207,7 @@ ROUND DATA:
 - Total Putts: ${totalPutts} ${avgHistPutts ? `(historical avg: ${avgHistPutts.toFixed(1)})` : ''}
 - GIR: ${girsHit}/${girsTotal} holes (${girsTotal ? Math.round((girsHit/girsTotal)*100) : 0}%)
 - Front 9: ${front9pts} pts (score: ${front9score}) | Back 9: ${back9pts} pts (score: ${back9score})
-- Playing HC: ${lastRound.playing_handicap || playingHC} | Target HC: ${targetHC}
+- Playing HC: ${lastRound.playing_handicap || playingHC} | Target HC: ${targetHC} | HC gap to close: ${((lastRound.playing_handicap || playingHC) - targetHC).toFixed(1)} shots
 - Recent form (last 5 rounds pts, most recent first): ${recentPts.join(', ')} — currently ${formTrend}
 
 HOLE-BY-HOLE THIS ROUND:
@@ -4242,8 +4242,8 @@ Write a debrief in this EXACT JSON structure (respond with JSON only, no markdow
     { "holeNum": <number>, "type": "close", "title": "Short punchy title", "detail": "1-2 sentences on a hole that was close to being better — what nearly worked" }
   ],
   "momentum": "2-3 sentences on the momentum narrative — what happened after the tough holes or good holes. Was there a response or a wobble?",
-  "focusTip": "A specific, actionable tip for the next round. Not generic. Reference the actual data — e.g. a specific hole, the putting, the GIR pattern. 2-3 sentences.",
-  "closing": "A warm, motivational 1-sentence sign-off that references the HC target journey."
+  "focusTip": "A specific, actionable tip for the next round tied directly to the HC gap. Reference the actual data — e.g. a specific hole, the putting, the GIR pattern — and explain how fixing this one thing is the biggest lever to closing the gap to HC ${targetHC}. 2-3 sentences.",
+  "closing": "A warm, motivational 1-sentence sign-off that names the target HC and how many shots remain — make it feel achievable and personal."
 }`;
 
         // Call AI via Netlify function (proxies to Anthropic server-side)
