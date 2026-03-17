@@ -2311,6 +2311,12 @@ function onCourseChange() {
     const slug = document.getElementById('setup-course-select').value;
     if (slug) {
         localStorage.setItem('lastCourseSlug', slug);
+        if (currentUser?.id) {
+            sbFetch('user_preferences?user_id=eq.' + currentUser.id, {
+                method: 'PATCH',
+                body: JSON.stringify({ last_course_slug: slug })
+            });
+        }
         switchCourse(slug);
     }
 }
@@ -2339,6 +2345,10 @@ async function loadHomeData() {
             playerName = prefs.name || 'Golfer';
             playingHC  = prefs.current_handicap || 28;
             targetHC   = prefs.target_handicap  || 18;
+            if (prefs.last_course_slug) {
+                selectedCourseSlug = prefs.last_course_slug;
+                localStorage.setItem('lastCourseSlug', prefs.last_course_slug);
+            }
         }
 
         document.getElementById('home-name').textContent = playerName;
