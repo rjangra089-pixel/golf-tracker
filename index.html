@@ -4278,16 +4278,27 @@ Write a debrief in this EXACT JSON structure (respond with JSON only, no markdow
         }
 
         const data = await response.json();
-        if (data.error) throw new Error(data.error);
+        if (data.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error)));
         const rawText = data.content?.map(b => b.text || '').join('') || '';
         const clean = rawText.replace(/```json|```/g, '').trim();
 
         let assessment;
         try { assessment = JSON.parse(clean); }
         catch(e) {
-            scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">😬</div><div class="assess-loading-title">Hmm, try again</div><div class="assess-loading-sub">Couldn't parse the AI response. Tap back and try again.</div></div>`;
-            console.error('Parse error:', rawText);
-            return;
+            // Fallback: try regex extraction of JSON object
+            const match = clean.match(/\{[\s\S]*\}/);
+            if (match) {
+                try { assessment = JSON.parse(match[0]); }
+                catch(e2) {
+                    scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">😬</div><div class="assess-loading-title">Hmm, try again</div><div class="assess-loading-sub">Couldn't parse the AI response. Tap back and try again.</div></div>`;
+                    console.error('Parse error:', rawText);
+                    return;
+                }
+            } else {
+                scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">😬</div><div class="assess-loading-title">Hmm, try again</div><div class="assess-loading-sub">Couldn't parse the AI response. Tap back and try again.</div></div>`;
+                console.error('Parse error:', rawText);
+                return;
+            }
         }
 
         renderAssessment(assessment, lastRound, front9pts, back9pts, holePoints, bestHoles, worstHoles);
