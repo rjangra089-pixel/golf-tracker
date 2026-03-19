@@ -1774,6 +1774,30 @@
 </div>
 
 <!-- ══════════════════════════════════════
+     SCREEN: SET NEW PASSWORD (password reset flow)
+══════════════════════════════════════ -->
+<div id="screen-set-password" class="screen">
+    <div class="auth-wrap">
+        <div class="auth-logo">🔑</div>
+        <div class="auth-title">NEW PASSWORD</div>
+        <div class="auth-sub">Choose a new password for your account</div>
+        <div class="auth-form">
+            <div class="auth-field">
+                <div class="field-label">New Password</div>
+                <input class="field-input" id="new-password" type="password" placeholder="Min. 6 characters" autocomplete="new-password">
+            </div>
+            <div class="auth-field">
+                <div class="field-label">Confirm Password</div>
+                <input class="field-input" id="confirm-password" type="password" placeholder="Repeat your password" autocomplete="new-password">
+            </div>
+            <div class="auth-error" id="set-password-error"></div>
+            <button class="btn-teeoff" id="btn-set-password" onclick="doSetNewPassword()">SET PASSWORD</button>
+        </div>
+        <div class="auth-footer">Golf Tracker Pro · Beta</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════
      SCREEN: ONBOARDING (new users)
 ══════════════════════════════════════ -->
 <div id="screen-onboarding" class="screen">
@@ -3793,7 +3817,10 @@ let currentUser = null;
 // Check session on load
 sb.auth.onAuthStateChange(async (event, session) => {
     currentUser = session?.user || null;
-    if (currentUser) {
+    if (event === 'PASSWORD_RECOVERY') {
+        // User clicked a reset link — show the set-new-password screen
+        showScreen('screen-set-password');
+    } else if (currentUser) {
         await bootApp();
     } else {
         showScreen('screen-auth');
@@ -3973,6 +4000,27 @@ async function doResetPassword() {
             </div>
             <div style="font-size:13px;color:var(--gray);margin-top:16px">Can't find it? Check your spam folder.</div>
         </div>`;
+}
+
+async function doSetNewPassword() {
+    const newPass     = document.getElementById('new-password').value;
+    const confirmPass = document.getElementById('confirm-password').value;
+    const errEl       = document.getElementById('set-password-error');
+    const btn         = document.getElementById('btn-set-password');
+
+    if (!newPass || newPass.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; return; }
+    if (newPass !== confirmPass) { errEl.textContent = 'Passwords do not match'; return; }
+
+    errEl.textContent = '';
+    btn.textContent = 'Saving...'; btn.disabled = true;
+
+    const { error } = await sb.auth.updateUser({ password: newPass });
+    btn.textContent = 'SET PASSWORD'; btn.disabled = false;
+
+    if (error) { errEl.textContent = error.message; return; }
+
+    // Password updated — sign them in properly and go to app
+    await bootApp();
 }
 
 async function doSignOut() {
