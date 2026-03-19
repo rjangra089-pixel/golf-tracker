@@ -967,6 +967,10 @@ function renderUsersTable(profiles, rounds) {
 }
 
 function renderRoundsChart(rounds) {
+    // Destroy existing chart instance before recreating
+    const existing = Chart.getChart('chart-rounds');
+    if (existing) existing.destroy();
+
     // Group rounds by week
     const weekMap = {};
     rounds.forEach(r => {
