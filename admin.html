@@ -713,75 +713,89 @@
             </table>
         </div>
 
-        <!-- COURSE IMPORT — Manual Entry -->
+        <!-- COURSE IMPORT — GolfCourseAPI -->
         <div class="section-title">Add Course</div>
         <div class="import-box">
 
-            <!-- Course-level details -->
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
-                <div style="grid-column:1/-1;">
-                    <div class="stat-label" style="margin-bottom:6px;">Course Name</div>
-                    <input class="import-input" id="preview-name-input" type="text"
-                        placeholder="e.g. Wycombe Heights Golf Centre" style="width:100%;font-family:var(--font-body);">
-                </div>
-                <div style="grid-column:1/-1;">
-                    <div class="stat-label" style="margin-bottom:6px;">Location</div>
-                    <input class="import-input" id="preview-location-input" type="text"
-                        placeholder="e.g. High Wycombe, Buckinghamshire" style="width:100%;font-family:var(--font-body);">
-                </div>
-                <div>
-                    <div class="stat-label" style="margin-bottom:6px;">Total Par</div>
-                    <input class="import-input" id="preview-par-input" type="number" min="60" max="80" placeholder="72" style="width:100%;">
-                </div>
-                <div>
-                    <div class="stat-label" style="margin-bottom:6px;">Yellow Rating</div>
-                    <input class="import-input" id="preview-rating-yellow" type="number" step="0.1" placeholder="e.g. 69.5" style="width:100%;">
-                </div>
-                <div>
-                    <div class="stat-label" style="margin-bottom:6px;">Yellow Slope</div>
-                    <input class="import-input" id="preview-slope-yellow" type="number" placeholder="e.g. 116" style="width:100%;">
-                </div>
-                <div>
-                    <div class="stat-label" style="margin-bottom:6px;">White Rating</div>
-                    <input class="import-input" id="preview-rating-white" type="number" step="0.1" placeholder="e.g. 71.2" style="width:100%;">
-                </div>
-                <div>
-                    <div class="stat-label" style="margin-bottom:6px;">White Slope</div>
-                    <input class="import-input" id="preview-slope-white" type="number" placeholder="e.g. 120" style="width:100%;">
+            <!-- Step 1: Search -->
+            <div style="margin-bottom:14px;">
+                <div class="stat-label" style="margin-bottom:8px;">Search GolfCourseAPI</div>
+                <div class="import-row">
+                    <input class="import-input" id="course-search-input" type="text"
+                        placeholder="e.g. Wycombe Heights Golf Centre"
+                        onkeydown="if(event.key==='Enter') searchCourses()">
+                    <button class="import-btn" id="search-btn" onclick="searchCourses()">SEARCH →</button>
                 </div>
             </div>
+            <div class="import-status" id="import-status"></div>
 
-            <!-- Hole-by-hole table -->
-            <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-                <div class="stat-label">Hole Data</div>
-                <button onclick="prefillPars()" style="background:none;border:1px solid var(--border2);border-radius:6px;color:var(--gray);font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--font-body);">
-                    Auto-fill standard pars (4,4,3,5...)
-                </button>
+            <!-- Step 2: Search results list -->
+            <div id="search-results" style="display:none;margin-bottom:16px;"></div>
+
+            <!-- Step 3: Course details + hole table (shown after selecting a result) -->
+            <div id="course-form" style="display:none;">
+
+                <!-- Course-level metadata -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+                    <div style="grid-column:1/-1;">
+                        <div class="stat-label" style="margin-bottom:6px;">Course Name</div>
+                        <input class="import-input" id="preview-name-input" type="text"
+                            style="width:100%;font-family:var(--font-body);">
+                    </div>
+                    <div style="grid-column:1/-1;">
+                        <div class="stat-label" style="margin-bottom:6px;">Location</div>
+                        <input class="import-input" id="preview-location-input" type="text"
+                            style="width:100%;font-family:var(--font-body);">
+                    </div>
+                    <div>
+                        <div class="stat-label" style="margin-bottom:6px;">Total Par</div>
+                        <input class="import-input" id="preview-par-input" type="number" min="60" max="80" style="width:100%;">
+                    </div>
+                    <div>
+                        <div class="stat-label" style="margin-bottom:6px;">Yellow Rating</div>
+                        <input class="import-input" id="preview-rating-yellow" type="number" step="0.1" placeholder="—" style="width:100%;">
+                    </div>
+                    <div>
+                        <div class="stat-label" style="margin-bottom:6px;">Yellow Slope</div>
+                        <input class="import-input" id="preview-slope-yellow" type="number" placeholder="—" style="width:100%;">
+                    </div>
+                    <div>
+                        <div class="stat-label" style="margin-bottom:6px;">White Rating</div>
+                        <input class="import-input" id="preview-rating-white" type="number" step="0.1" placeholder="—" style="width:100%;">
+                    </div>
+                    <div>
+                        <div class="stat-label" style="margin-bottom:6px;">White Slope</div>
+                        <input class="import-input" id="preview-slope-white" type="number" placeholder="—" style="width:100%;">
+                    </div>
+                </div>
+
+                <!-- Hole table -->
+                <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div class="stat-label">Hole Data <span id="hole-data-source" style="color:var(--green);font-size:11px;margin-left:6px;"></span></div>
+                </div>
+                <div class="preview-table-wrap">
+                    <table class="preview-table">
+                        <thead>
+                            <tr>
+                                <th>#</th><th>Par</th><th>SI</th>
+                                <th>Yellow (yds)</th><th>White (yds)</th><th>Danger?</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-tbody"></tbody>
+                    </table>
+                </div>
+
+                <div class="import-hint" style="margin-top:12px;">
+                    Review and edit any values before saving. SI = stroke index 1–18. Tick danger holes to show ⚠ warnings during play.
+                </div>
+
+                <div class="import-status" id="save-status" style="margin-top:12px;"></div>
+                <button class="save-course-btn" id="save-course-btn" onclick="saveCourse()" style="margin-top:12px;">💾 SAVE COURSE TO APP</button>
             </div>
 
-            <div class="preview-table-wrap">
-                <table class="preview-table" id="manual-hole-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Par</th>
-                            <th>SI</th>
-                            <th>Yellow (yds)</th>
-                            <th>White (yds)</th>
-                            <th>Danger?</th>
-                        </tr>
-                    </thead>
-                    <tbody id="preview-tbody"></tbody>
-                </table>
+            <div class="import-hint" id="search-hint">
+                Type the course name and hit Search. Pick the correct result and hole data auto-fills from GolfCourseAPI. Edit anything before saving.
             </div>
-
-            <div class="import-hint" style="margin-top:12px;">
-                Fill in course details above, then enter hole data. SI = stroke index 1–18. Danger holes show ⚠ warnings to users during play. Rating &amp; slope from the club's scorecard or England Golf.
-            </div>
-
-            <div class="import-status" id="import-status" style="margin-top:12px;"></div>
-            <div class="import-status" id="save-status"></div>
-            <button class="save-course-btn" id="save-course-btn" onclick="saveCourse()" style="margin-top:12px;">💾 SAVE COURSE TO APP</button>
         </div>
 
         </div>
@@ -860,7 +874,6 @@ async function loadDashboard() {
     renderUsersTable(profiles, rounds);
     renderRoundsChart(rounds);
     renderCourseBars(rounds);
-    buildHoleTable(); // build manual course entry table
 }
 
 function renderStats(profiles, rounds) {
@@ -1018,85 +1031,215 @@ function renderCourseBars(rounds) {
     `).join('');
 }
 
-// ── COURSE IMPORT — Manual Entry ──
-let importedHoles = Array.from({length: 18}, (_, i) => ({ num: i+1, par: 4, si: i+1, yellowYards: null, whiteYards: null, danger: false }));
+// ── COURSE IMPORT — GolfCourseAPI ──────────────────────────────
+const GOLF_API_BASE = 'https://api.golfcourseapi.com';
+const GOLF_API_KEY  = 'AB6N2Q2NA2VC53E7SD6DDXYHAU'; // ← paste your GolfCourseAPI key here
 
-// Build the hole table on page load
-function buildHoleTable() {
+let importedHoles = [];
+
+async function searchCourses() {
+    const query = document.getElementById('course-search-input').value.trim();
+    const btn   = document.getElementById('search-btn');
+
+    if (!query) { setStatus('import-status', 'error', 'Please type a course name first.'); return; }
+    if (!GOLF_API_KEY) { setStatus('import-status', 'error', '⚠ Add your GolfCourseAPI key to GOLF_API_KEY in the script.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'SEARCHING…';
+    setStatus('import-status', 'loading', '⏳ Searching…');
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('course-form').style.display = 'none';
+    document.getElementById('search-hint').style.display = 'none';
+
+    try {
+        // Correct endpoint per OpenAPI spec: /v1/search?search_query=
+        const res = await fetch(
+            `${GOLF_API_BASE}/v1/search?search_query=${encodeURIComponent(query)}`,
+            { headers: { 'Authorization': `Key ${GOLF_API_KEY}` } }
+        );
+
+        if (res.status === 401) throw new Error('Invalid API key — check GOLF_API_KEY.');
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+
+        const data  = await res.json();
+        const courses = data.courses || [];
+
+        if (!courses.length) {
+            setStatus('import-status', 'error', `No results for "${query}". Try a shorter name.`);
+            return;
+        }
+
+        setStatus('import-status', 'success', `${courses.length} result${courses.length > 1 ? 's' : ''} — pick the right one:`);
+        renderSearchResults(courses);
+
+    } catch(e) {
+        setStatus('import-status', 'error', '⚠ ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'SEARCH →';
+    }
+}
+
+function renderSearchResults(courses) {
+    const el = document.getElementById('search-results');
+    el.style.display = 'block';
+    el.innerHTML = courses.map(c => {
+        const loc = c.location || {};
+        const locStr = [loc.city, loc.state, loc.country].filter(Boolean).join(', ');
+        return `
+        <div class="search-result-item" onclick="loadCourse(${c.id}, this)">
+            <div>
+                <div class="search-result-name">${c.club_name || c.course_name}</div>
+                <div class="search-result-meta">${locStr || 'Unknown location'}</div>
+            </div>
+            <button class="select-course-btn">SELECT →</button>
+        </div>`;
+    }).join('');
+}
+
+async function loadCourse(courseId, el) {
+    document.querySelectorAll('.search-result-item').forEach(r => r.classList.remove('selected'));
+    el.classList.add('selected');
+
+    setStatus('import-status', 'loading', '⏳ Loading course data…');
+    document.getElementById('course-form').style.display = 'none';
+
+    try {
+        // /v1/courses/{id} returns full tee + hole data
+        const res = await fetch(
+            `${GOLF_API_BASE}/v1/courses/${courseId}`,
+            { headers: { 'Authorization': `Key ${GOLF_API_KEY}` } }
+        );
+        if (!res.ok) throw new Error(`Course fetch error ${res.status}`);
+        const data   = await res.json();
+        const course = data.course || data;
+
+        fillCourseForm(course);
+        setStatus('import-status', 'success', `✓ Loaded — review and edit below, then save.`);
+
+    } catch(e) {
+        setStatus('import-status', 'error', '⚠ ' + e.message);
+    }
+}
+
+function fillCourseForm(course) {
+    const loc    = course.location || {};
+    const locStr = [loc.city, loc.state, loc.country].filter(Boolean).join(', ');
+    const tees   = course.tees || {};
+
+    // Find yellow and white tees by name — order varies per course
+    const maleTees   = tees.male   || [];
+    const femaleTees = tees.female || [];
+    const allTees    = [...maleTees, ...femaleTees];
+
+    const findTee = (...labels) => allTees.find(t =>
+        labels.some(l => (t.tee_name || '').toLowerCase().includes(l))
+    );
+
+    // Yellow tee: yellow, medal, gents — fallback to last male tee (usually shorter)
+    const yellowTee = findTee('yellow', 'medal', 'gents') ||
+                      (maleTees.length > 1 ? maleTees[maleTees.length - 1] : maleTees[0]) ||
+                      allTees[allTees.length - 1];
+
+    // White tee: white, back, championship — fallback to first male tee (usually longer)
+    const whiteTee  = findTee('white', 'back', 'championship') ||
+                      (maleTees.length > 0 ? maleTees[0] : null);
+
+    // Hole data comes from the yellow tee (most complete)
+    // API returns: holes = [{par, yardage, handicap}, ...]
+    // handicap = stroke index per the OpenAPI spec
+    const yellowHoles = yellowTee?.holes || [];
+    const whiteHoles  = whiteTee?.holes  || [];
+
+    const totalPar = yellowHoles.reduce((s, h) => s + (h.par || 0), 0) || yellowTee?.par_total || 72;
+
+    // Build importedHoles — handicap = stroke index per OpenAPI spec (may be absent)
+    importedHoles = Array.from({length: 18}, (_, i) => ({
+        num:         i + 1,
+        par:         yellowHoles[i]?.par      || whiteHoles[i]?.par || 4,
+        si:          yellowHoles[i]?.handicap  || whiteHoles[i]?.handicap || null,
+        yellowYards: yellowHoles[i]?.yardage   || null,
+        whiteYards:  whiteHoles[i]?.yardage    || null,
+        danger:      false,
+    }));
+
+    // Fill course-level fields
+    document.getElementById('preview-name-input').value     = course.club_name || course.course_name || '';
+    document.getElementById('preview-location-input').value = locStr;
+    document.getElementById('preview-par-input').value      = totalPar;
+    document.getElementById('preview-rating-yellow').value  = yellowTee?.course_rating || '';
+    document.getElementById('preview-slope-yellow').value   = yellowTee?.slope_rating  || '';
+    document.getElementById('preview-rating-white').value   = whiteTee?.course_rating  || '';
+    document.getElementById('preview-slope-white').value    = whiteTee?.slope_rating   || '';
+
+    // Label what tees we found
+    const src = [
+        yellowTee ? `Yellow = "${yellowTee.tee_name}"` : null,
+        whiteTee  ? `White = "${whiteTee.tee_name}"`   : null,
+    ].filter(Boolean).join(' · ');
+    document.getElementById('hole-data-source').textContent = src ? `(${src})` : '';
+
+    // Render hole table
     const tbody = document.getElementById('preview-tbody');
-    if (!tbody) return;
     tbody.innerHTML = importedHoles.map((h, i) => `
         <tr>
             <td style="font-family:var(--font-display);font-size:16px;color:var(--gray);text-align:center;">${h.num}</td>
             <td><input type="number" min="3" max="5" value="${h.par}" id="ph-par-${i}"
-                style="width:45px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;text-align:center;outline:none;padding:2px 0;"
+                style="width:45px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;text-align:center;outline:none;"
                 onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='var(--border2)'"></td>
-            <td><input type="number" min="1" max="18" value="${h.si}" id="ph-si-${i}"
-                style="width:45px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;text-align:center;outline:none;padding:2px 0;"
+            <td><input type="number" min="1" max="18" value="${h.si || ''}" id="ph-si-${i}" placeholder="—"
+                style="width:45px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;text-align:center;outline:none;"
                 onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='var(--border2)'"></td>
             <td><input type="number" min="50" max="800" value="${h.yellowYards || ''}" id="ph-yw-${i}" placeholder="—"
-                style="width:60px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;text-align:center;outline:none;padding:2px 0;"
+                style="width:60px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;text-align:center;outline:none;"
                 onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='var(--border2)'"></td>
             <td><input type="number" min="50" max="800" value="${h.whiteYards || ''}" id="ph-wh-${i}" placeholder="—"
-                style="width:60px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;text-align:center;outline:none;padding:2px 0;"
+                style="width:60px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;text-align:center;outline:none;"
                 onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='var(--border2)'"></td>
             <td style="text-align:center;">
                 <input type="checkbox" id="ph-danger-${i}"
                     style="accent-color:var(--red);width:16px;height:16px;cursor:pointer;">
             </td>
         </tr>`).join('');
-}
 
-// Auto-fill a sensible par pattern (par 4s with par 3s and 5s distributed)
-function prefillPars() {
-    const pars = [4,4,3,5,4,3,4,4,5, 4,4,3,5,4,3,4,4,5];
-    for (let i = 0; i < 18; i++) {
-        const el = document.getElementById(`ph-par-${i}`);
-        if (el && !el.value) el.value = pars[i];
-    }
-    // Also fill SI 1-18 sequentially if empty
-    for (let i = 0; i < 18; i++) {
-        const el = document.getElementById(`ph-si-${i}`);
-        if (el && !el.value) el.value = i + 1;
-    }
+    document.getElementById('course-form').style.display = 'block';
+    document.getElementById('save-status').textContent    = '';
+    document.getElementById('save-course-btn').textContent = '💾 SAVE COURSE TO APP';
+    document.getElementById('save-course-btn').disabled   = false;
 }
 
 async function saveCourse() {
-    const saveBtn    = document.getElementById('save-course-btn');
-    const courseName = document.getElementById('preview-name-input').value.trim();
-    const location   = document.getElementById('preview-location-input').value.trim();
-    const par        = parseInt(document.getElementById('preview-par-input').value);
+    const saveBtn      = document.getElementById('save-course-btn');
+    const courseName   = document.getElementById('preview-name-input').value.trim();
+    const location     = document.getElementById('preview-location-input').value.trim();
+    const par          = parseInt(document.getElementById('preview-par-input').value);
     const yellowRating = parseFloat(document.getElementById('preview-rating-yellow').value) || null;
     const yellowSlope  = parseInt(document.getElementById('preview-slope-yellow').value)    || null;
     const whiteRating  = parseFloat(document.getElementById('preview-rating-white').value)  || null;
     const whiteSlope   = parseInt(document.getElementById('preview-slope-white').value)     || null;
 
-    if (!courseName) { setStatus('save-status', 'error', 'Please enter a course name.'); return; }
+    if (!courseName) { setStatus('save-status', 'error', 'Course name is required.'); return; }
     if (!par || par < 60 || par > 80) { setStatus('save-status', 'error', 'Please enter a valid total par (60–80).'); return; }
 
-    // Collect all 18 holes from the table
+    // Collect hole rows from editable table
     const holes = Array.from({length: 18}, (_, i) => {
-        const hPar  = parseInt(document.getElementById(`ph-par-${i}`)?.value) || 4;
-        const hSI   = parseInt(document.getElementById(`ph-si-${i}`)?.value)  || (i + 1);
-        const hYel  = parseInt(document.getElementById(`ph-yw-${i}`)?.value)  || null;
-        const hWht  = parseInt(document.getElementById(`ph-wh-${i}`)?.value)  || null;
-        const hDng  = document.getElementById(`ph-danger-${i}`)?.checked || false;
+        const hYel = parseInt(document.getElementById(`ph-yw-${i}`)?.value) || null;
+        const hWht = parseInt(document.getElementById(`ph-wh-${i}`)?.value) || null;
         return {
             hole_number:      i + 1,
-            par:              hPar,
-            stroke_index:     hSI,
+            par:              parseInt(document.getElementById(`ph-par-${i}`)?.value) || 4,
+            stroke_index:     parseInt(document.getElementById(`ph-si-${i}`)?.value) || (i + 1),
             yardage:          hYel,
             tee_options:      { yellow: { yardage: hYel }, white: { yardage: hWht } },
-            is_danger_hole:   hDng,
-            default_strategy: `Hole ${i+1}. Play smart.`,
+            is_danger_hole:   document.getElementById(`ph-danger-${i}`)?.checked || false,
+            default_strategy: `Hole ${i + 1}. Play smart.`,
         };
     });
 
-    // Validate SI 1-18 are all unique
-    const siValues = holes.map(h => h.stroke_index);
-    const uniqueSI = new Set(siValues);
-    if (uniqueSI.size !== 18) {
-        setStatus('save-status', 'error', `⚠ Stroke indexes must be unique (1–18). Found ${18 - uniqueSI.size} duplicate(s).`);
+    // Validate unique stroke indexes only if they're filled in
+    const filledSIs = holes.map(h => h.stroke_index).filter(s => s > 0);
+    if (filledSIs.length === 18 && new Set(filledSIs).size !== 18) {
+        setStatus('save-status', 'error', `⚠ Stroke indexes must be unique 1–18. Please fix duplicates.`);
         return;
     }
 
@@ -1104,7 +1247,7 @@ async function saveCourse() {
 
     saveBtn.disabled = true;
     saveBtn.textContent = 'SAVING…';
-    setStatus('save-status', 'loading', 'Inserting course into Supabase…');
+    setStatus('save-status', 'loading', 'Saving to Supabase…');
 
     try {
         // 1. Upsert course
@@ -1127,32 +1270,18 @@ async function saveCourse() {
         if (courseErr) throw new Error('Course save failed: ' + courseErr.message);
         const courseId = courseData.id;
 
-        // 2. Delete existing holes (clean overwrite so re-saving works)
+        // 2. Delete existing holes (clean overwrite)
         const { error: delErr } = await sb.from('holes').delete().eq('course_id', courseId);
         if (delErr) throw new Error('Could not clear old holes: ' + delErr.message);
 
         // 3. Insert 18 holes
-        const holeRows = holes.map(h => ({ ...h, course_id: courseId }));
-        const { error: holeErr } = await sb.from('holes').insert(holeRows);
+        const { error: holeErr } = await sb.from('holes').insert(
+            holes.map(h => ({ ...h, course_id: courseId }))
+        );
         if (holeErr) throw new Error('Holes insert failed: ' + holeErr.message);
 
-        setStatus('save-status', 'success', `✅ "${courseName}" saved! 18 holes inserted. Slug: ${slug}`);
+        setStatus('save-status', 'success', `✅ "${courseName}" saved! Slug: ${slug}`);
         saveBtn.textContent = 'SAVED ✓';
-
-        // Clear the form for next course
-        setTimeout(() => {
-            document.getElementById('preview-name-input').value   = '';
-            document.getElementById('preview-location-input').value = '';
-            document.getElementById('preview-par-input').value    = '';
-            document.getElementById('preview-rating-yellow').value = '';
-            document.getElementById('preview-slope-yellow').value  = '';
-            document.getElementById('preview-rating-white').value  = '';
-            document.getElementById('preview-slope-white').value   = '';
-            buildHoleTable();
-            saveBtn.disabled = false;
-            saveBtn.textContent = '💾 SAVE COURSE TO APP';
-        }, 3000);
-
         await loadDashboard();
 
     } catch(e) {
@@ -1168,6 +1297,8 @@ function setStatus(id, type, msg) {
     el.className = `import-status ${type}`;
     el.textContent = msg;
 }
+
+// buildHoleTable and prefillPars no longer needed — removed
 
 // ── HELPERS ──
 function fmtDate(d) {
