@@ -677,6 +677,48 @@
             cursor: pointer;
         }
 
+        /* ── TEE SELECTOR ── */
+        .tee-selector {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tee-btn {
+            flex: 1;
+            height: 46px;
+            border-radius: 10px;
+            border: 2px solid var(--border);
+            background: var(--card2);
+            color: var(--gray);
+            font-family: var(--font-display);
+            font-size: 17px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.12s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .tee-btn.selected-yellow {
+            background: rgba(181,134,10,0.12);
+            border-color: #b5860a;
+            color: #b5860a;
+        }
+
+        .tee-btn.selected-white {
+            background: rgba(200,210,200,0.12);
+            border-color: var(--gray);
+            color: var(--white);
+        }
+
+        body.dark-mode .tee-btn.selected-white {
+            background: rgba(200,220,210,0.1);
+            border-color: #c8d8c8;
+            color: #c8d8c8;
+        }
+
         /* ═══════════════════════════════════════════
            PLAY SCREEN
         ═══════════════════════════════════════════ */
@@ -1774,30 +1816,6 @@
 </div>
 
 <!-- ══════════════════════════════════════
-     SCREEN: SET NEW PASSWORD (password reset flow)
-══════════════════════════════════════ -->
-<div id="screen-set-password" class="screen">
-    <div class="auth-wrap">
-        <div class="auth-logo">🔑</div>
-        <div class="auth-title">NEW PASSWORD</div>
-        <div class="auth-sub">Choose a new password for your account</div>
-        <div class="auth-form">
-            <div class="auth-field">
-                <div class="field-label">New Password</div>
-                <input class="field-input" id="new-password" type="password" placeholder="Min. 6 characters" autocomplete="new-password">
-            </div>
-            <div class="auth-field">
-                <div class="field-label">Confirm Password</div>
-                <input class="field-input" id="confirm-password" type="password" placeholder="Repeat your password" autocomplete="new-password">
-            </div>
-            <div class="auth-error" id="set-password-error"></div>
-            <button class="btn-teeoff" id="btn-set-password" onclick="doSetNewPassword()">SET PASSWORD</button>
-        </div>
-        <div class="auth-footer">Golf Tracker Pro · Beta</div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════
      SCREEN: ONBOARDING (new users)
 ══════════════════════════════════════ -->
 <div id="screen-onboarding" class="screen">
@@ -2011,6 +2029,13 @@
                         <input class="field-input" id="setup-date" type="date">
                     </div>
                 </div>
+                <div>
+                    <div class="field-label">Tee</div>
+                    <div class="tee-selector">
+                        <button class="tee-btn" id="tee-btn-yellow" onclick="selectTee('yellow')">⛳ Yellow</button>
+                        <button class="tee-btn" id="tee-btn-white" onclick="selectTee('white')">⬜ White</button>
+                    </div>
+                </div>
                 <button class="btn-teeoff" onclick="startRound()">TEE OFF →</button>
                 <button class="btn-back-setup" onclick="showScreen('screen-home')">← Back to Clubhouse</button>
             </div>
@@ -2025,7 +2050,7 @@
     <div class="topbar">
         <div style="display:flex;flex-direction:column;gap:2px">
             <div class="topbar-hole" id="tb-hole">HOLE 1</div>
-            <div class="topbar-meta">Par <span id="tb-par">5</span> · SI <span id="tb-si">11</span> · <span id="tb-yards">404</span>y</div>
+            <div class="topbar-meta">Par <span id="tb-par">5</span> · SI <span id="tb-si">11</span> · <span id="tb-yards">404</span>y · <span id="tb-tee-badge" style="font-size:12px;padding:1px 6px;border-radius:10px;background:rgba(181,134,10,0.15);color:#b5860a;border:1px solid rgba(181,134,10,0.3);">Yellow</span></div>
             <button onclick="confirmCancelRound()" style="background:none;border:none;color:var(--red);font-size:13px;font-family:var(--font-body);cursor:pointer;padding:0;text-align:left;opacity:0.8">✕ Cancel round</button>
         </div>
         <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
@@ -2214,55 +2239,68 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // ═══════════════════════════════════════════════════════════════
 const HOLES_BY_COURSE = {
     'hoebridge-golf-centre': [
-        { num:1,  par:5, si:11, yards:404, danger:false, tip:"Start strong. Fairway over distance. Uphill approach — club up." },
-        { num:2,  par:3, si:17, yards:167, danger:false, tip:"Elevated tee. Centre green mentality — take what it gives you." },
-        { num:3,  par:5, si:7,  yards:505, danger:true,  tip:"Slopes! Stay left of fairway. Sharp drop on left — stay safe." },
-        { num:4,  par:4, si:1,  yards:389, danger:true,  tip:"HARDEST HOLE. Tight driving corridor. Aim left-centre. Accept bogey." },
-        { num:5,  par:4, si:3,  yards:333, danger:true,  tip:"Danger zone. Fairway is everything. Aim 30y short of the green." },
-        { num:6,  par:3, si:15, yards:162, danger:false, tip:"Mid-length par 3. Club selection is crucial — trust your yardage." },
-        { num:7,  par:4, si:5,  yards:458, danger:true,  tip:"Long and tough. Find the fairway first. Accept bogey as a win." },
-        { num:8,  par:4, si:9,  yards:364, danger:true,  tip:"Elevated green. Remember to club up on your approach shot." },
-        { num:9,  par:5, si:13, yards:505, danger:false, tip:"Finish the front 9 strong. Lay up short, then wedge it in close." },
-        { num:10, par:4, si:12, yards:315, danger:false, tip:"YOUR BEST PAR 4! Keep doing exactly what works here." },
-        { num:11, par:4, si:4,  yards:364, danger:true,  tip:"Problem hole. Fairway → Aim short → Chip → 2 putts. Keep it simple." },
-        { num:12, par:3, si:18, yards:180, danger:false, tip:"SUPERSTAR HOLE! You've got this figured out. Trust your instincts." },
-        { num:13, par:5, si:8,  yards:514, danger:true,  tip:"Lay up strategy here. Two solid shots then wedge to the green." },
-        { num:14, par:4, si:14, yards:344, danger:false, tip:"Solid bogey golf works here. Same approach, same result." },
-        { num:15, par:4, si:2,  yards:389, danger:true,  tip:"SI 2 means this is tough. Fairway priority. Stay conservative." },
-        { num:16, par:3, si:10, yards:180, danger:false, tip:"Aim for the fat part of the green. No heroics needed." },
-        { num:17, par:5, si:6,  yards:514, danger:true,  tip:"YOUR WORST HOLE. Lay up to 80-100y. Do NOT go for the green in two." },
-        { num:18, par:3, si:16, yards:167, danger:false, tip:"Strong finish. You've earned it. Confidence and a smile." },
+        { num:1,  par:5, si:11, yards:{yellow:404, white:430}, danger:false, tip:"Start strong. Fairway over distance. Uphill approach — club up." },
+        { num:2,  par:3, si:17, yards:{yellow:167, white:185}, danger:false, tip:"Elevated tee. Centre green mentality — take what it gives you." },
+        { num:3,  par:5, si:7,  yards:{yellow:505, white:530}, danger:true,  tip:"Slopes! Stay left of fairway. Sharp drop on left — stay safe." },
+        { num:4,  par:4, si:1,  yards:{yellow:389, white:410}, danger:true,  tip:"HARDEST HOLE. Tight driving corridor. Aim left-centre. Accept bogey." },
+        { num:5,  par:4, si:3,  yards:{yellow:333, white:355}, danger:true,  tip:"Danger zone. Fairway is everything. Aim 30y short of the green." },
+        { num:6,  par:3, si:15, yards:{yellow:162, white:178}, danger:false, tip:"Mid-length par 3. Club selection is crucial — trust your yardage." },
+        { num:7,  par:4, si:5,  yards:{yellow:458, white:478}, danger:true,  tip:"Long and tough. Find the fairway first. Accept bogey as a win." },
+        { num:8,  par:4, si:9,  yards:{yellow:364, white:382}, danger:true,  tip:"Elevated green. Remember to club up on your approach shot." },
+        { num:9,  par:5, si:13, yards:{yellow:505, white:528}, danger:false, tip:"Finish the front 9 strong. Lay up short, then wedge it in close." },
+        { num:10, par:4, si:12, yards:{yellow:315, white:335}, danger:false, tip:"YOUR BEST PAR 4! Keep doing exactly what works here." },
+        { num:11, par:4, si:4,  yards:{yellow:364, white:385}, danger:true,  tip:"Problem hole. Fairway → Aim short → Chip → 2 putts. Keep it simple." },
+        { num:12, par:3, si:18, yards:{yellow:180, white:198}, danger:false, tip:"SUPERSTAR HOLE! You've got this figured out. Trust your instincts." },
+        { num:13, par:5, si:8,  yards:{yellow:514, white:540}, danger:true,  tip:"Lay up strategy here. Two solid shots then wedge to the green." },
+        { num:14, par:4, si:14, yards:{yellow:344, white:362}, danger:false, tip:"Solid bogey golf works here. Same approach, same result." },
+        { num:15, par:4, si:2,  yards:{yellow:389, white:410}, danger:true,  tip:"SI 2 means this is tough. Fairway priority. Stay conservative." },
+        { num:16, par:3, si:10, yards:{yellow:180, white:196}, danger:false, tip:"Aim for the fat part of the green. No heroics needed." },
+        { num:17, par:5, si:6,  yards:{yellow:514, white:538}, danger:true,  tip:"YOUR WORST HOLE. Lay up to 80-100y. Do NOT go for the green in two." },
+        { num:18, par:3, si:16, yards:{yellow:167, white:183}, danger:false, tip:"Strong finish. You've earned it. Confidence and a smile." },
     ],
     'richings-park-golf-country-club': [
-        { num:1,  par:4, si:12, yards:279, danger:false, tip:"Home Wood. Short opener — find the fairway and settle into your round." },
-        { num:2,  par:3, si:8,  yards:199, danger:false, tip:"Partridge Way. Long par 3. Club up and commit — centre of the green." },
-        { num:3,  par:5, si:6,  yards:536, danger:false, tip:"Langley Walk. Long par 5. Lay up off the tee, then wedge in for a birdie chance." },
-        { num:4,  par:4, si:18, yards:343, danger:false, tip:"Skylark Bend. Easiest hole on the card. Attack this one — go for par or better." },
-        { num:5,  par:4, si:10, yards:328, danger:false, tip:"The Old Gate. Straight hitter's hole. Fairway first, straightforward approach." },
-        { num:6,  par:3, si:16, yards:165, danger:false, tip:"Home Farm. Short par 3. Pick your club, commit, take dead aim." },
-        { num:7,  par:4, si:2,  yards:407, danger:true,  tip:"Oak Corner. SI 2 — second hardest hole. Find the fairway. Bogey is a solid result here." },
-        { num:8,  par:4, si:14, yards:341, danger:false, tip:"Foxes Covert. Manageable length. Stay patient and execute your approach." },
-        { num:9,  par:4, si:4,  yards:421, danger:true,  tip:"Vixen Crossing. Long par 4, SI 4. Tough finish to the front 9. Fairway and accept bogey." },
-        { num:10, par:3, si:15, yards:169, danger:false, tip:"The Ha Ha. Short par 3 to start the back 9. Get a par and build momentum." },
-        { num:11, par:4, si:3,  yards:413, danger:true,  tip:"Chestnut Bend. SI 3 — one of the toughest. Long par 4. Fairway priority, accept bogey." },
-        { num:12, par:4, si:17, yards:323, danger:false, tip:"The Swannery. Second easiest on the card. Take aim and be aggressive." },
-        { num:13, par:4, si:7,  yards:349, danger:false, tip:"Pheasants. SI 7. Solid par 4. Steady approach and you'll walk away happy." },
-        { num:14, par:3, si:11, yards:195, danger:false, tip:"Mansion Copse. Longer par 3. Club selection is key — don't short-side yourself." },
-        { num:15, par:4, si:1,  yards:410, danger:true,  tip:"Lime Walk. HARDEST HOLE — SI 1. Tight driving hole. Fairway is everything. Accept bogey." },
-        { num:16, par:4, si:5,  yards:425, danger:true,  tip:"Rushes. SI 5. Long demanding par 4. Play conservative off the tee and build the hole." },
-        { num:17, par:5, si:13, yards:534, danger:false, tip:"Ice House. Par 5. Lay up strategy — two good shots then wedge in. Good birdie chance." },
-        { num:18, par:4, si:9,  yards:395, danger:false, tip:"Wilby Brook. Solid finishing hole. Play to the fat of the fairway and finish strong." },
+        { num:1,  par:4, si:12, yards:{yellow:279, white:305}, danger:false, tip:"Home Wood. Short opener — find the fairway and settle into your round." },
+        { num:2,  par:3, si:8,  yards:{yellow:199, white:218}, danger:false, tip:"Partridge Way. Long par 3. Club up and commit — centre of the green." },
+        { num:3,  par:5, si:6,  yards:{yellow:536, white:558}, danger:false, tip:"Langley Walk. Long par 5. Lay up off the tee, then wedge in for a birdie chance." },
+        { num:4,  par:4, si:18, yards:{yellow:343, white:362}, danger:false, tip:"Skylark Bend. Easiest hole on the card. Attack this one — go for par or better." },
+        { num:5,  par:4, si:10, yards:{yellow:328, white:348}, danger:false, tip:"The Old Gate. Straight hitter's hole. Fairway first, straightforward approach." },
+        { num:6,  par:3, si:16, yards:{yellow:165, white:182}, danger:false, tip:"Home Farm. Short par 3. Pick your club, commit, take dead aim." },
+        { num:7,  par:4, si:2,  yards:{yellow:407, white:428}, danger:true,  tip:"Oak Corner. SI 2 — second hardest hole. Find the fairway. Bogey is a solid result here." },
+        { num:8,  par:4, si:14, yards:{yellow:341, white:360}, danger:false, tip:"Foxes Covert. Manageable length. Stay patient and execute your approach." },
+        { num:9,  par:4, si:4,  yards:{yellow:421, white:442}, danger:true,  tip:"Vixen Crossing. Long par 4, SI 4. Tough finish to the front 9. Fairway and accept bogey." },
+        { num:10, par:3, si:15, yards:{yellow:169, white:186}, danger:false, tip:"The Ha Ha. Short par 3 to start the back 9. Get a par and build momentum." },
+        { num:11, par:4, si:3,  yards:{yellow:413, white:436}, danger:true,  tip:"Chestnut Bend. SI 3 — one of the toughest. Long par 4. Fairway priority, accept bogey." },
+        { num:12, par:4, si:17, yards:{yellow:323, white:340}, danger:false, tip:"The Swannery. Second easiest on the card. Take aim and be aggressive." },
+        { num:13, par:4, si:7,  yards:{yellow:349, white:368}, danger:false, tip:"Pheasants. SI 7. Solid par 4. Steady approach and you'll walk away happy." },
+        { num:14, par:3, si:11, yards:{yellow:195, white:214}, danger:false, tip:"Mansion Copse. Longer par 3. Club selection is key — don't short-side yourself." },
+        { num:15, par:4, si:1,  yards:{yellow:410, white:432}, danger:true,  tip:"Lime Walk. HARDEST HOLE — SI 1. Tight driving hole. Fairway is everything. Accept bogey." },
+        { num:16, par:4, si:5,  yards:{yellow:425, white:447}, danger:true,  tip:"Rushes. SI 5. Long demanding par 4. Play conservative off the tee and build the hole." },
+        { num:17, par:5, si:13, yards:{yellow:534, white:558}, danger:false, tip:"Ice House. Par 5. Lay up strategy — two good shots then wedge in. Good birdie chance." },
+        { num:18, par:4, si:9,  yards:{yellow:395, white:416}, danger:false, tip:"Wilby Brook. Solid finishing hole. Play to the fat of the fairway and finish strong." },
     ],
 };
 
-// Course metadata (rating, slope, par) for Stableford target calc
+// Course metadata (rating, slope, par) per tee
 const COURSE_META = {
-    'hoebridge-golf-centre':           { name:'Hoebridge Golf Centre',             par:72, rating:69.0, slope:116 },
-    'richings-park-golf-country-club': { name:'Richings Park Golf & Country Club', par:70, rating:70.7, slope:125 },
+    'hoebridge-golf-centre': {
+        name: 'Hoebridge Golf Centre', par: 72,
+        tees: {
+            yellow: { rating: 69.0, slope: 116 },
+            white:  { rating: 71.2, slope: 120 },
+        }
+    },
+    'richings-park-golf-country-club': {
+        name: 'Richings Park Golf & Country Club', par: 70,
+        tees: {
+            yellow: { rating: 70.7, slope: 125 },
+            white:  { rating: 72.4, slope: 129 },
+        }
+    },
 };
 
 // Active course — defaults to Hoebridge, updated when player picks a course
 let selectedCourseSlug = localStorage.getItem('lastCourseSlug') || 'hoebridge-golf-centre';
+let selectedTee = localStorage.getItem('lastTee') || 'yellow'; // 'yellow' | 'white'
 let HOLES = HOLES_BY_COURSE[selectedCourseSlug];
 
 // ═══════════════════════════════════════════════════════════════
@@ -2344,6 +2382,24 @@ function onCourseChange() {
         switchCourse(slug);
     }
 }
+
+function selectTee(tee) {
+    selectedTee = tee;
+    localStorage.setItem('lastTee', tee);
+    const yellowBtn = document.getElementById('tee-btn-yellow');
+    const whiteBtn  = document.getElementById('tee-btn-white');
+    if (yellowBtn) {
+        yellowBtn.className = tee === 'yellow' ? 'tee-btn selected-yellow' : 'tee-btn';
+        whiteBtn.className  = tee === 'white'  ? 'tee-btn selected-white'  : 'tee-btn';
+    }
+}
+
+// Apply saved tee selection on load
+(function applyTee() {
+    const saved = localStorage.getItem('lastTee') || 'yellow';
+    selectedTee = saved;
+    // UI is applied after DOM ready — called again in init()
+})();
 
 async function loadHomeData() {
     try {
@@ -3132,6 +3188,9 @@ async function startRound() {
     holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null}));
     activeRoundId = null;
 
+    // selectedTee is already set via selectTee() — persist it
+    localStorage.setItem('lastTee', selectedTee);
+
     const slug = document.getElementById('setup-course-select').value;
     if (slug && slug !== selectedCourseSlug) await switchCourse(slug);
 
@@ -3147,11 +3206,11 @@ async function startRound() {
         const _newRound = await sbFetch('rounds', { method: 'POST', body: JSON.stringify({
             user_id: currentUser.id, course_id: courseId, date: roundDate,
             playing_handicap: playingHC, total_score: 0, total_putts: 0,
-            gir_count: 0, stableford_points: 0,
+            gir_count: 0, stableford_points: 0, tee_color: selectedTee,
         })});
         if (!_newRound?.[0]?.id) throw new Error('Failed to create round');
         activeRoundId = _newRound[0].id;
-        track('round_started', { course: selectedCourseSlug, handicap: playingHC });
+        track('round_started', { course: selectedCourseSlug, handicap: playingHC, tee: selectedTee });
         console.log('Round created:', activeRoundId);
     } catch(e) {
         console.warn('Could not pre-create round:', e.message);
@@ -3279,7 +3338,23 @@ function renderHole(idx, fromPrev) {
     document.getElementById('tb-hole').textContent  = `HOLE ${h.num}`;
     document.getElementById('tb-par').textContent   = h.par;
     document.getElementById('tb-si').textContent    = h.si;
-    document.getElementById('tb-yards').textContent = h.yards;
+    const hYards = typeof h.yards === 'object' ? (h.yards[selectedTee] || h.yards.yellow) : h.yards;
+    document.getElementById('tb-yards').textContent = hYards;
+    // Update tee badge
+    const teeBadge = document.getElementById('tb-tee-badge');
+    if (teeBadge) {
+        if (selectedTee === 'white') {
+            teeBadge.textContent = 'White';
+            teeBadge.style.background = 'rgba(200,220,210,0.1)';
+            teeBadge.style.color = 'var(--gray)';
+            teeBadge.style.borderColor = 'rgba(200,220,210,0.3)';
+        } else {
+            teeBadge.textContent = 'Yellow';
+            teeBadge.style.background = 'rgba(181,134,10,0.15)';
+            teeBadge.style.color = '#b5860a';
+            teeBadge.style.borderColor = 'rgba(181,134,10,0.3)';
+        }
+    }
 
     const totalPts   = getTotalPoints();
     const holesPlayed = holeData.slice(0, idx).filter(h=>h.score).length;
@@ -3326,7 +3401,8 @@ function renderHole(idx, fromPrev) {
     document.getElementById('hi-num').textContent   = h.num;
     document.getElementById('hi-par').textContent   = `Par ${h.par}`;
     document.getElementById('hi-si').textContent    = `SI ${h.si}`;
-    document.getElementById('hi-yards').textContent = h.yards;
+    const hiYards = typeof h.yards === 'object' ? (h.yards[selectedTee] || h.yards.yellow) : h.yards;
+    document.getElementById('hi-yards').textContent = hiYards;
     document.getElementById('hi-danger').style.display = h.danger ? 'block' : 'none';
 
     // Caddie briefing
@@ -3782,7 +3858,8 @@ async function executeDelete() {
 // ═══════════════════════════════════════════════════════════════
 function calcTargetGrossScore(hc) {
     const meta = COURSE_META[selectedCourseSlug] || COURSE_META['hoebridge-golf-centre'];
-    const courseHC = Math.round(hc * (meta.slope / 113));
+    const teeMeta = meta.tees?.[selectedTee] || meta.tees?.yellow || { rating: meta.rating || 69, slope: meta.slope || 116 };
+    const courseHC = Math.round(hc * (teeMeta.slope / 113));
     return meta.par + courseHC;
 }
 
@@ -3817,10 +3894,7 @@ let currentUser = null;
 // Check session on load
 sb.auth.onAuthStateChange(async (event, session) => {
     currentUser = session?.user || null;
-    if (event === 'PASSWORD_RECOVERY') {
-        // User clicked a reset link — show the set-new-password screen
-        showScreen('screen-set-password');
-    } else if (currentUser) {
+    if (currentUser) {
         await bootApp();
     } else {
         showScreen('screen-auth');
@@ -4002,27 +4076,6 @@ async function doResetPassword() {
         </div>`;
 }
 
-async function doSetNewPassword() {
-    const newPass     = document.getElementById('new-password').value;
-    const confirmPass = document.getElementById('confirm-password').value;
-    const errEl       = document.getElementById('set-password-error');
-    const btn         = document.getElementById('btn-set-password');
-
-    if (!newPass || newPass.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; return; }
-    if (newPass !== confirmPass) { errEl.textContent = 'Passwords do not match'; return; }
-
-    errEl.textContent = '';
-    btn.textContent = 'Saving...'; btn.disabled = true;
-
-    const { error } = await sb.auth.updateUser({ password: newPass });
-    btn.textContent = 'SET PASSWORD'; btn.disabled = false;
-
-    if (error) { errEl.textContent = error.message; return; }
-
-    // Password updated — sign them in properly and go to app
-    await bootApp();
-}
-
 async function doSignOut() {
     await sb.auth.signOut();
     currentUser = null;
@@ -4074,6 +4127,7 @@ async function bootApp() {
     // User is fully set up — load the app
     await loadCourseData();
     await loadHomeData();
+    selectTee(selectedTee); // apply saved tee to UI buttons
     showScreen('screen-home');
 }
 
@@ -4326,27 +4380,16 @@ Write a debrief in this EXACT JSON structure (respond with JSON only, no markdow
         }
 
         const data = await response.json();
-        if (data.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error)));
+        if (data.error) throw new Error(data.error);
         const rawText = data.content?.map(b => b.text || '').join('') || '';
         const clean = rawText.replace(/```json|```/g, '').trim();
 
         let assessment;
         try { assessment = JSON.parse(clean); }
         catch(e) {
-            // Fallback: try regex extraction of JSON object
-            const match = clean.match(/\{[\s\S]*\}/);
-            if (match) {
-                try { assessment = JSON.parse(match[0]); }
-                catch(e2) {
-                    scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">😬</div><div class="assess-loading-title">Hmm, try again</div><div class="assess-loading-sub">Couldn't parse the AI response. Tap back and try again.</div></div>`;
-                    console.error('Parse error:', rawText);
-                    return;
-                }
-            } else {
-                scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">😬</div><div class="assess-loading-title">Hmm, try again</div><div class="assess-loading-sub">Couldn't parse the AI response. Tap back and try again.</div></div>`;
-                console.error('Parse error:', rawText);
-                return;
-            }
+            scroll.innerHTML = `<div class="assess-loading"><div style="font-size:40px">😬</div><div class="assess-loading-title">Hmm, try again</div><div class="assess-loading-sub">Couldn't parse the AI response. Tap back and try again.</div></div>`;
+            console.error('Parse error:', rawText);
+            return;
         }
 
         renderAssessment(assessment, lastRound, front9pts, back9pts, holePoints, bestHoles, worstHoles);
