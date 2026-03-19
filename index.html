@@ -984,6 +984,31 @@
         .btn-save:disabled { background: var(--card2); color: var(--gray); }
         .btn-new { width: 100%; height: 46px; border-radius: 12px; border: 1.5px solid var(--border); background: transparent; color: var(--gray); font-family: var(--font-body); font-size: 16px; font-weight: 500; cursor: pointer; }
 
+        /* ── RESUME ROUND BANNER ── */
+        .resume-banner {
+            margin: 0 20px 16px;
+            background: linear-gradient(135deg, rgba(46,168,84,0.12), rgba(46,168,84,0.06));
+            border: 1.5px solid var(--green-bright);
+            border-radius: 16px;
+            padding: 16px 18px;
+            display: none;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+        }
+        .resume-banner:active { transform: scale(0.98); }
+        .resume-banner-icon { font-size: 28px; flex-shrink: 0; }
+        .resume-banner-text { flex: 1; }
+        .resume-banner-title {
+            font-family: var(--font-display);
+            font-size: 20px;
+            color: var(--green-bright);
+            letter-spacing: 0.5px;
+            line-height: 1;
+        }
+        .resume-banner-sub { font-size: 14px; color: var(--gray); margin-top: 3px; }
+        .resume-banner-arrow { font-size: 20px; color: var(--green-bright); }
+
         .save-status { text-align: center; padding: 12px; border-radius: 10px; font-size: 17px; font-weight: 500; display: none; }
         .save-status.success { display: block; background: rgba(46,168,84,0.08); color: var(--green-bright); border: 1px solid rgba(82,183,136,0.3); }
         .save-status.error { display: block; background: rgba(192,57,43,0.07); color: var(--red); border: 1px solid rgba(230,57,70,0.3); }
@@ -1925,6 +1950,16 @@
             <div class="loading-overlay"><div class="spinner"></div> Loading rounds...</div>
         </div>
 
+        <!-- Resume in-progress round -->
+        <div class="resume-banner" id="resume-banner" onclick="resumeRound()">
+            <div class="resume-banner-icon">🔄</div>
+            <div class="resume-banner-text">
+                <div class="resume-banner-title">RESUME ROUND</div>
+                <div class="resume-banner-sub" id="resume-banner-sub">Continue from where you left off</div>
+            </div>
+            <div class="resume-banner-arrow">→</div>
+        </div>
+
         <!-- Play CTA -->
         <button class="play-cta" onclick="showScreen('screen-setup')">
             ⛳ Play a Round
@@ -2453,6 +2488,22 @@ async function loadHomeData() {
 
         recentRounds = (rounds || []).sort((a,b) => new Date(b.date) - new Date(a.date));
         document.getElementById('home-rounds-played').textContent = `${recentRounds.length} rounds logged`;
+
+        // Check for in-progress round
+        const inProgress = recentRounds.find(r => r.round_status === 'in_progress');
+        const resumeBanner = document.getElementById('resume-banner');
+        if (inProgress) {
+            const d = new Date(inProgress.date + 'T12:00:00');
+            const dateStr = d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
+            const hole = inProgress.current_hole || 1;
+            document.getElementById('resume-banner-sub').textContent =
+                `${dateStr} · Hole ${hole} · ${inProgress.stableford_points || 0} pts so far`;
+            resumeBanner.style.display = 'flex';
+            window._inProgressRound = inProgress;
+        } else {
+            resumeBanner.style.display = 'none';
+            window._inProgressRound = null;
+        }
 
         renderHomeRounds();
         updateHomeStats();
@@ -3207,6 +3258,7 @@ async function startRound() {
             user_id: currentUser.id, course_id: courseId, date: roundDate,
             playing_handicap: playingHC, total_score: 0, total_putts: 0,
             gir_count: 0, stableford_points: 0, tee_color: selectedTee,
+            round_status: 'in_progress', current_hole: 1,
         })});
         if (!_newRound?.[0]?.id) throw new Error('Failed to create round');
         activeRoundId = _newRound[0].id;
@@ -3218,7 +3270,64 @@ async function startRound() {
     }
 }
 
-// ── Caddie briefing collapse ──────────────────────────
+// ── RESUME IN-PROGRESS ROUND ─────────────────────────────────────
+async function resumeRound() {
+    const round = window._inProgressRound;
+    if (!round) return;
+
+    // Show loading state on banner
+    const banner = document.getElementById('resume-banner');
+    banner.style.opacity = '0.6';
+
+    try {
+        // 1. Restore round state
+        activeRoundId = round.id;
+        roundDate     = round.date;
+        playingHC     = round.playing_handicap || playingHC;
+        if (round.tee_color) { selectedTee = round.tee_color; selectTee(selectedTee); }
+
+        // 2. Switch to the right course
+        const courseRows = await sbFetch('courses?select=id,slug,name,par&id=eq.' + round.course_id);
+        const roundCourse = courseRows?.[0];
+        if (roundCourse) {
+            await switchCourse(roundCourse.slug);
+        }
+
+        // 3. Load all saved shots for this round
+        const shots = await sbFetch('shots?select=*&round_id=eq.' + round.id + '&order=hole_number');
+
+        // 4. Restore holeData from saved shots
+        holeData = Array.from({length: 18}, () => ({score: null, putts: null, fairway: null, gir: null}));
+        (shots || []).forEach(s => {
+            const idx = s.hole_number - 1;
+            if (idx >= 0 && idx < 18) {
+                holeData[idx] = {
+                    score:   s.score   || null,
+                    putts:   s.putts   || null,
+                    fairway: s.fairway || null,
+                    gir:     s.gir     ?? null,
+                };
+            }
+        });
+
+        // 5. Load stats for caddie briefing
+        if (!holeStats.length) await loadStats();
+
+        // 6. Jump to the hole they were on — last scored hole + 1
+        const lastScoredHole = shots?.length ? Math.max(...shots.map(s => s.hole_number)) : 0;
+        const resumeHole = Math.min(lastScoredHole, 17); // 0-indexed, max hole 17
+
+        track('round_resumed', { course: selectedCourseSlug, hole: resumeHole + 1 });
+
+        showScreen('screen-play');
+        renderHole(resumeHole);
+
+    } catch(e) {
+        console.warn('Resume round failed:', e.message);
+        banner.style.opacity = '1';
+        alert('Could not resume round: ' + e.message);
+    }
+}
 let briefingCollapsed = false;
 function toggleBriefing() {
     briefingCollapsed = !briefingCollapsed;
@@ -3572,7 +3681,8 @@ async function autoSaveHole(holeIdx) {
         });
 
         await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'PATCH', body: JSON.stringify({
-            total_score: totalScore, total_putts: totalPutts, gir_count: totalGIR, stableford_points: totalPts,
+            total_score: totalScore, total_putts: totalPutts, gir_count: totalGIR,
+            stableford_points: totalPts, current_hole: holeIdx + 1, round_status: 'in_progress',
         })});
 
     } catch(e) {
@@ -3694,7 +3804,8 @@ async function saveRound() {
             })).filter(s => s.score);
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
             await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'PATCH', body: JSON.stringify({
-                total_score: totalScore, total_putts: totalPutts, gir_count: totalGIR, stableford_points: totalPts,
+                total_score: totalScore, total_putts: totalPutts, gir_count: totalGIR,
+                stableford_points: totalPts, round_status: 'completed',
             })});
 
         } else {
