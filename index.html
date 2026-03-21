@@ -2164,6 +2164,7 @@
                     </div>
                 </div>
                 <div class="caddie-strategy" id="cb-strategy">Loading strategy...</div>
+                    <div id="cb-tip-badge" style="display:none;"></div>
                 <div id="cb-danger-block" style="display:none;background:rgba(192,57,43,0.06);border:1px solid rgba(192,57,43,0.2);border-radius:10px;padding:10px 14px;font-size:17px;color:var(--red);line-height:1.5">
                     ⚠️ <strong>Danger hole.</strong> <span id="cb-danger-text"></span>
                 </div>
@@ -2392,8 +2393,30 @@ async function switchCourse(slug) {
         const course = _courseRows?.[0] || null;
         if (course) {
             courseId = course.id;
-            const holes = await sbFetch('holes?select=id,hole_number&course_id=eq.' + courseId + '&order=hole_number');
-            if (holes) holeIds = holes.map(h => h.id);
+
+            // Fetch hole IDs + tip columns together in one call
+            const holes = await sbFetch(
+                'holes?select=id,hole_number,verified_tip,ai_tip,tip_source&course_id=eq.' + courseId + '&order=hole_number'
+            );
+            if (holes) {
+                holeIds = holes.map(h => h.id);
+
+                // Tip cascade: verified_tip → ai_tip → keep existing JS hardcoded tip
+                holes.forEach((dbHole, i) => {
+                    const jsHole = HOLES[i];
+                    if (!jsHole) return;
+                    const bestTip = dbHole.verified_tip || dbHole.ai_tip || null;
+                    if (bestTip) {
+                        jsHole.tip         = bestTip;
+                        jsHole.tipSource   = dbHole.tip_source || 'db';
+                        jsHole.tipVerified = !!dbHole.verified_tip;
+                    }
+                    // No DB tip yet → keep the hardcoded JS tip as fallback
+                });
+
+                // Cache enriched hole data for offline play
+                cacheCourseData(slug, HOLES);
+            }
 
             const meta = COURSE_META[slug];
             const displayName = meta ? meta.name : course.name;
@@ -2401,7 +2424,34 @@ async function switchCourse(slug) {
             document.getElementById('setup-course-tag').textContent = displayName;
             document.getElementById('home-course-display').innerHTML = `${displayName} · <span>Par ${par}</span>`;
         }
-    } catch(e) { console.warn('Switch course:', e); }
+    } catch(e) {
+        console.warn('Switch course:', e);
+        // If we're offline, fall back to the local cache
+        tryRestoreCourseFromCache(slug);
+    }
+}
+
+function cacheCourseData(slug, holes) {
+    try {
+        const cache = JSON.parse(localStorage.getItem(COURSE_CACHE_KEY) || '{}');
+        cache[slug] = { holes, cachedAt: Date.now() };
+        localStorage.setItem(COURSE_CACHE_KEY, JSON.stringify(cache));
+    } catch(e) { console.warn('Course cache write failed:', e); }
+}
+
+function tryRestoreCourseFromCache(slug) {
+    try {
+        const cache = JSON.parse(localStorage.getItem(COURSE_CACHE_KEY) || '{}');
+        const entry = cache[slug];
+        if (!entry) return;
+        // Use cache if < 7 days old
+        if ((Date.now() - entry.cachedAt) > 7 * 86400000) return;
+        if (entry.holes) {
+            HOLES = entry.holes;
+            selectedCourseSlug = slug;
+            console.log('[Golf Tracker] Restored course from cache:', slug);
+        }
+    } catch(e) { console.warn('Course cache restore failed:', e); }
 }
 
 function onCourseChange() {
@@ -3534,7 +3584,26 @@ function renderHole(idx, fromPrev) {
 
     document.getElementById('cb-gir').textContent   = hStat?.girPct  !== null && hStat?.girPct  !== undefined ? hStat.girPct  + '%' : '—';
     document.getElementById('cb-putts').textContent = hStat?.avgPutts !== null && hStat?.avgPutts !== undefined ? hStat.avgPutts.toFixed(1) : '—';
-    document.getElementById('cb-strategy').textContent = h.tip;
+    // Tip cascade: verified_tip → ai_tip → JS hardcoded fallback
+    const tipText = h.tip || 'Play to the fat of the fairway. Take your medicine.';
+    document.getElementById('cb-strategy').textContent = tipText;
+
+    // Source badge so user knows how reliable the tip is
+    const tipBadgeEl = document.getElementById('cb-tip-badge');
+    if (tipBadgeEl) {
+        if (h.tipVerified) {
+            tipBadgeEl.textContent = '✓ Verified';
+            tipBadgeEl.style.cssText = 'display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(46,168,84,0.15);color:var(--green-bright);border:1px solid rgba(46,168,84,0.3);margin-top:6px;font-family:var(--font-body);';
+        } else if (h.tipSource === 'web_research') {
+            tipBadgeEl.textContent = '⚡ Web sourced';
+            tipBadgeEl.style.cssText = 'display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(181,134,10,0.12);color:var(--sand);border:1px solid rgba(181,134,10,0.25);margin-top:6px;font-family:var(--font-body);';
+        } else if (h.tipSource === 'ai_generated') {
+            tipBadgeEl.textContent = '🤖 AI estimate';
+            tipBadgeEl.style.cssText = 'display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,0.1);color:var(--gray);border:1px solid rgba(100,100,100,0.2);margin-top:6px;font-family:var(--font-body);';
+        } else {
+            tipBadgeEl.style.display = 'none';
+        }
+    }
 
     const dangerBlock = document.getElementById('cb-danger-block');
     if (h.danger) {
@@ -3690,7 +3759,38 @@ async function autoSaveHole(holeIdx) {
         saveRoundStateToStorage(); // keep localStorage in sync after each hole
 
     } catch(e) {
-        console.warn('Auto-save hole', holeIdx+1, ':', e.message);
+        // Network failure — queue writes for when signal returns
+        console.warn('Auto-save hole', holeIdx+1, '— offline, queuing:', e.message);
+        const holeId = holeIds[holeIdx] || null;
+        const d = holeData[holeIdx];
+
+        // Queue shot delete + insert
+        queueWrite({
+            path: 'shots?round_id=eq.' + activeRoundId + '&hole_number=eq.' + (holeIdx + 1),
+            method: 'DELETE', prefer: '', body: null,
+        });
+        queueWrite({
+            path: 'shots', method: 'POST',
+            body: JSON.stringify({
+                round_id: activeRoundId, hole_id: holeId, hole_number: holeIdx + 1,
+                score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir,
+            }),
+        });
+
+        // Queue round totals update
+        let totalScore=0, totalPutts=0, totalGIR=0, totalPts=0;
+        holeData.forEach((h,i) => {
+            if (h.score) { totalScore+=h.score; totalPts+=calcPoints(i,h.score); }
+            if (h.putts) totalPutts+=h.putts;
+            if (h.gir===true) totalGIR++;
+        });
+        queueWrite({
+            path: 'rounds?id=eq.' + activeRoundId, method: 'PATCH',
+            body: JSON.stringify({
+                total_score: totalScore, total_putts: totalPutts, gir_count: totalGIR,
+                stableford_points: totalPts, current_hole: holeIdx + 1, round_status: 'in_progress',
+            }),
+        });
     }
 }
 
@@ -4258,7 +4358,56 @@ function track(event, properties = {}) {
 // ═══════════════════════════════════════════════════════════════
 //  ROUND STATE PERSISTENCE (survives screen lock / app suspend)
 // ═══════════════════════════════════════════════════════════════
-const ROUND_STATE_KEY = 'gt_active_round_state';
+const ROUND_STATE_KEY  = 'gt_active_round_state';
+const COURSE_CACHE_KEY = 'gt_course_cache';
+const WRITE_QUEUE_KEY  = 'gt_write_queue';
+
+// ── Offline write queue ──────────────────────────────────────
+function queueWrite(op) {
+    try {
+        const q = JSON.parse(localStorage.getItem(WRITE_QUEUE_KEY) || '[]');
+        q.push({ ...op, queuedAt: Date.now() });
+        localStorage.setItem(WRITE_QUEUE_KEY, JSON.stringify(q));
+    } catch(e) { console.warn('Queue write failed:', e); }
+}
+
+async function flushWriteQueue() {
+    let q;
+    try { q = JSON.parse(localStorage.getItem(WRITE_QUEUE_KEY) || '[]'); }
+    catch(e) { return; }
+    if (!q.length) return;
+
+    const failed = [];
+    for (const op of q) {
+        try {
+            await sbFetch(op.path, { method: op.method, body: op.body, prefer: op.prefer || '' });
+        } catch(e) {
+            // Keep in queue if < 24h old, otherwise drop it
+            if ((Date.now() - op.queuedAt) < 86400000) failed.push(op);
+            console.warn('Flush failed for', op.path, e.message);
+        }
+    }
+    if (failed.length) {
+        localStorage.setItem(WRITE_QUEUE_KEY, JSON.stringify(failed));
+    } else {
+        localStorage.removeItem(WRITE_QUEUE_KEY);
+        showSyncToast();
+    }
+}
+
+function showSyncToast() {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-family:var(--font-body);font-size:13px;font-weight:500;padding:8px 16px;border-radius:20px;z-index:9999;opacity:1;transition:opacity 1s';
+    t.textContent = '✓ Round synced';
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 1000); }, 2500);
+}
+
+// Flush queue the moment signal returns
+window.addEventListener('online', () => {
+    console.log('[Golf Tracker] Back online — flushing write queue');
+    flushWriteQueue();
+});
 
 function saveRoundStateToStorage() {
     if (!activeRoundId) { clearRoundStateFromStorage(); return; }
