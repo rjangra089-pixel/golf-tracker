@@ -3262,6 +3262,7 @@ async function startRound() {
         })});
         if (!_newRound?.[0]?.id) throw new Error('Failed to create round');
         activeRoundId = _newRound[0].id;
+        saveRoundStateToStorage(); // persist immediately so screen lock can't lose it
         track('round_started', { course: selectedCourseSlug, handicap: playingHC, tee: selectedTee });
         console.log('Round created:', activeRoundId);
     } catch(e) {
@@ -3629,6 +3630,7 @@ function selectScore(score) {
     const holePtsEl = document.getElementById('tb-hole-pts');
     holePtsEl.textContent = pts;
     holePtsEl.style.color = getPointsStyle(pts).bg;
+    saveRoundStateToStorage(); // persist score immediately
 }
 
 function selectPutts(putts) {
@@ -3684,6 +3686,8 @@ async function autoSaveHole(holeIdx) {
             total_score: totalScore, total_putts: totalPutts, gir_count: totalGIR,
             stableford_points: totalPts, current_hole: holeIdx + 1, round_status: 'in_progress',
         })});
+
+        saveRoundStateToStorage(); // keep localStorage in sync after each hole
 
     } catch(e) {
         console.warn('Auto-save hole', holeIdx+1, ':', e.message);
@@ -3829,6 +3833,7 @@ async function saveRound() {
         }
 
         track('round_saved', { course: selectedCourseSlug, score: totalScore, points: totalPts, holes: holeData.filter(h=>h.score).length });
+        clearRoundStateFromStorage(); // round is done — clean up persisted state
         statusEl.className = 'save-status success';
         statusEl.textContent = '✓ Round saved!';
         btn.textContent = 'SAVED ✓';
@@ -4002,14 +4007,41 @@ function projectDate(regression, targetY, direction) {
 // ═══════════════════════════════════════════════════════════════
 let currentUser = null;
 
-// Check session on load
-sb.auth.onAuthStateChange(async (event, session) => {
+// ── Session init — direct getSession() instead of onAuthStateChange ──────────
+// onAuthStateChange can re-fire on iOS screen lock/unlock, causing a full
+// app reload that dumps you back to the login screen mid-round. We use a
+// one-time direct check on load instead.
+async function initAuth() {
+    const { data: { session } } = await sb.auth.getSession();
     currentUser = session?.user || null;
     if (currentUser) {
         await bootApp();
     } else {
         showScreen('screen-auth');
     }
+}
+initAuth();
+
+// ── Visibility change — handle screen lock/unlock without full reload ─────────
+// When iOS wakes from screen lock the page becomes visible again.
+// We silently re-check the session. If still valid → do nothing (stay on
+// whatever screen we were on). Only log out if the session is genuinely gone.
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+
+    // If we're mid-round, restore state from localStorage in case memory was cleared
+    if (currentUser && activeRoundId) {
+        restoreRoundStateIfNeeded();
+        return;
+    }
+
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.user && currentUser) {
+        // Genuine session expiry — log out
+        currentUser = null;
+        showScreen('screen-auth');
+    }
+    // If session is still valid, do nothing — stay exactly where we are
 });
 
 function switchAuthTab(tab) {
@@ -4143,6 +4175,7 @@ async function cancelRound() {
     activeRoundId = null;
     holeData = Array.from({length:18}, () => ({ score:0, putts:0, fairway:null, gir:null }));
     currentHole = 0;
+    clearRoundStateFromStorage(); // wipe persisted state on cancel
     track('round_cancelled', { course: selectedCourseSlug, hole: currentHole + 1 });
     // Remove overlay and go home
     const overlay = document.getElementById('cancel-round-overlay');
@@ -4222,6 +4255,56 @@ function track(event, properties = {}) {
     } catch(e) {}
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  ROUND STATE PERSISTENCE (survives screen lock / app suspend)
+// ═══════════════════════════════════════════════════════════════
+const ROUND_STATE_KEY = 'gt_active_round_state';
+
+function saveRoundStateToStorage() {
+    if (!activeRoundId) { clearRoundStateFromStorage(); return; }
+    try {
+        localStorage.setItem(ROUND_STATE_KEY, JSON.stringify({
+            activeRoundId,
+            currentHole,
+            roundDate,
+            playingHC,
+            selectedTee,
+            selectedCourseSlug,
+            holeData,
+            savedAt: Date.now(),
+        }));
+    } catch(e) { console.warn('Could not persist round state:', e); }
+}
+
+function clearRoundStateFromStorage() {
+    localStorage.removeItem(ROUND_STATE_KEY);
+}
+
+function restoreRoundStateIfNeeded() {
+    // Only called from visibilitychange — restores in-memory state if it was lost
+    // (e.g. iOS cleared JS heap while screen was locked)
+    if (activeRoundId) return; // already in memory, nothing to do
+    try {
+        const raw = localStorage.getItem(ROUND_STATE_KEY);
+        if (!raw) return;
+        const state = JSON.parse(raw);
+        // Ignore stale state older than 24 hours
+        if (!state || (Date.now() - state.savedAt) > 86400000) {
+            clearRoundStateFromStorage(); return;
+        }
+        activeRoundId      = state.activeRoundId;
+        currentHole        = state.currentHole || 0;
+        roundDate          = state.roundDate;
+        playingHC          = state.playingHC;
+        selectedTee        = state.selectedTee || selectedTee;
+        holeData           = state.holeData || holeData;
+        console.log('[Golf Tracker] Restored round state from storage — hole', currentHole + 1);
+        // If we were on the play screen, jump straight back to it
+        showScreen('screen-play');
+        renderHole(currentHole);
+    } catch(e) { console.warn('Could not restore round state:', e); }
+}
+
 async function bootApp() {
     // Check if user has a profile (i.e. completed onboarding)
     const rows = await sbFetch('profiles?select=name,current_handicap,target_handicap&id=eq.' + currentUser.id);
@@ -4239,6 +4322,34 @@ async function bootApp() {
     await loadCourseData();
     await loadHomeData();
     selectTee(selectedTee); // apply saved tee to UI buttons
+
+    // Check if there's a persisted active round (e.g. screen was locked mid-round)
+    try {
+        const raw = localStorage.getItem(ROUND_STATE_KEY);
+        if (raw) {
+            const state = JSON.parse(raw);
+            if (state && (Date.now() - state.savedAt) < 86400000 && state.activeRoundId) {
+                // Restore round state and jump straight back to play screen
+                activeRoundId     = state.activeRoundId;
+                currentHole       = state.currentHole || 0;
+                roundDate         = state.roundDate;
+                playingHC         = state.playingHC;
+                selectedTee       = state.selectedTee || selectedTee;
+                holeData          = state.holeData || holeData;
+                if (state.selectedCourseSlug && state.selectedCourseSlug !== selectedCourseSlug) {
+                    await switchCourse(state.selectedCourseSlug);
+                }
+                if (!holeStats.length) await loadStats();
+                console.log('[Golf Tracker] Resumed round from storage on boot — hole', currentHole + 1);
+                showScreen('screen-play');
+                renderHole(currentHole);
+                return;
+            } else {
+                clearRoundStateFromStorage(); // stale, clear it
+            }
+        }
+    } catch(e) { console.warn('Could not check persisted round state:', e); }
+
     showScreen('screen-home');
 }
 
