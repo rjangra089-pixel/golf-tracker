@@ -2386,7 +2386,7 @@ async function switchCourse(slug) {
     try {
         if (HOLES_BY_COURSE[slug]) {
             selectedCourseSlug = slug;
-            HOLES = HOLES_BY_COURSE[slug];
+            HOLES = HOLES_BY_COURSE[slug].map(h => ({ ...h })); // shallow clone so we don't mutate the const
         }
 
         const _courseRows = await sbFetch('courses?select=id,name,par&slug=eq.' + slug);
@@ -2394,25 +2394,39 @@ async function switchCourse(slug) {
         if (course) {
             courseId = course.id;
 
-            // Fetch hole IDs + tip columns together in one call
+            // Fetch full hole data + tip columns
             const holes = await sbFetch(
-                'holes?select=id,hole_number,verified_tip,ai_tip,tip_source&course_id=eq.' + courseId + '&order=hole_number'
+                'holes?select=id,hole_number,par,stroke_index,yardage,is_danger_hole,verified_tip,ai_tip,tip_source&course_id=eq.' + courseId + '&order=hole_number'
             );
-            if (holes) {
+            if (holes && holes.length) {
                 holeIds = holes.map(h => h.id);
 
-                // Tip cascade: verified_tip → ai_tip → keep existing JS hardcoded tip
-                holes.forEach((dbHole, i) => {
-                    const jsHole = HOLES[i];
-                    if (!jsHole) return;
-                    const bestTip = dbHole.verified_tip || dbHole.ai_tip || null;
-                    if (bestTip) {
-                        jsHole.tip         = bestTip;
-                        jsHole.tipSource   = dbHole.tip_source || 'db';
-                        jsHole.tipVerified = !!dbHole.verified_tip;
-                    }
-                    // No DB tip yet → keep the hardcoded JS tip as fallback
-                });
+                // If this course isn't hardcoded, build HOLES entirely from DB
+                if (!HOLES_BY_COURSE[slug]) {
+                    selectedCourseSlug = slug;
+                    HOLES = holes.map(h => ({
+                        num:    h.hole_number,
+                        par:    h.par,
+                        si:     h.stroke_index,
+                        yards:  { yellow: h.yardage, white: h.yardage },
+                        danger: h.is_danger_hole || false,
+                        tip:    h.verified_tip || h.ai_tip || 'Play to the fat of the fairway. Take your medicine.',
+                        tipSource:   h.tip_source || 'none',
+                        tipVerified: !!h.verified_tip,
+                    }));
+                } else {
+                    // Hardcoded course — just merge tips in from DB
+                    holes.forEach((dbHole, i) => {
+                        const jsHole = HOLES[i];
+                        if (!jsHole) return;
+                        const bestTip = dbHole.verified_tip || dbHole.ai_tip || null;
+                        if (bestTip) {
+                            jsHole.tip         = bestTip;
+                            jsHole.tipSource   = dbHole.tip_source || 'db';
+                            jsHole.tipVerified = !!dbHole.verified_tip;
+                        }
+                    });
+                }
 
                 // Cache enriched hole data for offline play
                 cacheCourseData(slug, HOLES);
