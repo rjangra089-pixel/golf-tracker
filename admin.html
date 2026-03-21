@@ -713,6 +713,44 @@
             </table>
         </div>
 
+        <!-- MANAGE EXISTING COURSES — tips only, no hole data changes -->
+        <div class="section-title">Manage Courses</div>
+        <div class="import-box">
+            <div style="margin-bottom:14px;">
+                <div class="stat-label" style="margin-bottom:4px;">Generate tips for existing courses</div>
+                <div style="font-size:11px;color:var(--gray);margin-bottom:12px;">Safe to use on courses with existing rounds — only updates tip columns, never touches hole structure or IDs.</div>
+                <div class="import-row">
+                    <select class="import-input" id="existing-course-select" style="font-family:var(--font-body);cursor:pointer;">
+                        <option value="">— select a course —</option>
+                    </select>
+                    <button class="import-btn" id="existing-tips-btn" onclick="generateTipsForExisting()">🤖 GENERATE TIPS →</button>
+                </div>
+            </div>
+            <div class="import-status" id="existing-tips-status"></div>
+
+            <div id="existing-tips-table-wrap" style="display:none;margin-top:12px;">
+                <div class="preview-table-wrap">
+                    <table class="preview-table">
+                        <thead>
+                            <tr>
+                                <th style="width:36px;">#</th>
+                                <th style="width:48px;">Par</th>
+                                <th style="width:80px;">Confidence</th>
+                                <th style="width:90px;">Source</th>
+                                <th>Tip (editable — review before saving)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="existing-tips-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="import-hint" style="margin-top:10px;">
+                    Review every tip carefully before saving. Edit anything that looks wrong — especially specific distances, hazard positions, or blind shots.
+                </div>
+                <div class="import-status" id="existing-tips-save-status" style="margin-top:10px;"></div>
+                <button class="save-course-btn" id="save-existing-tips-btn" onclick="saveExistingTips()" style="margin-top:10px;">💾 SAVE TIPS TO DB</button>
+            </div>
+        </div>
+
         <!-- COURSE IMPORT — GolfCourseAPI -->
         <div class="section-title">Add Course</div>
         <div class="import-box">
@@ -896,18 +934,27 @@ async function doSignOut() {
 
 // ── DATA ──
 async function loadDashboard() {
-    const [profilesRes, roundsRes] = await Promise.all([
+    const [profilesRes, roundsRes, coursesRes] = await Promise.all([
         sb.from('profiles').select('id, name, current_handicap, target_handicap, created_at'),
-        sb.from('rounds').select('id, user_id, date, stableford_points, course_id, courses(name)')
+        sb.from('rounds').select('id, user_id, date, stableford_points, course_id, courses(name)'),
+        sb.from('courses').select('id, name, slug, par').order('name'),
     ]);
 
     const profiles = profilesRes.data || [];
     const rounds   = roundsRes.data   || [];
+    const courses  = coursesRes.data  || [];
 
     renderStats(profiles, rounds);
     renderUsersTable(profiles, rounds);
     renderRoundsChart(rounds);
     renderCourseBars(rounds);
+
+    // Populate existing courses dropdown
+    const sel = document.getElementById('existing-course-select');
+    if (sel) {
+        sel.innerHTML = '<option value="">— select a course —</option>' +
+            courses.map(c => `<option value="${c.slug}" data-id="${c.id}" data-par="${c.par}" data-name="${c.name}">${c.name}</option>`).join('');
+    }
 }
 
 function renderStats(profiles, rounds) {
@@ -1333,7 +1380,141 @@ async function saveCourse() {
     }
 }
 
-// ── GENERATE TIPS ──────────────────────────────────────────────
+// ── TIPS FOR EXISTING COURSES ──────────────────────────────────
+let existingCourseTips  = [];
+let existingCourseHoles = [];
+
+async function generateTipsForExisting() {
+    const sel        = document.getElementById('existing-course-select');
+    const slug       = sel.value;
+    const opt        = sel.options[sel.selectedIndex];
+    const courseId   = opt?.dataset?.id;
+    const courseName = opt?.dataset?.name;
+
+    if (!slug || !courseId) {
+        setStatus('existing-tips-status', 'error', 'Please select a course first.');
+        return;
+    }
+
+    const btn = document.getElementById('existing-tips-btn');
+    btn.disabled = true;
+    btn.textContent = 'GENERATING…';
+    setStatus('existing-tips-status', 'loading', `⏳ Fetching hole data for ${courseName}…`);
+    document.getElementById('existing-tips-table-wrap').style.display = 'none';
+
+    try {
+        // Fetch existing holes from DB — safe, read-only
+        const { data: holes, error: holesErr } = await sb
+            .from('holes')
+            .select('id, hole_number, par, stroke_index, yardage')
+            .eq('course_id', courseId)
+            .order('hole_number');
+
+        if (holesErr || !holes?.length) throw new Error('Could not fetch holes: ' + (holesErr?.message || 'none found'));
+
+        existingCourseHoles = holes;
+
+        setStatus('existing-tips-status', 'loading', `⏳ Searching Golf Monthly forums and other sources for ${courseName}…`);
+
+        const res = await fetch('/api/generate-tips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                courseName,
+                courseSlug: slug,
+                holes: holes.map(h => ({
+                    num:     h.hole_number,
+                    par:     h.par,
+                    si:      h.stroke_index,
+                    yardage: h.yardage,
+                })),
+            }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `Server error ${res.status}`);
+        if (!data.tips || data.tips.length !== 18) throw new Error(`Expected 18 tips, got ${data.tips?.length ?? 0}`);
+
+        existingCourseTips = data.tips;
+        renderExistingTipsTable(data.tips, holes);
+        setStatus('existing-tips-status', 'success', `✓ ${data.tips.length} tips generated for ${courseName} — review before saving`);
+
+    } catch(e) {
+        setStatus('existing-tips-status', 'error', '⚠ ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 REGENERATE';
+    }
+}
+
+function renderExistingTipsTable(tips, holes) {
+    const tbody = document.getElementById('existing-tips-tbody');
+    tbody.innerHTML = tips.map((t, i) => {
+        const hole = holes[i] || {};
+        const conf = CONFIDENCE_COLOURS[t.confidence] || CONFIDENCE_COLOURS.low;
+        const srcLabel = SOURCE_LABELS[t.source] || t.source;
+        return `
+        <tr>
+            <td style="font-family:var(--font-display);font-size:16px;color:var(--gray);text-align:center;">${t.hole}</td>
+            <td style="text-align:center;color:var(--text2);">${hole.par || '—'}</td>
+            <td><span style="font-size:10px;padding:2px 6px;border-radius:8px;background:${conf.bg};color:${conf.color};white-space:nowrap;">${conf.label}</span></td>
+            <td style="font-size:11px;color:var(--gray);white-space:nowrap;">${srcLabel}</td>
+            <td>
+                <textarea id="existing-tip-${i}" rows="2"
+                    style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);font-family:var(--font-body);font-size:12px;line-height:1.5;resize:vertical;outline:none;padding:4px 2px;"
+                    onfocus="this.style.borderBottomColor='var(--green)'"
+                    onblur="this.style.borderBottomColor='var(--border2)'"
+                >${t.tip}</textarea>
+            </td>
+        </tr>`;
+    }).join('');
+    document.getElementById('existing-tips-table-wrap').style.display = 'block';
+}
+
+async function saveExistingTips() {
+    if (!existingCourseTips.length || !existingCourseHoles.length) {
+        setStatus('existing-tips-save-status', 'error', 'No tips to save — generate first.');
+        return;
+    }
+
+    const btn = document.getElementById('save-existing-tips-btn');
+    btn.disabled = true;
+    btn.textContent = 'SAVING…';
+    setStatus('existing-tips-save-status', 'loading', 'Saving tips…');
+
+    try {
+        let saved = 0;
+        for (let i = 0; i < existingCourseTips.length; i++) {
+            const t       = existingCourseTips[i];
+            const hole    = existingCourseHoles.find(h => h.hole_number === t.hole);
+            if (!hole) continue;
+
+            const editedTip = document.getElementById(`existing-tip-${i}`)?.value?.trim() || t.tip;
+
+            const { error } = await sb
+                .from('holes')
+                .update({
+                    ai_tip:     editedTip,
+                    tip_source: t.source === 'golf_monthly' || t.source === 'club_website'
+                                ? 'web_research' : 'ai_generated',
+                })
+                .eq('id', hole.id);
+
+            if (error) throw new Error(`Hole ${t.hole}: ${error.message}`);
+            saved++;
+        }
+
+        setStatus('existing-tips-save-status', 'success', `✅ ${saved} tips saved. They're live in the app immediately.`);
+        btn.textContent = 'SAVED ✓';
+
+    } catch(e) {
+        setStatus('existing-tips-save-status', 'error', '⚠ ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '💾 SAVE TIPS TO DB';
+    }
+}
+
+// ── GENERATE TIPS (for new courses) ────────────────────────────
 let generatedTips = []; // holds the current set of tips for saveTips()
 
 async function generateTips() {
