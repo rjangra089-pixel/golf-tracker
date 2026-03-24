@@ -2271,73 +2271,18 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ═══════════════════════════════════════════════════════════════
-//  HOLES DATA — PER COURSE
+//  HOLES DATA — loaded from DB via switchCourse()
+//  No hardcoded course data. All courses are DB-only.
 // ═══════════════════════════════════════════════════════════════
-const HOLES_BY_COURSE = {
-    'hoebridge-golf-centre': [
-        { num:1,  par:5, si:11, yards:{yellow:404, white:430}, danger:false, tip:"Start strong. Fairway over distance. Uphill approach — club up." },
-        { num:2,  par:3, si:17, yards:{yellow:167, white:185}, danger:false, tip:"Elevated tee. Centre green mentality — take what it gives you." },
-        { num:3,  par:5, si:7,  yards:{yellow:505, white:530}, danger:true,  tip:"Slopes! Stay left of fairway. Sharp drop on left — stay safe." },
-        { num:4,  par:4, si:1,  yards:{yellow:389, white:410}, danger:true,  tip:"HARDEST HOLE. Tight driving corridor. Aim left-centre. Accept bogey." },
-        { num:5,  par:4, si:3,  yards:{yellow:333, white:355}, danger:true,  tip:"Danger zone. Fairway is everything. Aim 30y short of the green." },
-        { num:6,  par:3, si:15, yards:{yellow:162, white:178}, danger:false, tip:"Mid-length par 3. Club selection is crucial — trust your yardage." },
-        { num:7,  par:4, si:5,  yards:{yellow:458, white:478}, danger:true,  tip:"Long and tough. Find the fairway first. Accept bogey as a win." },
-        { num:8,  par:4, si:9,  yards:{yellow:364, white:382}, danger:true,  tip:"Elevated green. Remember to club up on your approach shot." },
-        { num:9,  par:5, si:13, yards:{yellow:505, white:528}, danger:false, tip:"Finish the front 9 strong. Lay up short, then wedge it in close." },
-        { num:10, par:4, si:12, yards:{yellow:315, white:335}, danger:false, tip:"YOUR BEST PAR 4! Keep doing exactly what works here." },
-        { num:11, par:4, si:4,  yards:{yellow:364, white:385}, danger:true,  tip:"Problem hole. Fairway → Aim short → Chip → 2 putts. Keep it simple." },
-        { num:12, par:3, si:18, yards:{yellow:180, white:198}, danger:false, tip:"SUPERSTAR HOLE! You've got this figured out. Trust your instincts." },
-        { num:13, par:5, si:8,  yards:{yellow:514, white:540}, danger:true,  tip:"Lay up strategy here. Two solid shots then wedge to the green." },
-        { num:14, par:4, si:14, yards:{yellow:344, white:362}, danger:false, tip:"Solid bogey golf works here. Same approach, same result." },
-        { num:15, par:4, si:2,  yards:{yellow:389, white:410}, danger:true,  tip:"SI 2 means this is tough. Fairway priority. Stay conservative." },
-        { num:16, par:3, si:10, yards:{yellow:180, white:196}, danger:false, tip:"Aim for the fat part of the green. No heroics needed." },
-        { num:17, par:5, si:6,  yards:{yellow:514, white:538}, danger:true,  tip:"YOUR WORST HOLE. Lay up to 80-100y. Do NOT go for the green in two." },
-        { num:18, par:3, si:16, yards:{yellow:167, white:183}, danger:false, tip:"Strong finish. You've earned it. Confidence and a smile." },
-    ],
-    'richings-park-golf-country-club': [
-        { num:1,  par:4, si:12, yards:{yellow:279, white:305}, danger:false, tip:"Home Wood. Short opener — find the fairway and settle into your round." },
-        { num:2,  par:3, si:8,  yards:{yellow:199, white:218}, danger:false, tip:"Partridge Way. Long par 3. Club up and commit — centre of the green." },
-        { num:3,  par:5, si:6,  yards:{yellow:536, white:558}, danger:false, tip:"Langley Walk. Long par 5. Lay up off the tee, then wedge in for a birdie chance." },
-        { num:4,  par:4, si:18, yards:{yellow:343, white:362}, danger:false, tip:"Skylark Bend. Easiest hole on the card. Attack this one — go for par or better." },
-        { num:5,  par:4, si:10, yards:{yellow:328, white:348}, danger:false, tip:"The Old Gate. Straight hitter's hole. Fairway first, straightforward approach." },
-        { num:6,  par:3, si:16, yards:{yellow:165, white:182}, danger:false, tip:"Home Farm. Short par 3. Pick your club, commit, take dead aim." },
-        { num:7,  par:4, si:2,  yards:{yellow:407, white:428}, danger:true,  tip:"Oak Corner. SI 2 — second hardest hole. Find the fairway. Bogey is a solid result here." },
-        { num:8,  par:4, si:14, yards:{yellow:341, white:360}, danger:false, tip:"Foxes Covert. Manageable length. Stay patient and execute your approach." },
-        { num:9,  par:4, si:4,  yards:{yellow:421, white:442}, danger:true,  tip:"Vixen Crossing. Long par 4, SI 4. Tough finish to the front 9. Fairway and accept bogey." },
-        { num:10, par:3, si:15, yards:{yellow:169, white:186}, danger:false, tip:"The Ha Ha. Short par 3 to start the back 9. Get a par and build momentum." },
-        { num:11, par:4, si:3,  yards:{yellow:413, white:436}, danger:true,  tip:"Chestnut Bend. SI 3 — one of the toughest. Long par 4. Fairway priority, accept bogey." },
-        { num:12, par:4, si:17, yards:{yellow:323, white:340}, danger:false, tip:"The Swannery. Second easiest on the card. Take aim and be aggressive." },
-        { num:13, par:4, si:7,  yards:{yellow:349, white:368}, danger:false, tip:"Pheasants. SI 7. Solid par 4. Steady approach and you'll walk away happy." },
-        { num:14, par:3, si:11, yards:{yellow:195, white:214}, danger:false, tip:"Mansion Copse. Longer par 3. Club selection is key — don't short-side yourself." },
-        { num:15, par:4, si:1,  yards:{yellow:410, white:432}, danger:true,  tip:"Lime Walk. HARDEST HOLE — SI 1. Tight driving hole. Fairway is everything. Accept bogey." },
-        { num:16, par:4, si:5,  yards:{yellow:425, white:447}, danger:true,  tip:"Rushes. SI 5. Long demanding par 4. Play conservative off the tee and build the hole." },
-        { num:17, par:5, si:13, yards:{yellow:534, white:558}, danger:false, tip:"Ice House. Par 5. Lay up strategy — two good shots then wedge in. Good birdie chance." },
-        { num:18, par:4, si:9,  yards:{yellow:395, white:416}, danger:false, tip:"Wilby Brook. Solid finishing hole. Play to the fat of the fairway and finish strong." },
-    ],
-};
-
-// Course metadata (rating, slope, par) per tee
-const COURSE_META = {
-    'hoebridge-golf-centre': {
-        name: 'Hoebridge Golf Centre', par: 72,
-        tees: {
-            yellow: { rating: 69.0, slope: 116 },
-            white:  { rating: 71.2, slope: 120 },
-        }
-    },
-    'richings-park-golf-country-club': {
-        name: 'Richings Park Golf & Country Club', par: 70,
-        tees: {
-            yellow: { rating: 70.7, slope: 125 },
-            white:  { rating: 72.4, slope: 129 },
-        }
-    },
-};
 
 // Active course — defaults to Hoebridge, updated when player picks a course
 let selectedCourseSlug = localStorage.getItem('lastCourseSlug') || 'hoebridge-golf-centre';
 let selectedTee = localStorage.getItem('lastTee') || 'yellow'; // 'yellow' | 'white'
-let HOLES = HOLES_BY_COURSE[selectedCourseSlug];
+let HOLES = []; // populated by switchCourse()
+
+// Course rating/slope — populated from DB by switchCourse(), used for HC calculations
+let COURSE_RATING = { yellow: { rating: 69.0, slope: 116 }, white: { rating: 71.2, slope: 120 } };
+let COURSE_PAR    = 72;
 
 // ═══════════════════════════════════════════════════════════════
 //  GLOBAL STATE
@@ -2384,15 +2329,19 @@ async function loadCourseData() {
 
 async function switchCourse(slug) {
     try {
-        if (HOLES_BY_COURSE[slug]) {
-            selectedCourseSlug = slug;
-            HOLES = HOLES_BY_COURSE[slug].map(h => ({ ...h })); // shallow clone so we don't mutate the const
-        }
-
-        const _courseRows = await sbFetch('courses?select=id,name,par&slug=eq.' + slug);
+        const _courseRows = await sbFetch('courses?select=id,name,par,slope_rating,course_rating,tee_options&slug=eq.' + slug);
         const course = _courseRows?.[0] || null;
         if (course) {
-            courseId = course.id;
+            courseId           = course.id;
+            selectedCourseSlug = slug;
+            COURSE_PAR         = course.par || 72;
+
+            // Populate rating/slope from DB tee_options if available
+            const teeOpts = course.tee_options || {};
+            COURSE_RATING = {
+                yellow: { rating: teeOpts.yellow?.rating || course.course_rating || 69.0, slope: teeOpts.yellow?.slope || course.slope_rating || 116 },
+                white:  { rating: teeOpts.white?.rating  || course.course_rating || 69.0, slope: teeOpts.white?.slope  || course.slope_rating || 116 },
+            };
 
             // Fetch full hole data + tip columns
             const holes = await sbFetch(
@@ -2401,46 +2350,26 @@ async function switchCourse(slug) {
             if (holes && holes.length) {
                 holeIds = holes.map(h => h.id);
 
-                // If this course isn't hardcoded, build HOLES entirely from DB
-                if (!HOLES_BY_COURSE[slug]) {
-                    selectedCourseSlug = slug;
-                    HOLES = holes.map(h => ({
-                        num:    h.hole_number,
-                        par:    h.par,
-                        si:     h.stroke_index,
-                        yards:  { yellow: h.yardage, white: h.yardage },
-                        danger: h.is_danger_hole || false,
-                        tip:    h.verified_tip || h.ai_tip || 'Play to the fat of the fairway. Take your medicine.',
-                        tipSource:   h.tip_source || 'none',
-                        tipVerified: !!h.verified_tip,
-                    }));
-                } else {
-                    // Hardcoded course — just merge tips in from DB
-                    holes.forEach((dbHole, i) => {
-                        const jsHole = HOLES[i];
-                        if (!jsHole) return;
-                        const bestTip = dbHole.verified_tip || dbHole.ai_tip || null;
-                        if (bestTip) {
-                            jsHole.tip         = bestTip;
-                            jsHole.tipSource   = dbHole.tip_source || 'db';
-                            jsHole.tipVerified = !!dbHole.verified_tip;
-                        }
-                    });
-                }
+                // Build HOLES entirely from DB — single source of truth for all courses
+                HOLES = holes.map(h => ({
+                    num:         h.hole_number,
+                    par:         h.par,
+                    si:          h.stroke_index,
+                    yards:       { yellow: h.yardage, white: h.yardage },
+                    danger:      h.is_danger_hole || false,
+                    tip:         h.verified_tip || h.ai_tip || 'Play to the fat of the fairway. Take your medicine.',
+                    tipSource:   h.tip_source || 'none',
+                    tipVerified: !!h.verified_tip,
+                }));
 
-                // Cache enriched hole data for offline play
                 cacheCourseData(slug, HOLES);
             }
 
-            const meta = COURSE_META[slug];
-            const displayName = meta ? meta.name : course.name;
-            const par = meta ? meta.par : course.par;
-            document.getElementById('setup-course-tag').textContent = displayName;
-            document.getElementById('home-course-display').innerHTML = `${displayName} · <span>Par ${par}</span>`;
+            document.getElementById('setup-course-tag').textContent = course.name;
+            document.getElementById('home-course-display').innerHTML = `${course.name} · <span>Par ${COURSE_PAR}</span>`;
         }
     } catch(e) {
         console.warn('Switch course:', e);
-        // If we're offline, fall back to the local cache
         tryRestoreCourseFromCache(slug);
     }
 }
@@ -2651,15 +2580,19 @@ async function loadStats() {
             return;
         }
 
-        document.getElementById('stats-sub').textContent = `Last ${rounds.length} round${rounds.length>1?'s':''} · All Courses`;
+        const courseLabel = courseRounds.length < rounds.length
+            ? (selectedCourseSlug.replace(/-/g,' ').replace(/\b\w/g, c => c.toUpperCase()))
+            : 'all courses';
+        document.getElementById('stats-sub').textContent = `Last ${rounds.length} round${rounds.length>1?'s':''} · Hole data: ${courseLabel}`;
 
-        // Compute per-hole stats
+        // Compute per-hole stats — ONLY for the current course so caddie briefing is course-specific
+        const courseRounds = courseId ? rounds.filter(r => r.course_id === courseId) : rounds;
         const holeAgg = Array.from({length:18}, (_,i) => ({
-            num: i+1, par: HOLES[i].par, si: HOLES[i].si,
+            num: i+1, par: HOLES[i]?.par ?? 4, si: HOLES[i]?.si ?? i+1,
             scores: [], putts: [], girs: 0, firs: 0, count: 0,
         }));
 
-        rounds.forEach(r => {
+        courseRounds.forEach(r => {
             (r.shots || []).forEach(s => {
                 const idx = s.hole_number - 1;
                 if (idx < 0 || idx > 17) return;
@@ -3053,9 +2986,9 @@ async function loadStats() {
         if (f9AvgScore && b9AvgScore) {
             const diff = f9AvgScore - b9AvgScore;
             const insight = diff > 1.5
-                ? `⚠️ You're averaging ${Math.abs(diff).toFixed(1)} shots more on the front 9. Holes 3, 4, 5 and 7 are likely the culprits — your danger holes are clustered there.`
+                ? `⚠️ You're averaging ${Math.abs(diff).toFixed(1)} shots more on the front 9. Check the hole breakdown below to spot your danger holes.`
                 : diff < -1.5
-                ? `⚠️ You're struggling more on the back 9 (+${Math.abs(diff).toFixed(1)} shots). Holes 11, 13, 15 and 17 need attention — especially 17 which is your worst hole.`
+                ? `⚠️ You're struggling more on the back 9 (+${Math.abs(diff).toFixed(1)} shots). The hole breakdown below will show where the shots are leaking.`
                 : `✅ You're remarkably consistent across both halves — only ${Math.abs(diff).toFixed(1)} shots difference. That's a good sign of a balanced game.`;
             document.getElementById('f9b9-insight').textContent = insight;
         }
@@ -4087,10 +4020,9 @@ async function executeDelete() {
 //  PROJECTION HELPERS
 // ═══════════════════════════════════════════════════════════════
 function calcTargetGrossScore(hc) {
-    const meta = COURSE_META[selectedCourseSlug] || COURSE_META['hoebridge-golf-centre'];
-    const teeMeta = meta.tees?.[selectedTee] || meta.tees?.yellow || { rating: meta.rating || 69, slope: meta.slope || 116 };
+    const teeMeta = COURSE_RATING[selectedTee] || COURSE_RATING.yellow || { rating: 69, slope: 116 };
     const courseHC = Math.round(hc * (teeMeta.slope / 113));
-    return meta.par + courseHC;
+    return COURSE_PAR + courseHC;
 }
 
 function linearRegression(points) {
@@ -4618,7 +4550,12 @@ async function openAssessment() {
         const lastRound = rounds[0];
         const courseName = lastRound.courses?.name || 'your course';
         const courseSlug = lastRound.courses?.slug || selectedCourseSlug;
-        const holesMeta = HOLES_BY_COURSE[courseSlug] || HOLES_BY_COURSE[selectedCourseSlug];
+
+        // Ensure HOLES is loaded for the course this round was played at
+        if (!HOLES.length || courseSlug !== selectedCourseSlug) {
+            await switchCourse(courseSlug);
+        }
+        const holesMeta = Array.isArray(HOLES) && HOLES.length ? HOLES : Array.from({length:18}, (_,i) => ({ num:i+1, par:4, si:i+1 }));
 
         // Update topbar label
         const d = new Date(lastRound.date + 'T12:00:00');
