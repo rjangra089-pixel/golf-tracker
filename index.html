@@ -2580,13 +2580,13 @@ async function loadStats() {
             return;
         }
 
+        // Compute per-hole stats — ONLY for the current course so caddie briefing is course-specific
+        const courseRounds = courseId ? rounds.filter(r => r.course_id === courseId) : rounds;
+
         const courseLabel = courseRounds.length < rounds.length
             ? (selectedCourseSlug.replace(/-/g,' ').replace(/\b\w/g, c => c.toUpperCase()))
             : 'all courses';
         document.getElementById('stats-sub').textContent = `Last ${rounds.length} round${rounds.length>1?'s':''} · Hole data: ${courseLabel}`;
-
-        // Compute per-hole stats — ONLY for the current course so caddie briefing is course-specific
-        const courseRounds = courseId ? rounds.filter(r => r.course_id === courseId) : rounds;
         const holeAgg = Array.from({length:18}, (_,i) => ({
             num: i+1, par: HOLES[i]?.par ?? 4, si: HOLES[i]?.si ?? i+1,
             scores: [], putts: [], girs: 0, firs: 0, count: 0,
@@ -2876,6 +2876,7 @@ async function loadStats() {
             (r.shots||[]).forEach(s => {
                 if (!s.score) return;
                 const h = HOLES[s.hole_number-1];
+                if (!h) return; // skip shots from courses whose hole data isn't loaded
                 const diff = s.score - h.par;
                 if (diff <= -2) zoneCounts.eagle++;
                 else if (diff === -1) zoneCounts.birdie++;
@@ -2942,6 +2943,7 @@ async function loadStats() {
             let f9s=0,b9s=0,f9p=0,b9p=0,f9c=0,b9c=0;
             shots.forEach(s => {
                 if (!s.score) return;
+                if (!HOLES[s.hole_number-1]) return; // skip if hole data not loaded for this course
                 const pts = calcPoints(s.hole_number-1, s.score);
                 if (s.hole_number <= 9) { f9s+=s.score; f9p+=pts; f9c++; }
                 else { b9s+=s.score; b9p+=pts; b9c++; }
@@ -2955,8 +2957,8 @@ async function loadStats() {
         const f9AvgPts = avg(f9pts), b9AvgPts = avg(b9pts);
 
         // Par for each 9
-        const f9Par = HOLES.slice(0,9).reduce((a,h)=>a+h.par,0); // 36
-        const b9Par = HOLES.slice(9,18).reduce((a,h)=>a+h.par,0); // 36
+        const f9Par = HOLES.length >= 9 ? HOLES.slice(0,9).reduce((a,h)=>a+h.par,0) : 36;
+        const b9Par = HOLES.length >= 18 ? HOLES.slice(9,18).reduce((a,h)=>a+h.par,0) : 36;
 
         const splitCard = document.createElement('div');
         splitCard.className = 'chart-card';
@@ -3165,7 +3167,7 @@ async function loadStats() {
 }
 
 function getHoleAdvice(h) {
-    if (h.avg === null) return { tag:'No Data', tagClass:'tag-average', advice: HOLES[h.num-1].tip };
+    if (h.avg === null) return { tag:'No Data', tagClass:'tag-average', advice: HOLES[h.num-1]?.tip || 'Play to the fat of the fairway. Take your medicine.' };
     const diff = h.avg - h.par;
     const girOk = h.girPct !== null && h.girPct >= 33;
     const puttOk = h.avgPutts !== null && h.avgPutts <= 2.2;
@@ -3940,7 +3942,7 @@ async function saveCurrentHC() {
         }
     } catch(e) { console.warn('Could not save current HC:', e); }
     // Refresh progress bar
-    const startHC = 36;
+    const startHC = 28;
     const progress = Math.min(100, Math.max(0, ((startHC - playingHC) / (startHC - targetHC)) * 100));
     document.getElementById('home-hc-bar').style.width = progress + '%';
     const needed = playingHC - targetHC;
@@ -3966,7 +3968,7 @@ async function saveTargetHC() {
         }
     } catch(e) { console.warn('Could not save target HC:', e); }
     // Refresh progress bar
-    const startHC = 36;
+    const startHC = 28;
     const progress = Math.min(100, Math.max(0, ((startHC - playingHC) / (startHC - targetHC)) * 100));
     document.getElementById('home-hc-bar').style.width = progress + '%';
     const needed = playingHC - targetHC;
