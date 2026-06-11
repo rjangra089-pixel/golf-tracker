@@ -2099,6 +2099,11 @@
                     <div class="topbar-pts-val" id="tb-pts">0</div>
                     <div class="topbar-pts-lbl">Total</div>
                 </div>
+                <div style="color:var(--border2);font-size:20px;margin-bottom:2px">|</div>
+                <div style="text-align:right">
+                    <div class="topbar-pts-val" id="tb-shots" style="font-size:28px;color:var(--gray)">0</div>
+                    <div class="topbar-pts-lbl">Shots</div>
+                </div>
             </div>
             <div class="topbar-pace" id="tb-pace" style="display:none"></div>
         </div>
@@ -2490,7 +2495,7 @@ async function loadHomeData() {
             const dateStr = d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
             const hole = inProgress.current_hole || 1;
             document.getElementById('resume-banner-sub').textContent =
-                `${dateStr} · Hole ${hole} · ${inProgress.stableford_points || 0} pts so far`;
+                `${dateStr} · Hole ${hole} · ${inProgress.stableford_points || 0} pts · ${inProgress.total_score || 0} shots so far`;
             resumeBanner.style.display = 'flex';
             window._inProgressRound = inProgress;
         } else {
@@ -3206,6 +3211,10 @@ function getTotalPoints() {
     return holeData.reduce((sum,h,i) => sum + (h.score ? calcPoints(i,h.score) : 0), 0);
 }
 
+function getTotalShots() {
+    return holeData.reduce((sum,h) => sum + (h.score || 0), 0);
+}
+
 function getScoreLabel(par, score) {
     const d = score - par;
     if (d <= -2) return 'Eagle'; if (d===-1) return 'Birdie'; if (d===0) return 'Par';
@@ -3468,6 +3477,7 @@ function renderHole(idx, fromPrev) {
     const totalPts   = getTotalPoints();
     const holesPlayed = holeData.slice(0, idx).filter(h=>h.score).length;
     document.getElementById('tb-pts').textContent = totalPts;
+    document.getElementById('tb-shots').textContent = getTotalShots();
     // Show this hole's pts if already scored (e.g. going back)
     const thisPts = holeData[idx].score ? calcPoints(idx, holeData[idx].score) : null;
     const holePtsEl = document.getElementById('tb-hole-pts');
@@ -3643,6 +3653,7 @@ function selectScore(score) {
     document.querySelectorAll('#score-buttons .score-btn').forEach((btn,i) => btn.classList.toggle('selected', (min+i)===score));
     updatePointsDisplay(currentHole);
     document.getElementById('tb-pts').textContent = getTotalPoints();
+    document.getElementById('tb-shots').textContent = getTotalShots();
     // Update this-hole pts in topbar
     const pts = calcPoints(currentHole, score);
     const holePtsEl = document.getElementById('tb-hole-pts');
