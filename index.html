@@ -2403,10 +2403,16 @@ async function loadCourseData() {
         const courses = await sbFetch('courses?select=id,name,slug,par&order=name');
         if (!courses || !courses.length) return;
 
+        // Built with DOM APIs + textContent: course names are database text and
+        // must display literally, never be parsed as HTML.
         const select = document.getElementById('setup-course-select');
-        select.innerHTML = courses.map(c =>
-            `<option value="${c.slug}" ${c.slug === selectedCourseSlug ? 'selected' : ''}>${c.name} · Par ${c.par}</option>`
-        ).join('');
+        select.replaceChildren(...courses.map(c => {
+            const opt = document.createElement('option');
+            opt.value = c.slug;
+            opt.textContent = `${c.name} · Par ${c.par}`;
+            opt.selected = c.slug === selectedCourseSlug;
+            return opt;
+        }));
 
         await switchCourse(selectedCourseSlug);
     } catch(e) { console.warn('Course load:', e); }
@@ -4884,13 +4890,15 @@ async function openAssessment(returnTo) {
 
         const lastRound = rounds[0];
         const courseName = lastRound.courses?.name || 'your course';
-        const courseSlug = lastRound.courses?.slug || selectedCourseSlug;
 
-        // Ensure HOLES is loaded for the course this round was played at
-        if (!HOLES.length || courseSlug !== selectedCourseSlug) {
-            await switchCourse(courseSlug);
-        }
-        const holesMeta = Array.isArray(HOLES) && HOLES.length ? HOLES : Array.from({length:18}, (_,i) => ({ num:i+1, par:4, si:i+1 }));
+        // Read-only: the debrief uses the reviewed round's OWN embedded course holes
+        // (validated by isCompleteRound) and never calls switchCourse(), so it can't
+        // change HOLES / holeIds / courseId / selectedCourseSlug of an active round.
+        const roundHoles = courseHoleMap(lastRound);
+        const holesMeta = Array.from({length:18}, (_,i) => {
+            const h = roundHoles.get(i + 1);
+            return { num: i + 1, par: h.par, si: h.si };
+        });
 
         // Update topbar label
         const d = new Date(lastRound.date + 'T12:00:00');
