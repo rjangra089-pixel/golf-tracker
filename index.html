@@ -62,17 +62,10 @@
         }
 
         /* ── Dark mode overrides for hardcoded colours ── */
-        body.dark-mode .score-btn.eagle  { background: rgba(246,216,96,0.15);  border-color: rgba(246,216,96,0.5);  color: #f6d860; }
-        body.dark-mode .score-btn.birdie { background: rgba(82,183,136,0.12);  border-color: rgba(82,183,136,0.4);  color: var(--green-bright); }
-        body.dark-mode .score-btn.par    { background: rgba(116,179,206,0.12); border-color: rgba(116,179,206,0.4); color: #74b3ce; }
-        body.dark-mode .score-btn.bogey  { background: rgba(244,162,97,0.12);  border-color: rgba(244,162,97,0.4);  color: var(--orange); }
-        body.dark-mode .score-btn.double { background: rgba(230,57,70,0.1);    border-color: rgba(230,57,70,0.4);   color: var(--red); }
-        body.dark-mode .score-btn.triple, body.dark-mode .score-btn.more { background: rgba(100,100,100,0.08); border-color: #555; color: #888; }
         body.dark-mode .toggle-btn.hit   { background: rgba(82,183,136,0.18);  border-color: var(--green-bright);   color: var(--green-bright); }
         body.dark-mode .toggle-btn.miss-l, body.dark-mode .toggle-btn.miss-r { background: rgba(244,162,97,0.1); border-color: rgba(244,162,97,0.5); color: var(--orange); }
         body.dark-mode .toggle-btn.ob    { background: rgba(230,57,70,0.1);    border-color: rgba(230,57,70,0.4);   color: var(--red); }
-        body.dark-mode .putt-btn.selected { background: rgba(82,183,136,0.18); border-color: var(--green-bright);   color: var(--green-bright); }
-        body.dark-mode .score-btn        { background: var(--card2); color: var(--white); border-color: var(--border2); }
+        body.dark-mode .putt-btn.selected { background: var(--green); border-color: var(--green); color: var(--on-accent); }
         body.dark-mode .toggle-btn       { background: var(--card2); color: var(--white); }
         body.dark-mode .putt-btn         { background: var(--card2); color: var(--white); }
         body.dark-mode .caddie-briefing  { background: linear-gradient(135deg, #0d2b1d 0%, #0e2318 100%); }
@@ -84,18 +77,11 @@
         body.dark-mode .summary-title    { color: var(--white); }
         body.dark-mode .hero-val         { color: var(--white); }
         body.dark-mode .hs-score         { color: var(--white); }
-        body.dark-mode .topbar-hole      { color: var(--green-bright); }
-        body.dark-mode .topbar-pts-val   { color: var(--sand); }
-        body.dark-mode #tb-hole-pts      { color: var(--gray) !important; }
-        body.dark-mode .milestone-sub    { color: var(--gray); }
         body.dark-mode .setup-label      { color: var(--gray); }
         body.dark-mode .section-label    { color: var(--gray); }
         body.dark-mode .btn-next         { color: var(--rough); }
         body.dark-mode .btn-save         { color: var(--rough); }
         body.dark-mode .btn-teeoff       { color: var(--rough); }
-        body.dark-mode .momentum-badge.hot  { background: rgba(246,216,96,0.12); border-color: rgba(246,216,96,0.3); color: #f6d860; }
-        body.dark-mode .momentum-badge.cold { background: rgba(230,57,70,0.10);  border-color: rgba(230,57,70,0.25); color: var(--red); }
-        body.dark-mode .momentum-badge.good { background: rgba(82,183,136,0.10); border-color: rgba(82,183,136,0.25); color: var(--green-bright); }
 
         /* ── Theme toggle button ── */
         .theme-toggle {
@@ -646,7 +632,8 @@
            PLAY SCREEN
         ═══════════════════════════════════════════ */
         #screen-play.active {
-            display: block !important;
+            display: flex !important;          /* column: header · content (grows) · nav pinned at the bottom */
+            flex-direction: column;
             height: 100dvh;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
@@ -665,56 +652,75 @@
             z-index: 20;
         }
 
-        .topbar-hole { font-family: var(--font-display); font-size: 36px; color: var(--green); line-height: 1; }
-        .topbar-meta { font-size: 17px; color: var(--gray); }
-        .topbar-meta span { color: var(--green); font-weight: 600; }
-        .topbar-pts-val { font-family: var(--font-display); font-size: 36px; color: #b5860a; line-height: 1; text-align: right; }
-        .topbar-pts-lbl { font-size: 16px; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; text-align: right; }
 
         .progress-bar { height: 3px; background: var(--card); flex-shrink: 0; }
         .progress-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--green-light)); transition: width 0.4s ease; }
 
         .play-scroll {
-            padding: 14px;
-            padding-bottom: 120px;
+            flex: 1 0 auto;
+            padding: 8px 12px 12px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
-        .hole-info-card {
-            background: var(--card);
-            border-radius: 16px;
-            border: 1.5px solid var(--border2);
-            overflow: hidden;
+        /* ── Live scoring: compact header ─────────────── */
+        .play-header {
+            position: sticky; top: 0; z-index: 20;
+            background: var(--fairway); border-bottom: 2px solid var(--green);
+            padding: 6px 16px 6px;
         }
-
-        .hole-info-card.danger { border-color: rgba(192,57,43,0.4); }
-
-        .hole-info-header {
-            padding: 14px 18px;
-            background: var(--card2);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+        .play-header-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+        .play-hole-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; }
+        .play-hole { font-family: var(--font-display); font-size: 28px; line-height: 1; color: var(--green); }
+        .play-hole-meta { font-size: 15px; color: var(--gray); overflow: hidden; text-overflow: ellipsis; }
+        .play-hole-meta span { color: var(--white); font-weight: 600; }
+        .play-cancel {
+            flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--red);
+            font-family: var(--font-body); font-size: 13px; padding: 10px 0 10px 12px; margin: -10px 0;
         }
-
-        .hole-title-group { display: flex; align-items: baseline; gap: 10px; }
-        .hole-big-num { font-family: var(--font-display); font-size: 44px; color: var(--white); line-height: 1; }
-
-        .par-tag {
-            font-family: var(--font-mono);
-            font-size: 17px;
-            background: var(--green);
-            color: var(--green);
-            padding: 3px 8px;
-            border-radius: 20px;
+        .play-tally { font-size: 14px; color: var(--white); line-height: 20px; }
+        .play-status {
+            font-size: 13px; line-height: 18px; height: 18px; color: var(--gray);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            background: none; padding: 0; border-radius: 0; margin: 0;
         }
+        #screen-play .play-status { background: none; padding: 0; border-radius: 0; }
+        .play-status.pace-ahead, .play-status.momentum-hot, .play-status.momentum-good, .play-status.halfway { color: var(--green); font-weight: 600; }
+        .play-status.pace-behind, .play-status.momentum-cold { color: var(--orange); font-weight: 600; }
+        .play-status.pace-on { color: var(--gray); }
 
-        .si-tag { font-family: var(--font-mono); font-size: 17px; color: var(--gray); }
-        .danger-tag { font-size: 17px; font-weight: 600; color: var(--red); background: rgba(192,57,43,0.08); border: 1px solid rgba(192,57,43,0.25); padding: 3px 10px; border-radius: 20px; }
-        .hole-yardage { font-family: var(--font-mono); font-size: 17px; color: var(--gray); text-align: right; }
-        .hole-yardage strong { color: var(--white); font-size: 18px; display: block; }
+        /* ── Live scoring: entry rows ─────────────────── */
+        #screen-play .section-label { font-size: 12px; letter-spacing: 1.2px; margin-bottom: 6px; }
+        #screen-play [hidden] { display: none !important; }
+        .entry-section { padding: 10px 14px; border-top: 1px solid var(--border); }
+        .entry-section:first-child { border-top: none; }
+        .entry-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+        .score-result { font-size: 14px; font-weight: 600; color: var(--white); white-space: nowrap; }
+        .entry-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+        .score-cell {
+            height: 48px; border-radius: 10px; border: 1.5px solid var(--border2);
+            background: var(--card2); color: var(--white); cursor: pointer;
+            font-family: var(--font-display); font-size: 24px; line-height: 1; transition: all 0.12s;
+        }
+        .score-cell.is-par { border-style: dashed; border-color: var(--green); }
+        #screen-play .score-cell.selected, #screen-play .putt-btn.selected { background: var(--green); border-color: var(--green); color: var(--on-accent); }
+        .score-cell-more, .putt-btn-more { font-size: 20px; }
+        .entry-stepper { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 8px; }
+        .stepper-btn {
+            width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--border2);
+            background: var(--card2); color: var(--white); font-size: 22px; line-height: 1; cursor: pointer;
+        }
+        .stepper-btn:disabled { opacity: 0.35; cursor: default; }
+        .stepper-val { font-family: var(--font-display); font-size: 30px; min-width: 48px; text-align: center; color: var(--white); }
+        #tee-gir-row { grid-template-columns: 3fr 2fr; gap: 12px; padding: 10px 14px; }
+        #tee-gir-row.is-par3 { grid-template-columns: 1fr; }
+
+
+
+
+
+
 
         /* My average for this hole */
         .my-avg-bar {
@@ -730,15 +736,6 @@
 
         .my-avg-val { font-family: var(--font-mono); font-size: 17px; font-weight: 500; }
 
-        .caddie-tip {
-            padding: 12px 18px;
-            font-size: 17px;
-            color: var(--green);
-            line-height: 1.6;
-            border-top: 1px solid var(--border);
-            font-style: italic;
-            font-weight: 500;
-        }
 
         .scoring-card {
             background: var(--card);
@@ -747,54 +744,19 @@
             overflow: hidden;
         }
 
-        .score-section { padding: 14px 16px; }
         .section-label { font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gray); margin-bottom: 8px; }
 
-        .score-buttons { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-        .score-buttons::-webkit-scrollbar { display: none; }
 
-        .score-btn-wrap { display: flex; flex-direction: column; align-items: center; gap: 0; padding-bottom: 20px; flex-shrink: 0; }
 
-        .score-btn {
-            width: 54px; height: 54px;
-            border-radius: 12px;
-            border: 2px solid var(--border);
-            background: var(--card2);
-            color: var(--gray);
-            font-family: var(--font-display);
-            font-size: 26px;
-            cursor: pointer;
-            transition: all 0.12s;
-            display: flex; align-items: center; justify-content: center;
-        }
 
-        .score-label { font-family: var(--font-body); font-size: 17px; color: var(--gray); margin-top: 4px; white-space: nowrap; }
 
-        .score-btn.eagle  { border-color: #b5860a; background: rgba(181,134,10,0.08); color: #b5860a; }
-        .score-btn.birdie { border-color: var(--green-bright); background: rgba(46,168,84,0.08); color: var(--green); }
-        .score-btn.par    { border-color: #1565c0; background: rgba(21,101,192,0.08); color: #1565c0; }
-        .score-btn.bogey  { border-color: var(--orange); background: rgba(224,92,26,0.08); color: var(--orange); }
-        .score-btn.double { border-color: var(--red); background: rgba(192,57,43,0.07); color: var(--red); }
-        .score-btn.triple, .score-btn.more { border-color: rgba(0,0,0,0.2); background: rgba(0,0,0,0.05); color: #888; }
 
-        .score-btn.selected { transform: scale(1.1); }
-        .score-btn.eagle.selected  { box-shadow: 0 0 0 3px rgba(181,134,10,0.3); }
-        .score-btn.birdie.selected { box-shadow: 0 0 0 3px rgba(46,168,84,0.35); }
-        .score-btn.par.selected    { box-shadow: 0 0 0 3px rgba(21,101,192,0.35); }
-        .score-btn.bogey.selected  { box-shadow: 0 0 0 3px rgba(224,92,26,0.4); }
-        .score-btn.double.selected { box-shadow: 0 0 0 3px rgba(230,57,70,0.35); }
 
-        .points-result { margin: 0; padding: 10px 16px; border-radius: 0; border-top: 1px solid var(--border2); display: none; flex-direction: row; align-items: center; gap: 12px; }
-        .points-result.visible { display: flex; }
-        .points-result-val { font-family: var(--font-display); font-size: 28px; line-height: 1; }
-        .points-result-name { font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
 
-        .putts-section { border-top: 1px solid var(--border); padding: 14px 16px; }
-        .putts-buttons { display: flex; gap: 10px; }
-        .tasp-section { border-top: 1px solid var(--border); padding: 14px 16px; }
+        .tasp-section { border-top: 1px solid var(--border); padding: 10px 14px 12px; }
         .tasp-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
         .tasp-btn {
-            min-height: 48px; border-radius: 10px; border: 1.5px solid var(--border2);
+            min-height: 44px; border-radius: 10px; border: 1.5px solid var(--border2);
             background: var(--card2); color: var(--gray); cursor: pointer;
             font-family: var(--font-mono); font-size: 18px; font-weight: 600;
             transition: all 0.12s;
@@ -806,7 +768,7 @@
         .sum-tasp strong { color: var(--white); font-weight: 600; margin-left: 4px; }
 
         .putt-btn {
-            flex: 1; height: 46px;
+            flex: 1; height: 48px;
             border-radius: 10px;
             border: 1.5px solid var(--border);
             background: var(--card2);
@@ -824,7 +786,7 @@
         .toggle-group { display: flex; gap: 6px; }
 
         .toggle-btn {
-            flex: 1; height: 38px;
+            flex: 1; height: 44px;
             border-radius: 8px;
             border: 1.5px solid var(--border);
             background: var(--card2);
@@ -842,8 +804,8 @@
 
         .nav-bar {
             display: flex; gap: 12px;
-            padding: 12px 16px;
-            padding-bottom: max(12px, env(safe-area-inset-bottom));
+            padding: 10px 16px;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
             background: var(--card);
             border-top: 1.5px solid var(--border2);
             position: sticky;
@@ -1433,15 +1395,6 @@
         ═══════════════════════════════════════════ */
 
         /* Pace tracker in topbar */
-        .topbar-pace {
-            font-size: 17px;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 20px;
-            text-align: center;
-            margin-top: 4px;
-            letter-spacing: 0.5px;
-        }
         .pace-ahead  { background: rgba(46,168,84,0.12);  color: var(--green); }
         .pace-behind { background: rgba(244,162,97,0.2);  color: var(--orange); }
         .pace-on     { background: rgba(116,179,206,0.2); color: #1565c0; }
@@ -1478,7 +1431,18 @@
             transition: transform 0.2s;
         }
 
-        .caddie-briefing.collapsed .caddie-briefing-chevron { transform: rotate(-90deg); }
+        .caddie-briefing-chevron { margin-left: auto; transform: rotate(90deg); }
+        .caddie-briefing.collapsed .caddie-briefing-chevron { transform: none; }
+        button.caddie-briefing-header {
+            width: 100%; min-height: 44px; gap: 10px; border: none; background: none; text-align: left;
+            font-family: var(--font-body); color: inherit;
+        }
+        .caddie-briefing { margin: 0; }
+        #screen-play .caddie-briefing-title { font-size: 13px; letter-spacing: 1.5px; }
+        .cb-danger-chip {
+            font-size: 12px; font-weight: 600; color: var(--red);
+            border: 1px solid var(--red); border-radius: 10px; padding: 1px 8px; white-space: nowrap;
+        }
 
         .caddie-briefing-body {
             padding: 0 16px 16px;
@@ -1532,88 +1496,23 @@
         }
 
         /* Post-hole feedback banner */
-        .hole-feedback {
-            margin: 0 0 8px 0;
-            padding: 10px 14px;
-            border-radius: 12px;
-            display: none;
-            animation: feedbackIn 0.3s cubic-bezier(.34,1.56,.64,1);
-        }
 
         @keyframes feedbackIn {
             from { opacity: 0; transform: scale(0.95) translateY(-4px); }
             to   { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        .hole-feedback.visible { display: block; }
 
-        .feedback-pts {
-            font-family: var(--font-display);
-            font-size: 30px;
-            line-height: 1;
-            margin-bottom: 2px;
-        }
 
-        .feedback-label {
-            font-size: 16px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
-        }
 
-        .feedback-vs {
-            font-size: 17px;
-            opacity: 0.85;
-            line-height: 1.4;
-        }
 
-        .feedback-msg {
-            font-size: 16px;
-            margin-top: 4px;
-            font-style: italic;
-            opacity: 0.8;
-            line-height: 1.3;
-        }
 
         /* Momentum badge */
-        .momentum-badge {
-            display: none;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 14px;
-            border-radius: 12px;
-            margin: 0 0 12px 0;
-            font-size: 17px;
-            font-weight: 600;
-            animation: feedbackIn 0.4s cubic-bezier(.34,1.56,.64,1);
-        }
 
-        .momentum-badge.visible { display: flex; }
-        .momentum-badge.hot  { background: rgba(181,134,10,0.1);  border: 1px solid rgba(181,134,10,0.3); color: #b5860a; }
-        .momentum-badge.cold { background: rgba(192,57,43,0.08);  border: 1px solid rgba(192,57,43,0.22);  color: var(--red); }
-        .momentum-badge.good { background: rgba(46,168,84,0.1);   border: 1px solid rgba(46,168,84,0.25);  color: var(--green); }
 
-        .momentum-icon { font-size: 20px; }
 
         /* Milestone banner */
-        .milestone-banner {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            padding: 16px;
-            border-radius: 16px;
-            margin: 0 0 12px 0;
-            text-align: center;
-            background: linear-gradient(135deg, rgba(46,168,84,0.08), rgba(181,134,10,0.06));
-            border: 1px solid var(--border2);
-            animation: feedbackIn 0.4s cubic-bezier(.34,1.56,.64,1);
-        }
 
-        .milestone-banner.visible { display: flex; }
-        .milestone-icon { font-size: 32px; margin-bottom: 6px; }
-        .milestone-title { font-family: var(--font-display); font-size: 22px; color: var(--green); }
-        .milestone-sub { font-size: 17px; color: #444444; margin-top: 4px; line-height: 1.4; }
 
         /* Loading */
         .loading-overlay {
@@ -2125,63 +2024,29 @@
      SCREEN: PLAY
 ══════════════════════════════════════ -->
 <div id="screen-play" class="screen">
-    <div class="topbar">
-        <div style="display:flex;flex-direction:column;gap:2px">
-            <div class="topbar-hole" id="tb-hole">HOLE 1</div>
-            <div class="topbar-meta">Par <span id="tb-par">5</span> · SI <span id="tb-si">11</span> · <span id="tb-yards">404</span>y · <span id="tb-tee-badge" style="font-size:12px;padding:1px 6px;border-radius:10px;background:rgba(181,134,10,0.15);color:#b5860a;border:1px solid rgba(181,134,10,0.3);">Yellow</span></div>
-            <button onclick="confirmCancelRound()" style="background:none;border:none;color:var(--red);font-size:13px;font-family:var(--font-body);cursor:pointer;padding:0;text-align:left;opacity:0.8">✕ Cancel round</button>
-        </div>
-        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-            <div style="display:flex;align-items:baseline;gap:8px">
-                <div style="text-align:right">
-                    <div class="topbar-pts-val" id="tb-hole-pts" style="font-size:28px;color:var(--gray)">—</div>
-                    <div class="topbar-pts-lbl">This Hole</div>
-                </div>
-                <div style="color:var(--border2);font-size:20px;margin-bottom:2px">|</div>
-                <div style="text-align:right">
-                    <div class="topbar-pts-val" id="tb-pts">0</div>
-                    <div class="topbar-pts-lbl">Total</div>
-                </div>
-                <div style="color:var(--border2);font-size:20px;margin-bottom:2px">|</div>
-                <div style="text-align:right">
-                    <div class="topbar-pts-val" id="tb-shots" style="font-size:28px;color:var(--gray)">0</div>
-                    <div class="topbar-pts-lbl">Shots</div>
-                </div>
+    <!-- Compact header: hole facts + running tally + one status line (pace / momentum / halfway) -->
+    <header class="play-header">
+        <div class="play-header-top">
+            <div class="play-hole-line">
+                <span class="play-hole" id="tb-hole">H1</span>
+                <span class="play-hole-meta">· Par <span id="tb-par">4</span> · <span id="tb-yards">0</span>y · SI <span id="tb-si">1</span><span id="tb-shots-rec-wrap"> · <span id="tb-shots-rec">+0</span></span></span>
             </div>
-            <div class="topbar-pace" id="tb-pace" style="display:none"></div>
+            <button class="play-cancel" onclick="confirmCancelRound()">Cancel</button>
         </div>
-    </div>
+        <div class="play-tally"><span id="tb-shots">0</span> shots · <span id="tb-pts">0</span> pts</div>
+        <div class="play-status" id="play-status" aria-live="polite"></div>
+    </header>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
 
     <div class="play-scroll" id="play-scroll">
 
-        <!-- Momentum badge -->
-        <div class="momentum-badge" id="momentum-badge">
-            <span class="momentum-icon" id="momentum-icon">🔥</span>
-            <span id="momentum-text">On a roll!</span>
-        </div>
-
-        <!-- Milestone banner -->
-        <div class="milestone-banner" id="milestone-banner">
-            <div class="milestone-icon" id="milestone-icon">🏁</div>
-            <div class="milestone-title" id="milestone-title">Halfway!</div>
-            <div class="milestone-sub" id="milestone-sub"></div>
-        </div>
-
-        <!-- Post-hole feedback (shown after score entered + Next tapped) -->
-        <div class="hole-feedback" id="hole-feedback">
-            <div class="feedback-pts" id="feedback-pts">2</div>
-            <div class="feedback-label" id="feedback-label">Par</div>
-            <div class="feedback-vs" id="feedback-vs"></div>
-            <div class="feedback-msg" id="feedback-msg"></div>
-        </div>
-
-        <!-- Caddie briefing panel -->
-        <div class="caddie-briefing" id="caddie-briefing">
-            <div class="caddie-briefing-header" onclick="toggleBriefing()">
-                <div class="caddie-briefing-title">🏌️ Caddie Briefing — Hole <span id="cb-hole-num">1</span> <span style="font-size:17px;opacity:0.6;font-weight:500;letter-spacing:0.5px">— tap for stats & strategy</span></div>
-                <div class="caddie-briefing-chevron" id="cb-chevron">▼</div>
-            </div>
+        <!-- Caddie briefing: collapsed on every hole; opening it is optional -->
+        <div class="caddie-briefing collapsed" id="caddie-briefing">
+            <button class="caddie-briefing-header" id="cb-toggle" aria-expanded="false" onclick="toggleBriefing()">
+                <span class="caddie-briefing-title">Caddie briefing</span>
+                <span class="cb-danger-chip" id="cb-danger-chip" hidden>Danger hole</span>
+                <span class="caddie-briefing-chevron" aria-hidden="true">▸</span>
+            </button>
             <div class="caddie-briefing-body">
                 <div class="caddie-stats-grid">
                     <div class="caddie-stat">
@@ -2219,59 +2084,66 @@
             </div>
         </div>
 
-        <!-- Hole header (compact, always visible) -->
-        <div class="hole-info-card" id="hole-info-card">
-            <div class="hole-info-header" id="hole-info-header">
-                <div class="hole-title-group">
-                    <div class="hole-big-num" id="hi-num">1</div>
-                    <div>
-                        <div class="par-tag" id="hi-par">Par 5</div>
-                        <div class="si-tag" id="hi-si">SI 11</div>
-                    </div>
-                </div>
-                <div>
-                    <div id="hi-danger" class="danger-tag" style="display:none">⚠ DANGER</div>
-                    <div class="hole-yardage"><strong id="hi-yards">404</strong>yards</div>
-                </div>
-            </div>
-        </div>
-
         <div class="scoring-card">
-            <div class="score-section">
-                <div class="section-label">Score</div>
-                <div class="score-buttons" id="score-buttons"></div>
-            </div>
-            <div class="points-result" id="points-result">
-                <div class="points-result-val" id="pr-val">2</div>
-                <div class="points-result-name" id="pr-name">Par</div>
-            </div>
-            <div class="stats-row">
+            <section class="entry-section">
+                <div class="entry-label-row">
+                    <span class="section-label">Score</span>
+                    <span class="score-result" id="score-result"></span>
+                </div>
+                <div class="entry-grid score-grid" id="score-grid" role="group" aria-label="Score">
+                    <button class="score-cell" data-score="1" onclick="selectScore(1)">1</button>
+                    <button class="score-cell" data-score="2" onclick="selectScore(2)">2</button>
+                    <button class="score-cell" data-score="3" onclick="selectScore(3)">3</button>
+                    <button class="score-cell" data-score="4" onclick="selectScore(4)">4</button>
+                    <button class="score-cell" data-score="5" onclick="selectScore(5)">5</button>
+                    <button class="score-cell" data-score="6" onclick="selectScore(6)">6</button>
+                    <button class="score-cell" data-score="7" onclick="selectScore(7)">7</button>
+                    <button class="score-cell" data-score="8" onclick="selectScore(8)">8</button>
+                    <button class="score-cell" data-score="9" onclick="selectScore(9)">9</button>
+                    <button class="score-cell score-cell-more" id="score-10plus" data-score="10+" onclick="selectScore10Plus()">10+</button>
+                </div>
+                <div class="entry-stepper" id="score-stepper" hidden>
+                    <button class="stepper-btn" aria-label="One shot fewer" onclick="stepScore(-1)">−</button>
+                    <span class="stepper-val" id="score-stepper-val">10</span>
+                    <button class="stepper-btn" id="score-stepper-plus" aria-label="One shot more" onclick="stepScore(1)">+</button>
+                </div>
+            </section>
+
+            <section class="entry-section">
+                <div class="section-label">Putts</div>
+                <div class="entry-grid putts-grid" role="group" aria-label="Putts">
+                    <button class="putt-btn" data-putts="0" onclick="selectPutts(0)">0</button>
+                    <button class="putt-btn" data-putts="1" onclick="selectPutts(1)">1</button>
+                    <button class="putt-btn" data-putts="2" onclick="selectPutts(2)">2</button>
+                    <button class="putt-btn" data-putts="3" onclick="selectPutts(3)">3</button>
+                    <button class="putt-btn putt-btn-more" id="putts-4plus" data-putts="4+" onclick="selectPutts4Plus()">4+</button>
+                </div>
+                <div class="entry-stepper" id="putts-stepper" hidden>
+                    <button class="stepper-btn" id="putts-stepper-minus" aria-label="One putt fewer" onclick="stepPutts(-1)">−</button>
+                    <span class="stepper-val" id="putts-stepper-val">4</span>
+                    <button class="stepper-btn" id="putts-stepper-plus" aria-label="One putt more" onclick="stepPutts(1)">+</button>
+                </div>
+            </section>
+
+            <section class="entry-section stats-row" id="tee-gir-row">
                 <div id="fairway-group">
-                    <div class="section-label">Fairway</div>
+                    <div class="section-label">Tee</div>
                     <div class="toggle-group">
-                        <button class="toggle-btn" onclick="selectFairway('C')">✓</button>
-                        <button class="toggle-btn" onclick="selectFairway('L')">◀</button>
-                        <button class="toggle-btn" onclick="selectFairway('R')">▶</button>
-                        <button class="toggle-btn" onclick="selectFairway('X')">OB</button>
+                        <button class="toggle-btn" onclick="selectFairway('C')" aria-label="Fairway hit">✓</button>
+                        <button class="toggle-btn" onclick="selectFairway('L')" aria-label="Missed left">◀</button>
+                        <button class="toggle-btn" onclick="selectFairway('R')" aria-label="Missed right">▶</button>
+                        <button class="toggle-btn" onclick="selectFairway('X')" aria-label="Out of bounds">OB</button>
                     </div>
                 </div>
-                <div>
+                <div id="gir-group">
                     <div class="section-label">GIR</div>
                     <div class="toggle-group">
                         <button class="toggle-btn" onclick="selectGIR(true)">Yes</button>
                         <button class="toggle-btn" onclick="selectGIR(false)">No</button>
                     </div>
                 </div>
-            </div>
-            <div class="putts-section">
-                <div class="section-label">Putts</div>
-                <div class="putts-buttons">
-                    <button class="putt-btn" data-putts="1" onclick="selectPutts(1)">1</button>
-                    <button class="putt-btn" data-putts="2" onclick="selectPutts(2)">2</button>
-                    <button class="putt-btn" data-putts="3" onclick="selectPutts(3)">3</button>
-                    <button class="putt-btn" data-putts="4" onclick="selectPutts(4)">4</button>
-                </div>
-            </div>
+            </section>
+
             <!-- Optional, player-chosen stroke-costing errors. Never set automatically. -->
             <div class="tasp-section">
                 <div class="section-label" id="tasp-label">Stroke-costing error?</div>
@@ -3688,7 +3560,7 @@ async function resumeRound() {
             if (idx >= 0 && idx < 18) {
                 holeData[idx] = {
                     score:   s.score   || null,
-                    putts:   s.putts   || null,
+                    putts:   s.putts   ?? null,
                     fairway: s.fairway || null,
                     gir:     s.gir     ?? null,
                     tags:    parseErrorTags(s.error_tags),
@@ -3714,12 +3586,14 @@ async function resumeRound() {
         alert('Could not resume round: ' + e.message);
     }
 }
-let briefingCollapsed = false;
+let briefingCollapsed = true;
+function setBriefingCollapsed(collapsed) {
+    briefingCollapsed = collapsed;
+    document.getElementById('caddie-briefing').classList.toggle('collapsed', collapsed);
+    document.getElementById('cb-toggle').setAttribute('aria-expanded', String(!collapsed));
+}
 function toggleBriefing() {
-    briefingCollapsed = !briefingCollapsed;
-    clearTimeout(window._briefingTimer); // cancel auto-collapse if user taps
-    const el = document.getElementById('caddie-briefing');
-    el.classList.toggle('collapsed', briefingCollapsed);
+    setBriefingCollapsed(!briefingCollapsed);   // stays as chosen for this hole only
 }
 
 // ── Pace calculation ──────────────────────────────────
@@ -3768,54 +3642,9 @@ function checkMilestone(idx) {
     const projTotal = f9pts * 2;
     const best = Math.max(...recentRounds.filter(r=>r.stableford_points).map(r=>r.stableford_points), 0);
     let sub = `Front 9: ${f9pts} pts`;
-    if (projTotal >= best && best > 0) sub += ` · 🏆 On pace to beat your best (${best} pts)!`;
+    if (projTotal >= best && best > 0) sub += ` · On pace to beat your best (${best} pts)!`;
     else if (f9avg !== null) sub += ` · Projected: ~${projTotal} pts (avg: ${Math.round(f9avg*2)})`;
     return { icon:'🏁', title:'Halfway There!', sub };
-}
-
-// ── Post-hole feedback ────────────────────────────────
-function showHoleFeedback(fromIdx) {
-    const h    = HOLES[fromIdx];
-    const d    = holeData[fromIdx];
-    if (!d.score) return;
-    const pts  = calcPoints(fromIdx, d.score);
-    const ps   = getPointsStyle(pts);
-    const stat = holeStats[fromIdx];
-
-    const fb   = document.getElementById('hole-feedback');
-    fb.style.background = ps.bg + '18';
-    fb.style.border     = `1px solid ${ps.bg}44`;
-    fb.style.color      = ps.bg;
-    fb.classList.add('visible');
-
-    document.getElementById('feedback-pts').textContent  = pts + ' pt' + (pts!==1?'s':'');
-    document.getElementById('feedback-pts').style.color  = ps.bg;
-    document.getElementById('feedback-label').textContent = getScoreLabel(h.par, d.score) + ` on Hole ${h.num}`;
-
-    // vs average
-    let vsText = '';
-    if (stat?.avg !== null && stat?.avg !== undefined) {
-        const diff = d.score - stat.avg;
-        if (diff < -0.5)      vsText = `${Math.abs(diff).toFixed(1)} shots better than your average here ✅`;
-        else if (diff < 0.5)  vsText = `Right on your average for this hole`;
-        else                   vsText = `${diff.toFixed(1)} shots above your average — target is ${stat.targetScore}`;
-    }
-    document.getElementById('feedback-vs').textContent  = vsText;
-    document.getElementById('feedback-vs').style.color  = 'var(--gray)';
-
-    // motivational message
-    const totalPts = getTotalPoints();
-    const holesIn  = holeData.slice(0, fromIdx+1).filter(h=>h.score).length;
-    const pace     = getPaceInfo(holesIn, totalPts);
-    let msg = '';
-    if (pts >= 4)      msg = "Eagle or better — that's what dreams are made of! 🦅";
-    else if (pts === 3) msg = "Birdie! Keep attacking. You're playing well. 🐦";
-    else if (pts === 2) msg = "Par — banker point in the bag. Solid. 💼";
-    else if (pts === 1) msg = "Bogey — still a point. Reset and move on. 👊";
-    else if (pts === 0 && d.score <= h.par + 3) msg = "Tough one. Forget it — next hole is a fresh start.";
-    else msg = "Rough hole. Deep breath. The card's still in play.";
-    document.getElementById('feedback-msg').textContent = msg;
-    document.getElementById('feedback-msg').style.color = 'var(--gray)';
 }
 
 function renderHole(idx, fromPrev) {
@@ -3824,87 +3653,37 @@ function renderHole(idx, fromPrev) {
     const d = holeData[idx];
     const isPar3 = h.par === 3;
 
-    // Hide feedback/milestone/momentum on new hole render (unless coming from prev)
-    document.getElementById('hole-feedback').classList.remove('visible');
-    document.getElementById('milestone-banner').classList.remove('visible');
-    document.getElementById('momentum-badge').classList.remove('visible');
-
-    // Topbar
-    document.getElementById('tb-hole').textContent  = `HOLE ${h.num}`;
+    // Compact header
+    document.getElementById('tb-hole').textContent  = `H${h.num}`;
     document.getElementById('tb-par').textContent   = h.par;
     document.getElementById('tb-si').textContent    = h.si;
     const hYards = typeof h.yards === 'object' ? (h.yards[selectedTee] || h.yards.yellow) : h.yards;
     document.getElementById('tb-yards').textContent = hYards;
-    // Update tee badge
-    const teeBadge = document.getElementById('tb-tee-badge');
-    if (teeBadge) {
-        if (selectedTee === 'white') {
-            teeBadge.textContent = 'White';
-            teeBadge.style.background = 'rgba(200,220,210,0.1)';
-            teeBadge.style.color = 'var(--gray)';
-            teeBadge.style.borderColor = 'rgba(200,220,210,0.3)';
-        } else {
-            teeBadge.textContent = 'Yellow';
-            teeBadge.style.background = 'rgba(181,134,10,0.15)';
-            teeBadge.style.color = '#b5860a';
-            teeBadge.style.borderColor = 'rgba(181,134,10,0.3)';
-        }
-    }
-
     const totalPts   = getTotalPoints();
     const holesPlayed = holeData.slice(0, idx).filter(h=>h.score).length;
-    document.getElementById('tb-pts').textContent = totalPts;
-    document.getElementById('tb-shots').textContent = getTotalShots();
-    // Show this hole's pts if already scored (e.g. going back)
-    const thisPts = holeData[idx].score ? calcPoints(idx, holeData[idx].score) : null;
-    const holePtsEl = document.getElementById('tb-hole-pts');
-    if (thisPts !== null) {
-        holePtsEl.textContent = thisPts;
-        holePtsEl.style.color = getPointsStyle(thisPts).bg;
-    } else {
-        holePtsEl.textContent = '—';
-        holePtsEl.style.color = 'var(--gray)';
-    }
+    const shotsRec = getShotsReceived(idx);
+    document.getElementById('tb-shots-rec').textContent = `+${shotsRec}`;
+    document.getElementById('tb-shots-rec-wrap').hidden = shotsRec <= 0;
+    updatePlayTally();
 
-    // Pace badge
-    const paceEl = document.getElementById('tb-pace');
+    // One-line status: pace by default (momentum / halfway may replace it in nextHole)
+    let paceText = '', paceKind = '';
     if (holesPlayed >= 3) {
         const pace = getPaceInfo(holesPlayed, totalPts);
         if (pace) {
-            paceEl.style.display = 'block';
             const proj = Math.round(pace.projectedTotal);
             const diff = proj - Math.round(pace.avgProjected);
-            if (diff >= 2) {
-                paceEl.textContent = `↑ On pace for ${proj} pts`;
-                paceEl.className = 'topbar-pace pace-ahead';
-            } else if (diff <= -2) {
-                paceEl.textContent = `↓ Pace: ~${proj} pts`;
-                paceEl.className = 'topbar-pace pace-behind';
-            } else {
-                paceEl.textContent = `→ Avg pace: ~${proj} pts`;
-                paceEl.className = 'topbar-pace pace-on';
-            }
+            if (diff >= 2)       { paceText = `↑ On pace for ${proj} pts`; paceKind = 'pace-ahead'; }
+            else if (diff <= -2) { paceText = `↓ Pace: ~${proj} pts`;      paceKind = 'pace-behind'; }
+            else                 { paceText = `→ Avg pace: ~${proj} pts`;  paceKind = 'pace-on'; }
         }
-    } else {
-        paceEl.style.display = 'none';
     }
+    setPlayStatus(paceText, paceKind);
 
     document.getElementById('progress-fill').style.width = `${(idx/18)*100}%`;
 
-    // Hole info card
-    const card = document.getElementById('hole-info-card');
-    card.className = `hole-info-card${h.danger?' danger':''}`;
-    document.getElementById('hi-num').textContent   = h.num;
-    document.getElementById('hi-par').textContent   = `Par ${h.par}`;
-    document.getElementById('hi-si').textContent    = `SI ${h.si}`;
-    const hiYards = typeof h.yards === 'object' ? (h.yards[selectedTee] || h.yards.yellow) : h.yards;
-    document.getElementById('hi-yards').textContent = hiYards;
-    document.getElementById('hi-danger').style.display = h.danger ? 'block' : 'none';
-
     // Caddie briefing
     const hStat   = holeStats[idx];
-    const shotsRec = getShotsReceived(idx);
-    document.getElementById('cb-hole-num').textContent = h.num;
     document.getElementById('cb-shots').textContent    = shotsRec;
     document.getElementById('cb-target').textContent   = hStat?.targetScore ?? (h.par + shotsRec);
     document.getElementById('cb-rounds').textContent   = hStat?.count ?? '—';
@@ -3942,6 +3721,7 @@ function renderHole(idx, fromPrev) {
     }
 
     const dangerBlock = document.getElementById('cb-danger-block');
+    document.getElementById('cb-danger-chip').hidden = !h.danger;
     if (h.danger) {
         dangerBlock.style.display = 'block';
         const dangerTipsHoebridge = {
@@ -3969,36 +3749,24 @@ function renderHole(idx, fromPrev) {
         dangerBlock.style.display = 'none';
     }
 
-    // Start expanded — scroll is working so nothing is hidden
-    briefingCollapsed = false;
-    document.getElementById('caddie-briefing').classList.remove('collapsed');
+    // Briefing starts collapsed on every newly rendered hole (opening it is optional, this hole only)
+    setBriefingCollapsed(true);
 
-    // Score buttons
-    const minScore = Math.max(1, h.par - 2);
-    const maxScore = h.par + 4;
-    const container = document.getElementById('score-buttons');
-    container.innerHTML = '';
-    for (let s = minScore; s <= maxScore; s++) {
-        const cls = getScoreClass(h.par, s);
-        const lbl = getScoreLabel(h.par, s);
-        const wrap = document.createElement('div');
-        wrap.className = 'score-btn-wrap';
-        wrap.innerHTML = `<button class="score-btn ${cls} ${d.score===s?'selected':''}" onclick="selectScore(${s})">${s}</button><span class="score-label">${lbl}</span>`;
-        container.appendChild(wrap);
-    }
+    // Score grid 1–9 + 10+ (same layout every hole; par marked)
+    renderScoreGrid(idx);
+    renderPutts(idx);
 
-    document.querySelectorAll('.putt-btn').forEach(btn => btn.classList.toggle('selected', parseInt(btn.dataset.putts)===d.putts));
-
+    // Tee row hidden completely on par 3s; GIR then takes the full width
     const fwGroup = document.getElementById('fairway-group');
-    fwGroup.style.opacity = isPar3 ? '0.3' : '1';
-    fwGroup.style.pointerEvents = isPar3 ? 'none' : 'auto';
+    fwGroup.hidden = isPar3;
+    document.getElementById('tee-gir-row').classList.toggle('is-par3', isPar3);
     const fwBtns = fwGroup.querySelectorAll('.toggle-btn');
     const fwMap = {'C':0,'L':1,'R':2,'X':3};
     const fwCls = {'C':'hit','L':'miss-l','R':'miss-r','X':'ob'};
     fwBtns.forEach(b => b.className='toggle-btn');
     if (d.fairway) { const i=fwMap[d.fairway]; fwBtns[i].classList.add(fwCls[d.fairway]); }
 
-    const girBtns = document.querySelectorAll('#screen-play .stats-row > div:last-child .toggle-btn');
+    const girBtns = document.querySelectorAll('#gir-group .toggle-btn');
     girBtns[0].classList.toggle('hit', d.gir===true);
     girBtns[1].classList.toggle('hit', d.gir===false);
 
@@ -4010,39 +3778,96 @@ function renderHole(idx, fromPrev) {
     document.getElementById('screen-play').scrollTo(0,0);
 }
 
+// ── Score / putts entry (fixed grids + compact steppers) ──────────
+const SCORE_STEPPER_MAX = 20;
+const PUTTS_STEPPER_MIN = 4, PUTTS_STEPPER_MAX = 9;
+
+function renderScoreGrid(idx) {
+    const score = holeData[idx].score;
+    const par = HOLES[idx].par;
+    document.querySelectorAll('#score-grid .score-cell').forEach(btn => {
+        const v = btn.dataset.score;
+        const selected = v === '10+' ? score >= 10 : Number(v) === score;
+        btn.classList.toggle('selected', selected);
+        btn.classList.toggle('is-par', Number(v) === par);
+        btn.setAttribute('aria-pressed', String(selected));
+    });
+    const more = document.getElementById('score-10plus');
+    more.textContent = score >= 10 ? String(score) : '10+';
+    document.getElementById('score-stepper').hidden = !(score >= 10);
+    document.getElementById('score-stepper-val').textContent = score >= 10 ? score : '';
+    document.getElementById('score-stepper-plus').disabled = score >= SCORE_STEPPER_MAX;
+}
+
+function selectScore10Plus() {
+    const current = holeData[currentHole].score;
+    selectScore(current >= 10 ? current : 10);
+}
+
+// Below 10 the grid takes over again (10 → 9); capped at SCORE_STEPPER_MAX.
+function stepScore(delta) {
+    const current = holeData[currentHole].score || 10;
+    selectScore(Math.min(SCORE_STEPPER_MAX, Math.max(9, current + delta)));
+}
+
+function renderPutts(idx) {
+    const putts = holeData[idx].putts;
+    const has = putts !== null && putts !== undefined;
+    document.querySelectorAll('.putt-btn').forEach(btn => {
+        const v = btn.dataset.putts;
+        const selected = has && (v === '4+' ? putts >= 4 : Number(v) === putts);
+        btn.classList.toggle('selected', selected);
+        btn.setAttribute('aria-pressed', String(selected));
+    });
+    document.getElementById('putts-4plus').textContent = has && putts >= 4 ? String(putts) : '4+';
+    document.getElementById('putts-stepper').hidden = !(has && putts >= 4);
+    document.getElementById('putts-stepper-val').textContent = has && putts >= 4 ? putts : '';
+    document.getElementById('putts-stepper-minus').disabled = !(putts > PUTTS_STEPPER_MIN);
+    document.getElementById('putts-stepper-plus').disabled = !(putts < PUTTS_STEPPER_MAX);
+}
+
+function selectPutts4Plus() {
+    const current = holeData[currentHole].putts;
+    selectPutts(current >= 4 ? current : 4);
+}
+
+function stepPutts(delta) {
+    const current = holeData[currentHole].putts >= 4 ? holeData[currentHole].putts : 4;
+    selectPutts(Math.min(PUTTS_STEPPER_MAX, Math.max(PUTTS_STEPPER_MIN, current + delta)));
+}
+
+function updatePlayTally() {
+    document.getElementById('tb-pts').textContent = getTotalPoints();
+    document.getElementById('tb-shots').textContent = getTotalShots();
+}
+
+// Single status line in the header — never adds height to the entry area.
+function setPlayStatus(text, kind) {
+    const el = document.getElementById('play-status');
+    el.textContent = text || '';
+    el.className = 'play-status' + (kind ? ' ' + kind : '');
+}
+
 function updatePointsDisplay(idx) {
     const d = holeData[idx];
-    const result = document.getElementById('points-result');
-    if (!d.score) { result.classList.remove('visible'); return; }
+    const result = document.getElementById('score-result');
+    if (!d.score) { result.textContent = ''; return; }
     const pts = calcPoints(idx, d.score);
-    const ps = getPointsStyle(pts);
-    result.classList.add('visible');
-    result.style.background = ps.bg+'22';
-    result.style.border = `1px solid ${ps.bg}55`;
-    document.getElementById('pr-val').textContent = pts;
-    document.getElementById('pr-val').style.color = ps.bg;
-    document.getElementById('pr-name').textContent = getScoreLabel(HOLES[idx].par, d.score);
+    result.textContent = `${d.score} · ${getScoreLabel(HOLES[idx].par, d.score)} · ${pts} pt${pts === 1 ? '' : 's'}`;
 }
 
 function selectScore(score) {
-    holeData[currentHole].score = score;
-    const h = HOLES[currentHole];
-    const min = Math.max(1, h.par-2);
-    document.querySelectorAll('#score-buttons .score-btn').forEach((btn,i) => btn.classList.toggle('selected', (min+i)===score));
+    holeData[currentHole].score = score;      // actual gross, never capped
+    renderScoreGrid(currentHole);
     updatePointsDisplay(currentHole);
-    document.getElementById('tb-pts').textContent = getTotalPoints();
-    document.getElementById('tb-shots').textContent = getTotalShots();
-    // Update this-hole pts in topbar
-    const pts = calcPoints(currentHole, score);
-    const holePtsEl = document.getElementById('tb-hole-pts');
-    holePtsEl.textContent = pts;
-    holePtsEl.style.color = getPointsStyle(pts).bg;
+    updatePlayTally();
     saveRoundStateToStorage(); // persist score immediately
 }
 
 function selectPutts(putts) {
-    holeData[currentHole].putts = putts;
-    document.querySelectorAll('.putt-btn').forEach(btn => btn.classList.toggle('selected', parseInt(btn.dataset.putts)===putts));
+    holeData[currentHole].putts = putts;      // 0 is a real value
+    renderPutts(currentHole);
+    saveRoundStateToStorage();
 }
 
 function selectFairway(val) {
@@ -4053,13 +3878,15 @@ function selectFairway(val) {
     const map = {'C':[0,'hit'],'L':[1,'miss-l'],'R':[2,'miss-r'],'X':[3,'ob']};
     const [i,cls] = map[val];
     btns[i].classList.add(cls);
+    saveRoundStateToStorage();
 }
 
 function selectGIR(val) {
     holeData[currentHole].gir = val;
-    const btns = document.querySelectorAll('#screen-play .stats-row > div:last-child .toggle-btn');
+    const btns = document.querySelectorAll('#gir-group .toggle-btn');
     btns[0].classList.toggle('hit', val===true);
     btns[1].classList.toggle('hit', val===false);
+    saveRoundStateToStorage();
 }
 
 function prevHole() {
@@ -4141,29 +3968,11 @@ function nextHole() {
         // Auto-save the hole we just left (fire and forget)
         autoSaveHole(prev);
 
-        // Show post-hole feedback for the hole we just left
-        if (holeData[prev].score) {
-            showHoleFeedback(prev);
-        }
-
-        // Momentum check (after hole 3+)
+        // Momentum / halfway temporarily replace the one-line status (no extra height)
         const momentum = getMomentum(next);
-        const badge = document.getElementById('momentum-badge');
-        if (momentum) {
-            badge.className = 'momentum-badge visible ' + momentum.type;
-            document.getElementById('momentum-icon').textContent = momentum.icon;
-            document.getElementById('momentum-text').textContent = momentum.text;
-        }
-
-        // Milestone check (halfway)
+        if (momentum) setPlayStatus(momentum.text, 'momentum-' + momentum.type);
         const milestone = checkMilestone(next);
-        if (milestone) {
-            const mb = document.getElementById('milestone-banner');
-            mb.classList.add('visible');
-            document.getElementById('milestone-icon').textContent  = milestone.icon;
-            document.getElementById('milestone-title').textContent = milestone.title;
-            document.getElementById('milestone-sub').textContent   = milestone.sub;
-        }
+        if (milestone) setPlayStatus(`Halfway · ${milestone.sub}`, 'halfway');
 
     } else {
         showSummary();
@@ -4200,7 +4009,7 @@ function showSummary() {
         row.innerHTML = `
             <div class="hs-num">${h.num}</div>
             <div class="hs-par">Par ${h.par}</div>
-            <div style="font-size:17px;color:var(--gray);flex:1">${d.putts?d.putts+' putts':''}</div>
+            <div style="font-size:17px;color:var(--gray);flex:1">${d.putts !== null && d.putts !== undefined ? d.putts + (d.putts === 1 ? ' putt' : ' putts') : ''}</div>
             <div class="hs-score">${d.score||'—'}</div>
             <div class="hs-pts" style="background:${ps.bg}22;color:${ps.bg};border:1px solid ${ps.bg}44">${pts}</div>`;
         const tags = parseErrorTags(d.tags);
