@@ -3429,8 +3429,7 @@ function buildHomeModel(rounds) {
 // ═══════════════════════════════════════════════════════════════
 const HOME_TARGET_DATE_LABEL    = 'Dec 2026';   // UI constant until a target-date column exists
 const FOCUS_MIN_COMPLETE_ROUNDS = 3;
-const FOCUS_ORDER      = ['blowUps', 'threePutts', 'teeShotsOB'];          // coaching hierarchy
-const FOCUS_THRESHOLDS = { blowUps: 2.0, threePutts: 2.0, teeShotsOB: 0.5 };
+const FOCUS_THRESHOLDS = { threePuttsHeavy: 3.0, blowUps: 2.0, threePutts: 2.0, teeShotsOB: 0.5 };
 const FOCUS_PRINCIPLE  = "One mistake doesn't get a friend.";
 const FOCUS_COPY = {
     blowUps:     { headline: 'Stop the blow-up hole.',      evidence: r => `You're averaging ${r} zero-point holes per round.`, principle: true  },
@@ -3451,22 +3450,30 @@ function leakRate(leak) {
     return (leak && !leak.notEnoughData && typeof leak.perRound === 'number') ? leak.perRound : null;
 }
 
-// V1: first leak in the hierarchy at/above its threshold; otherwise consistency.
-// null until there are FOCUS_MIN_COMPLETE_ROUNDS complete rounds.
+// V1 coaching rule (deliberately not a strokes-gained formula; never shown to the user):
+//   1. heavy 3-putting (>= 3.0)  2. blow-ups (>= 2.0)  3. 3-putting (>= 2.0)
+//   4. tee OB (>= 0.5)           5. otherwise consistency.
+// 3-putts / OB count only when they have enough data. null until
+// FOCUS_MIN_COMPLETE_ROUNDS complete rounds exist.
 function chooseFocus(model) {
     if (!model || (model.counts?.complete ?? 0) < FOCUS_MIN_COMPLETE_ROUNDS) return null;
     const leaks = model.leaks || {};
-    for (const kind of FOCUS_ORDER) {
-        const rate = leakRate(leaks[kind]);
-        if (rate !== null && rate >= FOCUS_THRESHOLDS[kind]) return { kind, rate };
-    }
+    const blow = leakRate(leaks.blowUps), putt = leakRate(leaks.threePutts), ob = leakRate(leaks.teeShotsOB);
+    if (putt !== null && putt >= FOCUS_THRESHOLDS.threePuttsHeavy) return { kind: 'threePutts', rate: putt };
+    if (blow !== null && blow >= FOCUS_THRESHOLDS.blowUps)         return { kind: 'blowUps',    rate: blow };
+    if (putt !== null && putt >= FOCUS_THRESHOLDS.threePutts)      return { kind: 'threePutts', rate: putt };
+    if (ob   !== null && ob   >= FOCUS_THRESHOLDS.teeShotsOB)      return { kind: 'teeShotsOB', rate: ob };
     return { kind: 'consistency', rate: null };
 }
 
-// One tracked target for the chosen focus: floor(rate) − 1, never below 0.
+// One tracked target for the chosen focus.
+//   3-putts: fixed — rate >= 3.0 → maximum 2, otherwise maximum 1.
+//   Blow-ups / tee OB: floor(rate) − 1, never below 0.
 function nextRoundTarget(focus, model) {
     if (!focus || focus.kind === 'consistency' || !TARGET_NOUNS[focus.kind]) return null;
-    const max = Math.max(0, Math.floor(focus.rate) - 1);
+    const max = focus.kind === 'threePutts'
+        ? (focus.rate >= FOCUS_THRESHOLDS.threePuttsHeavy ? 2 : 1)
+        : Math.max(0, Math.floor(focus.rate) - 1);
     const [one, many] = TARGET_NOUNS[focus.kind];
     return { kind: focus.kind, max, text: max === 0 ? `No ${many}` : `Maximum ${max} ${max === 1 ? one : many}` };
 }
