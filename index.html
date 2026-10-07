@@ -4125,7 +4125,7 @@ async function doLogin() {
     if (error) { errEl.textContent = error.message; return; }
     // Directly boot the app — don't rely on onAuthStateChange
     currentUser = data.user;
-    track('signed_in', { email });
+    track('signed_in'); // no email/PII in analytics
     await bootApp();
 }
 
@@ -4148,7 +4148,7 @@ async function doSignup() {
     btn.textContent = 'CREATE ACCOUNT'; btn.disabled = false;
     if (error) { errEl.textContent = error.message; return; }
 
-    track('signed_up', { email });
+    track('signed_up'); // no email/PII in analytics
     // Supabase requires email verification — show confirmation message
     const form = document.getElementById('auth-signup-form');
     form.innerHTML = `
@@ -4330,6 +4330,9 @@ function track(event, properties = {}) {
         const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
         sbFetch('events', {
             method: 'POST',
+            // return=minimal: don't ask for the inserted row back — clients
+            // have no SELECT access on events once RLS is enabled.
+            prefer: 'return=minimal',
             body: JSON.stringify({ user_id: uid, event, properties })
         }).catch(() => {}); // fire and forget — never block the UI
     } catch(e) {}
