@@ -1,0 +1,318 @@
+/* ════════════════════════════════════════════════════════════════
+   Live scoring — Clubhouse
+   Every rule is scoped to #screen-play so no other screen is affected.
+   Uses css/tokens.css. Layout/IDs/handlers are unchanged from the
+   previous simplified screen; this file only restyles it.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Screen container: header · content (grows) · nav pinned ─────── */
+#screen-play.active {
+    display: flex !important;
+    flex-direction: column;
+    height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--cl-bg);
+}
+#screen-play {
+    font-family: var(--cl-font);
+    color: var(--cl-text);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+}
+#screen-play button {
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    -webkit-tap-highlight-color: transparent;
+}
+#screen-play [hidden] { display: none !important; }
+#screen-play button:focus-visible { outline: 2px solid var(--cl-accent); outline-offset: 2px; }
+
+/* ── Header ─────────────────────────────────────────────────────── */
+#screen-play .play-header {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--cl-bg);
+    border-bottom: 1px solid var(--cl-border);
+    padding: max(8px, env(safe-area-inset-top)) 16px 8px;
+}
+#screen-play .play-header-top {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    min-height: 32px;
+}
+#screen-play .play-hole-line {
+    display: flex; align-items: baseline; gap: 6px;
+    min-width: 0; white-space: nowrap; overflow: hidden;
+}
+#screen-play .play-hole {
+    font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;
+    color: var(--cl-text);
+}
+#screen-play .play-hole-meta {
+    font-size: 15px; color: var(--cl-text-2);
+    overflow: hidden; text-overflow: ellipsis;
+}
+#screen-play #tb-par, #screen-play #tb-yards, #screen-play #tb-si, #screen-play #tb-shots-rec {
+    color: var(--cl-text); font-weight: 600;
+}
+#screen-play .play-cancel {
+    flex-shrink: 0;
+    min-height: var(--cl-tap-min);
+    padding: 0 0 0 12px; margin: -6px 0;
+    background: none; border: 0; cursor: pointer;
+    font-size: 15px; font-weight: 500; color: var(--cl-destructive);
+}
+#screen-play .play-tally { font-size: 15px; font-weight: 500; line-height: 20px; color: var(--cl-text); }
+#screen-play .play-status {
+    height: 18px; line-height: 18px; font-size: 13px; font-weight: 500;
+    color: var(--cl-text-2);                       /* neutral by default */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* accent only for genuinely good news */
+#screen-play .play-status.momentum-hot,
+#screen-play .play-status.momentum-good,
+#screen-play .play-status.halfway { color: var(--cl-accent); font-weight: 600; }
+
+#screen-play .progress-bar { height: 2px; background: var(--cl-border); flex-shrink: 0; }
+#screen-play .progress-fill {
+    height: 100%; background: var(--cl-accent);
+    transition: width var(--cl-dur-select) var(--cl-ease);
+}
+
+/* ── Content area ───────────────────────────────────────────────── */
+#screen-play .play-scroll {
+    flex: 1 0 auto;
+    padding: 8px 12px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+}
+
+/* ── Caddie briefing: hairline row, not a card ──────────────────── */
+#screen-play .caddie-briefing {
+    background: none;
+    border-top: 1px solid var(--cl-border);
+    border-bottom: 1px solid var(--cl-border);
+    border-radius: 0;
+    margin: 0;
+}
+#screen-play .caddie-briefing-header {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; min-height: var(--cl-tap-min);
+    padding: 0 4px;
+    background: none; border: 0; cursor: pointer; text-align: left;
+    color: var(--cl-text);
+}
+#screen-play .caddie-briefing-title {
+    font-size: 15px; font-weight: 500; letter-spacing: 0; text-transform: none;
+    color: var(--cl-text);
+}
+#screen-play .cb-danger-chip {
+    font-size: 12px; font-weight: 600; line-height: 16px;
+    color: var(--cl-destructive);
+    border: 1px solid currentColor; border-radius: 999px;
+    padding: 1px 8px; white-space: nowrap;
+}
+#screen-play .caddie-briefing-chevron {
+    margin-left: auto;
+    font-size: 20px; line-height: 1; color: var(--cl-text-3);
+    transform: none;
+    transition: transform var(--cl-dur-expand) var(--cl-ease);
+}
+#screen-play .caddie-briefing:not(.collapsed) .caddie-briefing-chevron { transform: rotate(90deg); }
+#screen-play .caddie-briefing-body {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 4px 4px 12px;
+}
+#screen-play .caddie-briefing.collapsed .caddie-briefing-body { display: none; }
+#screen-play .caddie-briefing:not(.collapsed) .caddie-briefing-body {
+    animation: cl-reveal var(--cl-dur-expand) var(--cl-ease);
+}
+@keyframes cl-reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+#screen-play .caddie-stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#screen-play .caddie-stat { padding: 4px 0; background: none; border: 0; text-align: left; }
+#screen-play .caddie-stat-val { font-size: 22px; font-weight: 600; line-height: 1.2; color: var(--cl-text); }
+/* Neutralise legacy inline styling inside the briefing (no traffic-light colours,
+   one figure size) — CSS only, the briefing's JavaScript is unchanged */
+#screen-play #cb-avg { color: var(--cl-text) !important; }
+#screen-play #cb-gir, #screen-play #cb-rounds { font-size: 22px !important; }
+#screen-play .caddie-stat-lbl {
+    font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none;
+    color: var(--cl-text-3); margin-top: 2px;
+}
+#screen-play .caddie-strategy {
+    font-size: 15px; line-height: 1.5; color: var(--cl-text);
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-border); border-radius: var(--cl-radius-control);
+    padding: 12px 14px;
+}
+
+/* ── Entry group: one surface, hairline dividers ────────────────── */
+#screen-play .scoring-card {
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-border);
+    border-radius: var(--cl-radius-card);
+    overflow: hidden;
+}
+#screen-play .entry-section,
+#screen-play .tasp-section {
+    padding: 12px 16px;
+    border-top: 1px solid var(--cl-border);
+}
+#screen-play .entry-section:first-child { border-top: 0; }
+#screen-play .section-label {
+    display: block;
+    font-size: 12px; font-weight: 600; line-height: 16px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--cl-text-3);
+    margin: 0 0 8px;
+}
+#screen-play .entry-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+#screen-play .entry-label-row .section-label { margin-bottom: 8px; }
+#screen-play .score-result {
+    font-size: 15px; font-weight: 600; color: var(--cl-text); white-space: nowrap;
+}
+
+/* Score + putts cells */
+#screen-play .entry-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+#screen-play .score-cell,
+#screen-play .putt-btn {
+    height: var(--cl-tap-lg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    border: 0; border-radius: var(--cl-radius-control);
+    background: var(--cl-control);
+    box-shadow: inset 0 0 0 1px var(--cl-control-edge);
+    color: var(--cl-text);
+    font-size: 22px; font-weight: 600; line-height: 1;
+    cursor: pointer;
+    transition: background-color var(--cl-dur-select) ease, color var(--cl-dur-select) ease,
+                transform var(--cl-dur-press) ease-out;
+}
+#screen-play .score-cell:active,
+#screen-play .putt-btn:active { transform: scale(0.97); }
+#screen-play .score-cell.selected,
+#screen-play .putt-btn.selected {
+    background: var(--cl-accent);
+    color: var(--cl-on-accent);
+    box-shadow: none;
+}
+#screen-play .score-cell.selected:active,
+#screen-play .putt-btn.selected:active { background: var(--cl-accent-pressed); }
+#screen-play .score-cell-more,
+#screen-play .putt-btn-more { font-size: 20px; }
+/* Par: a small caption, never a colour */
+#screen-play .score-cell.is-par::after {
+    content: 'par';
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em; line-height: 1;
+    color: var(--cl-par-caption);
+}
+#screen-play .score-cell.is-par.selected::after { color: var(--cl-on-accent); }
+
+/* Steppers (10+ / 4+) */
+#screen-play .entry-stepper {
+    display: flex; align-items: center; justify-content: center; gap: 18px;
+    margin-top: 8px;
+}
+#screen-play .stepper-btn {
+    width: var(--cl-tap-min); height: var(--cl-tap-min);
+    border: 0; border-radius: 50%;
+    background: var(--cl-control);
+    box-shadow: inset 0 0 0 1px var(--cl-control-edge);
+    color: var(--cl-text); font-size: 22px; line-height: 1;
+    cursor: pointer;
+    transition: transform var(--cl-dur-press) ease-out;
+}
+#screen-play .stepper-btn:active:not(:disabled) { transform: scale(0.94); }
+#screen-play .stepper-btn:disabled { opacity: 0.35; cursor: default; }
+#screen-play .stepper-val {
+    min-width: 48px; text-align: center;
+    font-size: 28px; font-weight: 600; color: var(--cl-text);
+}
+
+/* Tee + GIR — segmented controls */
+#screen-play #tee-gir-row { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; }
+#screen-play #tee-gir-row.is-par3 { grid-template-columns: 1fr; }
+#screen-play .toggle-group {
+    display: flex; gap: 2px; padding: 2px;
+    background: var(--cl-track);
+    border-radius: 11px;
+}
+#screen-play .toggle-btn {
+    flex: 1; min-width: 0;
+    height: var(--cl-tap-min);
+    border: 1px solid transparent; border-radius: 9px;
+    background: transparent;
+    color: var(--cl-text-2);
+    font-size: 15px; font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--cl-dur-select) ease, color var(--cl-dur-select) ease,
+                transform var(--cl-dur-press) ease-out;
+}
+#screen-play .toggle-btn:active { transform: scale(0.97); }
+#screen-play .toggle-btn.hit,
+#screen-play .toggle-btn.miss-l,
+#screen-play .toggle-btn.miss-r,
+#screen-play .toggle-btn.ob {
+    background: var(--cl-thumb);
+    border-color: var(--cl-thumb-edge);
+    box-shadow: var(--cl-thumb-shadow);
+    color: var(--cl-text);
+    font-weight: 600;
+}
+
+/* T / A / S / P — neutral; selected uses ink, never the success accent */
+#screen-play .tasp-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+#screen-play .tasp-btn {
+    min-height: var(--cl-tap-min);
+    border: 0; border-radius: var(--cl-radius-control);
+    background: var(--cl-control);
+    box-shadow: inset 0 0 0 1px var(--cl-control-edge);
+    color: var(--cl-text);
+    font-size: 17px; font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--cl-dur-select) ease, color var(--cl-dur-select) ease,
+                transform var(--cl-dur-press) ease-out;
+}
+#screen-play .tasp-btn:active { transform: scale(0.97); }
+#screen-play .tasp-btn[aria-pressed="true"] {
+    background: var(--cl-ink);
+    color: var(--cl-on-ink);
+    box-shadow: none;
+}
+
+/* ── Bottom actions (pinned) ────────────────────────────────────── */
+#screen-play .nav-bar {
+    position: sticky; bottom: 0; z-index: 10;
+    display: flex; gap: 12px;
+    padding: 10px 16px max(10px, env(safe-area-inset-bottom));
+    background: var(--cl-surface);
+    border-top: 1px solid var(--cl-border);
+}
+#screen-play .btn-nav {
+    height: var(--cl-tap-lg);
+    border: 0; border-radius: var(--cl-radius-control);
+    font-size: 17px; font-weight: 600; letter-spacing: 0;
+    cursor: pointer;
+    transition: background-color var(--cl-dur-select) ease, transform var(--cl-dur-press) ease-out;
+}
+#screen-play .btn-prev {
+    flex: 1;
+    background: var(--cl-control);
+    box-shadow: inset 0 0 0 1px var(--cl-control-edge);
+    color: var(--cl-text);
+}
+#screen-play .btn-next {
+    flex: 2;
+    background: var(--cl-accent);
+    color: var(--cl-on-accent);
+}
+#screen-play .btn-nav:active:not(:disabled) { transform: scale(0.98); }
+#screen-play .btn-next:active:not(:disabled) { background: var(--cl-accent-pressed); }
+#screen-play .btn-next:disabled { background: var(--cl-control); color: var(--cl-text-3); }
+
+/* ── Compact phones (≤ 700 px tall): 48 px targets, tighter padding ── */
+@media (max-height: 700px) {
+    #screen-play .play-header { padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: 6px; }
+    #screen-play .score-cell,
+    #screen-play .putt-btn,
+    #screen-play .btn-nav { height: var(--cl-tap); }
+    #screen-play .entry-section,
+    #screen-play .tasp-section { padding-top: 10px; padding-bottom: 10px; }
+}

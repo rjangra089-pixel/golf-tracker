@@ -794,8 +794,10 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`HOLES[currentHole].par`), 3);
     assert.strictEqual(await vis('fairway-group'), false);
     assert.ok(await ev(`document.getElementById('tee-gir-row').classList.contains('is-par3')`));
-    const w = await ev(`[document.getElementById('gir-group').getBoundingClientRect().width, document.getElementById('tee-gir-row').getBoundingClientRect().width]`);
-    assert.ok(w[0] >= w[1] - 30, 'GIR spans the row: ' + w);
+    // GIR must fill the row's whole content box (row width minus its own horizontal padding)
+    const w = await ev(`(() => { const row = document.getElementById('tee-gir-row'), cs = getComputedStyle(row);
+      return [document.getElementById('gir-group').getBoundingClientRect().width, row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)]; })()`);
+    assert.ok(Math.abs(w[0] - w[1]) <= 1, 'GIR spans the row content width: ' + w);
     await ev(`document.querySelectorAll('#gir-group .toggle-btn')[1].click()`);
     assert.strictEqual(await ev(`holeData[2].gir`), false);
     await ev(`renderHole(1)`); assert.strictEqual(await vis('fairway-group'), true); await ev(`renderHole(2)`);
@@ -854,6 +856,17 @@ const t = async (name, fn) => {
         require('fs').writeFileSync(`${process.env.SHOTS}/play-390x844-dark.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
       }
     }
+    if (process.env.SHOTS) {   // state screenshots: steppers, multiple T/A/S/P, par 3 + briefing open (light + dark)
+      for (const theme of ['light', 'dark']) {
+        await ev(`setTheme('${theme}')`);
+        await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+        await ev(`renderHole(3); selectScore(12); selectPutts(5); holeData[3].tags = []; toggleErrorTag('T'); toggleErrorTag('A'); toggleErrorTag('P')`); await sleep(400);
+        require('fs').writeFileSync(`${process.env.SHOTS}/play-steppers-tasp-${theme}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+        await ev(`renderHole(2); toggleBriefing()`); await sleep(500);
+        require('fs').writeFileSync(`${process.env.SHOTS}/play-par3-briefing-${theme}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+        await ev(`holeData[3].tags = []; selectScore(5); renderHole(3)`);
+      }
+    }
     console.log('      layout:', JSON.stringify(res));
     await ev(`setTheme('light')`);
     await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
@@ -867,7 +880,9 @@ const t = async (name, fn) => {
     assert.deepStrictEqual(await ev(`[holeData[0].score, holeData[0].putts, holeData[1].score, holeData[1].putts, holeData[4].score, holeData[4].putts, holeData[4].tags.join('')]`), [15, 6, 4, 0, 12, 0, 'S']);
     await ev(`renderHole(4)`); assert.strictEqual(await ev(`document.getElementById('score-10plus').textContent`), '12'); assert.strictEqual(await puttSel(), '0');
     for (let i = 5; i < 18; i++) { await ev(`renderHole(${i}); selectScore(5); selectPutts(2)`); }
-    await ev(`renderHole(17); nextHole()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-summary'`);
+    await ev(`renderHole(16)`); assert.strictEqual(await ev(`document.getElementById('btn-next').textContent`), 'Next hole');
+    await ev(`renderHole(17)`); assert.strictEqual(await ev(`document.getElementById('btn-next').textContent`), 'Finish round');
+    await ev(`nextHole()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-summary'`);
     const rows = await ev(`[...document.querySelectorAll('#hole-summary-list .hole-summary-row')].map(r => r.querySelector('.hs-num').textContent + '|' + r.children[2].textContent + '|' + r.querySelector('.hs-score').textContent)`);
     assert.strictEqual(rows[0], '1|6 putts|15'); assert.strictEqual(rows[1], '2|0 putts|4'); assert.strictEqual(rows[4], '5|0 putts|12');
     state.writes.length = 0;

@@ -1,0 +1,90 @@
+/* ════════════════════════════════════════════════════════════════
+   Clubhouse design tokens
+   Light values on :root; dark values when <body class="dark-mode">
+   (the app's existing theme switch). New names are prefixed --cl- so
+   screens not yet migrated keep their current look unchanged.
+   ════════════════════════════════════════════════════════════════ */
+:root {
+    /* Type */
+    --cl-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+
+    /* Colour — light */
+    --cl-bg:              #F5F5F2;   /* page */
+    --cl-surface:         #FFFFFF;
+    --cl-raised:          #FFFFFF;
+    --cl-text:            #111412;
+    --cl-text-2:          #4A524D;   /* secondary */
+    --cl-text-3:          #69716C;   /* muted (labels) */
+    --cl-border:          rgba(17, 20, 18, 0.10);
+    --cl-accent:          #1E6B43;
+    --cl-accent-pressed:  #175535;
+    --cl-on-accent:       #FFFFFF;
+    --cl-destructive:     #B42318;
+
+    /* Controls */
+    --cl-control:         #E8E9E4;   /* unselected fill — defined in sunlight */
+    --cl-control-edge:    rgba(17, 20, 18, 0.07);   /* inset hairline */
+    --cl-par-caption:     #4A524D;   /* 6.6:1 on --cl-control */
+    --cl-ink:             #111412;   /* neutral "selected" for error tags */
+    --cl-on-ink:          #FFFFFF;
+    --cl-track:           #E8E9E4;   /* segmented control track */
+    --cl-thumb:           #FFFFFF;
+    --cl-thumb-edge:      rgba(17, 20, 18, 0.10);
+    --cl-thumb-shadow:    0 1px 2px rgba(17, 20, 18, 0.14);
+
+    /* Spacing */
+    --cl-space-1: 4px;
+    --cl-space-2: 8px;
+    --cl-space-3: 12px;
+    --cl-space-4: 16px;
+    --cl-space-5: 24px;
+    --cl-space-6: 32px;
+
+    /* Radius */
+    --cl-radius-control: 12px;
+    --cl-radius-card:    16px;
+    --cl-radius-sheet:   24px;
+
+    /* Touch targets */
+    --cl-tap-min: 44px;
+    --cl-tap:     48px;
+    --cl-tap-lg:  52px;
+
+    /* Motion */
+    --cl-dur-press:  100ms;
+    --cl-dur-select: 150ms;
+    --cl-dur-expand: 220ms;
+    --cl-ease:       cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body.dark-mode {
+    --cl-bg:              #0C0F0D;
+    --cl-surface:         #161A17;
+    --cl-raised:          #1E2420;
+    --cl-text:            #F2F4F2;
+    --cl-text-2:          #B4BDB7;
+    --cl-text-3:          #8C968F;
+    --cl-border:          rgba(242, 244, 242, 0.12);
+    --cl-accent:          #4FBF84;
+    --cl-accent-pressed:  #3FA670;
+    --cl-on-accent:       #06140C;
+    --cl-destructive:     #F97066;
+
+    --cl-control:         #1E2420;
+    --cl-control-edge:    rgba(242, 244, 242, 0.06);
+    --cl-par-caption:     #B4BDB7;
+    --cl-ink:             #F2F4F2;
+    --cl-on-ink:          #0C0F0D;
+    --cl-track:           #1E2420;
+    --cl-thumb:           #2C3530;
+    --cl-thumb-edge:      rgba(242, 244, 242, 0.16);
+    --cl-thumb-shadow:    none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --cl-dur-press:  0ms;
+        --cl-dur-select: 0ms;
+        --cl-dur-expand: 0ms;
+    }
+}

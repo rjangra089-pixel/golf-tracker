@@ -62,24 +62,12 @@
         }
 
         /* ── Dark mode overrides for hardcoded colours ── */
-        body.dark-mode .toggle-btn.hit   { background: rgba(82,183,136,0.18);  border-color: var(--green-bright);   color: var(--green-bright); }
-        body.dark-mode .toggle-btn.miss-l, body.dark-mode .toggle-btn.miss-r { background: rgba(244,162,97,0.1); border-color: rgba(244,162,97,0.5); color: var(--orange); }
-        body.dark-mode .toggle-btn.ob    { background: rgba(230,57,70,0.1);    border-color: rgba(230,57,70,0.4);   color: var(--red); }
-        body.dark-mode .putt-btn.selected { background: var(--green); border-color: var(--green); color: var(--on-accent); }
-        body.dark-mode .toggle-btn       { background: var(--card2); color: var(--white); }
-        body.dark-mode .putt-btn         { background: var(--card2); color: var(--white); }
-        body.dark-mode .caddie-briefing  { background: linear-gradient(135deg, #0d2b1d 0%, #0e2318 100%); }
-        body.dark-mode .caddie-strategy  { background: rgba(82,183,136,0.06); border-color: var(--green-bright); color: var(--green-light); }
-        body.dark-mode .caddie-stat-val  { color: var(--white); }
-        body.dark-mode .caddie-stat-lbl  { color: var(--gray); }
         body.dark-mode .chart-title      { color: var(--white); }
         body.dark-mode .stats-topbar-title { color: var(--white); }
         body.dark-mode .summary-title    { color: var(--white); }
         body.dark-mode .hero-val         { color: var(--white); }
         body.dark-mode .hs-score         { color: var(--white); }
         body.dark-mode .setup-label      { color: var(--gray); }
-        body.dark-mode .section-label    { color: var(--gray); }
-        body.dark-mode .btn-next         { color: var(--rough); }
         body.dark-mode .btn-save         { color: var(--rough); }
         body.dark-mode .btn-teeoff       { color: var(--rough); }
 
@@ -631,14 +619,6 @@
         /* ═══════════════════════════════════════════
            PLAY SCREEN
         ═══════════════════════════════════════════ */
-        #screen-play.active {
-            display: flex !important;          /* column: header · content (grows) · nav pinned at the bottom */
-            flex-direction: column;
-            height: 100dvh;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            background: var(--dark);
-        }
 
         .topbar {
             background: var(--fairway);
@@ -653,68 +633,11 @@
         }
 
 
-        .progress-bar { height: 3px; background: var(--card); flex-shrink: 0; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--green-light)); transition: width 0.4s ease; }
 
-        .play-scroll {
-            flex: 1 0 auto;
-            padding: 8px 12px 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
 
         /* ── Live scoring: compact header ─────────────── */
-        .play-header {
-            position: sticky; top: 0; z-index: 20;
-            background: var(--fairway); border-bottom: 2px solid var(--green);
-            padding: 6px 16px 6px;
-        }
-        .play-header-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
-        .play-hole-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; }
-        .play-hole { font-family: var(--font-display); font-size: 28px; line-height: 1; color: var(--green); }
-        .play-hole-meta { font-size: 15px; color: var(--gray); overflow: hidden; text-overflow: ellipsis; }
-        .play-hole-meta span { color: var(--white); font-weight: 600; }
-        .play-cancel {
-            flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--red);
-            font-family: var(--font-body); font-size: 13px; padding: 10px 0 10px 12px; margin: -10px 0;
-        }
-        .play-tally { font-size: 14px; color: var(--white); line-height: 20px; }
-        .play-status {
-            font-size: 13px; line-height: 18px; height: 18px; color: var(--gray);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            background: none; padding: 0; border-radius: 0; margin: 0;
-        }
-        #screen-play .play-status { background: none; padding: 0; border-radius: 0; }
-        .play-status.pace-ahead, .play-status.momentum-hot, .play-status.momentum-good, .play-status.halfway { color: var(--green); font-weight: 600; }
-        .play-status.pace-behind, .play-status.momentum-cold { color: var(--orange); font-weight: 600; }
-        .play-status.pace-on { color: var(--gray); }
 
         /* ── Live scoring: entry rows ─────────────────── */
-        #screen-play .section-label { font-size: 12px; letter-spacing: 1.2px; margin-bottom: 6px; }
-        #screen-play [hidden] { display: none !important; }
-        .entry-section { padding: 10px 14px; border-top: 1px solid var(--border); }
-        .entry-section:first-child { border-top: none; }
-        .entry-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-        .score-result { font-size: 14px; font-weight: 600; color: var(--white); white-space: nowrap; }
-        .entry-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-        .score-cell {
-            height: 48px; border-radius: 10px; border: 1.5px solid var(--border2);
-            background: var(--card2); color: var(--white); cursor: pointer;
-            font-family: var(--font-display); font-size: 24px; line-height: 1; transition: all 0.12s;
-        }
-        .score-cell.is-par { border-style: dashed; border-color: var(--green); }
-        #screen-play .score-cell.selected, #screen-play .putt-btn.selected { background: var(--green); border-color: var(--green); color: var(--on-accent); }
-        .score-cell-more, .putt-btn-more { font-size: 20px; }
-        .entry-stepper { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 8px; }
-        .stepper-btn {
-            width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--border2);
-            background: var(--card2); color: var(--white); font-size: 22px; line-height: 1; cursor: pointer;
-        }
-        .stepper-btn:disabled { opacity: 0.35; cursor: default; }
-        .stepper-val { font-family: var(--font-display); font-size: 30px; min-width: 48px; text-align: center; color: var(--white); }
-        #tee-gir-row { grid-template-columns: 3fr 2fr; gap: 12px; padding: 10px 14px; }
-        #tee-gir-row.is-par3 { grid-template-columns: 1fr; }
 
 
 
@@ -737,14 +660,6 @@
         .my-avg-val { font-family: var(--font-mono); font-size: 17px; font-weight: 500; }
 
 
-        .scoring-card {
-            background: var(--card);
-            border-radius: 16px;
-            border: 1.5px solid var(--border2);
-            overflow: hidden;
-        }
-
-        .section-label { font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gray); margin-bottom: 8px; }
 
 
 
@@ -753,71 +668,19 @@
 
 
 
-        .tasp-section { border-top: 1px solid var(--border); padding: 10px 14px 12px; }
-        .tasp-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-        .tasp-btn {
-            min-height: 44px; border-radius: 10px; border: 1.5px solid var(--border2);
-            background: var(--card2); color: var(--gray); cursor: pointer;
-            font-family: var(--font-mono); font-size: 18px; font-weight: 600;
-            transition: all 0.12s;
-        }
-        .tasp-btn[aria-pressed="true"] { background: rgba(224,92,26,0.12); border-color: var(--orange); color: var(--orange); }
+
         .hs-tags { font-family: var(--font-mono); font-size: 15px; color: var(--orange); white-space: nowrap; margin-left: 8px; }
         .sum-tasp { display: flex; justify-content: center; gap: 18px; padding: 10px 16px 4px; font-family: var(--font-mono); font-size: 16px; color: var(--gray); }
         .sum-tasp[hidden] { display: none; }
         .sum-tasp strong { color: var(--white); font-weight: 600; margin-left: 4px; }
 
-        .putt-btn {
-            flex: 1; height: 48px;
-            border-radius: 10px;
-            border: 1.5px solid var(--border);
-            background: var(--card2);
-            color: var(--gray);
-            font-family: var(--font-display);
-            font-size: 22px;
-            cursor: pointer;
-            transition: all 0.12s;
-        }
 
-        .putt-btn.selected { background: rgba(46,168,84,0.12); border-color: var(--green); color: var(--green); }
 
-        .stats-row { border-top: 1px solid var(--border); padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-        .toggle-group { display: flex; gap: 6px; }
 
-        .toggle-btn {
-            flex: 1; height: 44px;
-            border-radius: 8px;
-            border: 1.5px solid var(--border);
-            background: var(--card2);
-            color: var(--gray);
-            font-family: var(--font-body);
-            font-size: 17px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.12s;
-        }
 
-        .toggle-btn.hit { background: rgba(46,168,84,0.12); border-color: var(--green); color: var(--green); }
-        .toggle-btn.miss-l, .toggle-btn.miss-r { background: rgba(224,92,26,0.1); border-color: rgba(224,92,26,0.5); color: #e05c1a; }
-        .toggle-btn.ob { background: rgba(192,57,43,0.1); border-color: rgba(192,57,43,0.4); color: var(--red); }
 
-        .nav-bar {
-            display: flex; gap: 12px;
-            padding: 10px 16px;
-            padding-bottom: max(10px, env(safe-area-inset-bottom));
-            background: var(--card);
-            border-top: 1.5px solid var(--border2);
-            position: sticky;
-            bottom: 0;
-            z-index: 10;
-        }
 
-        .btn-nav { flex: 1; height: 50px; border-radius: 12px; border: none; font-family: var(--font-display); font-size: 18px; cursor: pointer; transition: all 0.12s; }
-        .btn-prev { background: var(--card2); color: var(--gray); border: 1.5px solid var(--border2); }
-        .btn-next { background: var(--green-bright); color: #ffffff; flex: 2; }
-        .btn-next:disabled { background: var(--card2); color: var(--gray); }
-        .btn-next:active:not(:disabled) { transform: scale(0.97); }
 
         /* ═══════════════════════════════════════════
            SUMMARY SCREEN
@@ -1395,105 +1258,21 @@
         ═══════════════════════════════════════════ */
 
         /* Pace tracker in topbar */
-        .pace-ahead  { background: rgba(46,168,84,0.12);  color: var(--green); }
-        .pace-behind { background: rgba(244,162,97,0.2);  color: var(--orange); }
-        .pace-on     { background: rgba(116,179,206,0.2); color: #1565c0; }
 
         /* Caddie briefing panel */
-        .caddie-briefing {
-            background: var(--card2);
-            border: 1px solid var(--border2);
-            border-radius: 16px;
-            margin: 0 0 12px 0;
-            overflow: hidden;
-        }
 
-        .caddie-briefing-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 14px;
-            cursor: pointer;
-            user-select: none;
-        }
 
-        .caddie-briefing-title {
-            font-size: 17px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--green-bright);
-        }
 
-        .caddie-briefing-chevron {
-            font-size: 16px;
-            color: var(--gray);
-            transition: transform 0.2s;
-        }
 
-        .caddie-briefing-chevron { margin-left: auto; transform: rotate(90deg); }
-        .caddie-briefing.collapsed .caddie-briefing-chevron { transform: none; }
-        button.caddie-briefing-header {
-            width: 100%; min-height: 44px; gap: 10px; border: none; background: none; text-align: left;
-            font-family: var(--font-body); color: inherit;
-        }
-        .caddie-briefing { margin: 0; }
-        #screen-play .caddie-briefing-title { font-size: 13px; letter-spacing: 1.5px; }
-        .cb-danger-chip {
-            font-size: 12px; font-weight: 600; color: var(--red);
-            border: 1px solid var(--red); border-radius: 10px; padding: 1px 8px; white-space: nowrap;
-        }
 
-        .caddie-briefing-body {
-            padding: 0 16px 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
 
-        .caddie-briefing.collapsed .caddie-briefing-body { display: none; }
 
         /* Stats grid inside briefing */
-        .caddie-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
 
-        .caddie-stat {
-            background: var(--card2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 8px;
-            text-align: center;
-        }
 
-        .caddie-stat-val {
-            font-family: var(--font-display);
-            font-size: 26px;
-            line-height: 1;
-            color: #111111;
-        }
 
-        .caddie-stat-lbl {
-            font-size: 16px;
-            color: #555555;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-top: 4px;
-        }
 
         /* Strategy block */
-        .caddie-strategy {
-            background: rgba(26,122,60,0.06);
-            border-left: 3px solid var(--green-bright);
-            border-radius: 0 10px 10px 0;
-            padding: 10px 14px;
-            font-size: 16px;
-            color: var(--green);
-            line-height: 1.5;
-            font-style: italic;
-        }
 
         /* Post-hole feedback banner */
 
@@ -1636,6 +1415,9 @@
         /* Sign out button in home */
 
     </style>
+    <!-- Clubhouse design system (live scoring first; other screens migrate later) -->
+    <link rel="stylesheet" href="css/tokens.css?v=1">
+    <link rel="stylesheet" href="css/play.css?v=1">
 </head>
 <body>
 
@@ -2129,9 +1911,9 @@
                 <div id="fairway-group">
                     <div class="section-label">Tee</div>
                     <div class="toggle-group">
-                        <button class="toggle-btn" onclick="selectFairway('C')" aria-label="Fairway hit">✓</button>
-                        <button class="toggle-btn" onclick="selectFairway('L')" aria-label="Missed left">◀</button>
-                        <button class="toggle-btn" onclick="selectFairway('R')" aria-label="Missed right">▶</button>
+                        <button class="toggle-btn" onclick="selectFairway('C')" aria-label="Fairway hit">Hit</button>
+                        <button class="toggle-btn" onclick="selectFairway('L')" aria-label="Missed left">L</button>
+                        <button class="toggle-btn" onclick="selectFairway('R')" aria-label="Missed right">R</button>
                         <button class="toggle-btn" onclick="selectFairway('X')" aria-label="Out of bounds">OB</button>
                     </div>
                 </div>
@@ -2158,8 +1940,8 @@
     </div>
 
     <div class="nav-bar">
-        <button class="btn-nav btn-prev" id="btn-prev" onclick="prevHole()">← Back</button>
-        <button class="btn-nav btn-next" id="btn-next" onclick="nextHole()">Next Hole →</button>
+        <button class="btn-nav btn-prev" id="btn-prev" onclick="prevHole()">Back</button>
+        <button class="btn-nav btn-next" id="btn-next" onclick="nextHole()">Next hole</button>
     </div>
 </div>
 
@@ -3774,7 +3556,7 @@ function renderHole(idx, fromPrev) {
     renderErrorTags(idx);
 
     document.getElementById('btn-prev').style.visibility = idx===0 ? 'hidden' : 'visible';
-    document.getElementById('btn-next').textContent = idx===17 ? 'Finish Round →' : 'Next Hole →';
+    document.getElementById('btn-next').textContent = idx===17 ? 'Finish round' : 'Next hole';
     document.getElementById('screen-play').scrollTo(0,0);
 }
 
