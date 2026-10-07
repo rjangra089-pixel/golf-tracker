@@ -36,6 +36,7 @@
             --font-display: 'Bebas Neue', sans-serif;
             --font-body: 'DM Sans', sans-serif;
             --font-mono: 'DM Mono', monospace;
+            --on-accent: #ffffff;            /* text on a solid --green fill */
         }
 
         /* ── Dark mode ── */
@@ -57,6 +58,7 @@
             --gray: #8fa898;
             --border: rgba(82,183,136,0.12);
             --border2: rgba(82,183,136,0.25);
+            --on-accent: #06140c;
         }
 
         /* ── Dark mode overrides for hardcoded colours ── */
@@ -79,8 +81,6 @@
         body.dark-mode .caddie-stat-lbl  { color: var(--gray); }
         body.dark-mode .chart-title      { color: var(--white); }
         body.dark-mode .stats-topbar-title { color: var(--white); }
-        body.dark-mode .home-name        { color: var(--white); }
-        body.dark-mode .round-row-date   { color: var(--white); }
         body.dark-mode .summary-title    { color: var(--white); }
         body.dark-mode .hero-val         { color: var(--white); }
         body.dark-mode .hs-score         { color: var(--white); }
@@ -92,7 +92,6 @@
         body.dark-mode .section-label    { color: var(--gray); }
         body.dark-mode .btn-next         { color: var(--rough); }
         body.dark-mode .btn-save         { color: var(--rough); }
-        body.dark-mode .play-cta         { color: var(--rough); }
         body.dark-mode .btn-teeoff       { color: var(--rough); }
         body.dark-mode .momentum-badge.hot  { background: rgba(246,216,96,0.12); border-color: rgba(246,216,96,0.3); color: #f6d860; }
         body.dark-mode .momentum-badge.cold { background: rgba(230,57,70,0.10);  border-color: rgba(230,57,70,0.25); color: var(--red); }
@@ -170,7 +169,7 @@
            LANDING / CLUBHOUSE
         ═══════════════════════════════════════════ */
         #screen-home {
-            background: linear-gradient(160deg, #e8f5ee 0%, var(--dark) 60%);
+            background: var(--dark);   /* flat page colour from the theme (light + dark) */
         }
 
         .home-scroll {
@@ -180,50 +179,91 @@
             min-height: 0;
         }
 
-        .home-hero {
-            padding: 36px 20px 24px;
-            position: relative;
+        /* ── Coaching Home ─────────────────────────────── */
+        #screen-home [hidden] { display: none !important; }
+        .home-header {
+            display: flex; align-items: center; justify-content: space-between;
+            min-height: 60px; padding: 8px 8px 0 16px;
         }
-
-        .home-greeting {
-            font-size: 17px;
-            color: var(--green);
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            margin-bottom: 6px;
+        .home-title { font-size: 16px; font-weight: 600; letter-spacing: 0.01em; color: var(--white); }
+        .home-profile-btn {
+            width: 44px; height: 44px; padding: 0; border: none; background: none;
+            color: var(--gray); display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
-
-        .home-name {
-            font-family: var(--font-display);
-            font-size: 52px;
-            color: var(--white);
-            line-height: 1;
-            letter-spacing: 1px;
+        .home-profile-btn svg { width: 22px; height: 22px; }
+        .home-section { margin: 0 16px; padding: 24px 0 26px; border-top: 1px solid var(--border2); }
+        .home-road { border-top: none; padding-top: 12px; }
+        .home-overline {
+            font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray);
         }
-
-        .home-course {
-            font-size: 17px;
-            color: var(--gray);
-            margin-top: 6px;
+        .home-overline-accent { color: var(--green); font-weight: 700; }
+        .home-overline-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+        .home-overline-aside { font-size: 12px; color: var(--gray); text-align: right; }
+        .home-road-figures { display: flex; align-items: baseline; gap: 14px; margin-top: 10px; }
+        .home-figure { font-family: var(--font-display); font-size: 56px; line-height: 1; color: var(--white); }
+        .home-figure-accent { color: var(--green); }
+        .home-road-arrow { font-size: 22px; color: var(--gray); }
+        .home-road-gap { margin-top: 10px; font-size: 17px; font-weight: 500; color: var(--white); }
+        .home-note { margin-top: 10px; font-size: 12px; line-height: 1.5; color: var(--gray); }
+        .home-message p { margin: 0; font-size: 16px; line-height: 1.5; color: var(--white); }
+        .home-scores {
+            margin-top: 14px; font-family: var(--font-mono); font-size: 21px; color: var(--white);
+            letter-spacing: -0.01em; overflow-wrap: anywhere;
         }
+        .home-form-avg { margin-top: 12px; font-size: 14px; color: var(--gray); }
+        .home-figure-sm { font-family: var(--font-display); font-size: 36px; line-height: 1; color: var(--white); margin: 0 4px; vertical-align: -4px; }
+        .home-form-direction { margin-top: 8px; font-size: 14px; color: var(--gray); }
+        .home-form-direction strong { color: var(--white); font-weight: 600; }
+        .leak-list { margin-top: 8px; }
+        .leak-row { border-bottom: 1px solid var(--border); padding: 12px 0; }
+        .leak-row:last-child { border-bottom: none; }
+        .leak-main { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+        .leak-label { font-size: 16px; color: var(--white); }
+        .leak-value { font-family: var(--font-mono); font-size: 18px; font-weight: 500; color: var(--white); white-space: nowrap; }
+        .leak-row.is-muted .leak-value { font-family: var(--font-body); font-size: 14px; font-weight: 400; color: var(--gray); }
+        .leak-note { margin-top: 4px; font-size: 12px; color: var(--gray); }
+        .home-focus {
+            margin: 4px 16px 0; padding: 22px 20px 20px; border-radius: 18px;
+            background: var(--fairway); border: 1.5px solid var(--green);
+        }
+        .home-focus-headline { margin: 10px 0 0; font-size: 27px; line-height: 1.15; font-weight: 700; letter-spacing: -0.015em; color: var(--white); }
+        .home-focus-evidence { margin: 10px 0 0; font-size: 16px; line-height: 1.5; color: var(--white); }
+        .home-focus-principle { margin: 10px 0 0; font-size: 15px; line-height: 1.5; font-style: italic; color: var(--text2); }
+        .home-focus-divider { height: 1px; background: var(--border2); margin: 20px 0 18px; }
+        .home-target { display: flex; align-items: center; gap: 12px; margin-top: 14px; font-size: 16px; color: var(--white); }
+        .home-target-marker { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--green); flex-shrink: 0; }
+        .home-commitment { margin-top: 16px; padding: 12px 14px; border: 1.5px dashed var(--border2); border-radius: 12px; }
+        .home-commitment-title { font-size: 16px; font-weight: 600; color: var(--white); }
+        .home-commitment-sub { margin-top: 2px; font-size: 13px; color: var(--gray); }
+        .home-routine {
+            margin-top: 20px; text-align: center; font-family: var(--font-mono); font-size: 13px;
+            font-weight: 500; letter-spacing: 0.22em; color: var(--green);
+        }
+        .home-load-error { margin: 16px; font-size: 14px; color: var(--gray); }
+        .home-start { padding: 28px 16px 24px; display: flex; flex-direction: column; gap: 6px; }
+        .home-start-btn {
+            width: 100%; min-height: 56px; border: none; border-radius: 14px; cursor: pointer;
+            background: var(--green); color: var(--on-accent);
+            font-family: var(--font-display); font-size: 24px; letter-spacing: 1px;
+        }
+        .home-start-btn:active { transform: scale(0.98); }
+        .home-start-meta {
+            display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
+            font-size: 13px; color: var(--gray); text-align: center;
+        }
+        .home-link-btn {
+            border: none; background: none; padding: 12px 4px; cursor: pointer;
+            font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--green);
+        }
+        #screen-home .resume-banner { margin: 16px 16px 0; }
 
-        .home-course span { color: var(--green); }
+
+
+
+
 
         /* HC Progress */
-        .hc-track {
-            margin: 24px 20px;
-            background: var(--card);
-            border: 1px solid var(--border2);
-            border-radius: 20px;
-            padding: 20px;
-        }
 
-        .hc-track-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 16px;
-        }
 
         .hc-current {
             font-family: var(--font-display);
@@ -232,72 +272,18 @@
             line-height: 1;
         }
 
-        .hc-label { font-size: 17px; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; }
 
-        .hc-target-block { text-align: right; }
         .hc-target { font-family: var(--font-display); font-size: 32px; color: var(--sand); }
 
-        .hc-bar-track {
-            height: 8px;
-            background: var(--card2);
-            border-radius: 99px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
 
-        .hc-bar-fill {
-            height: 100%;
-            border-radius: 99px;
-            background: linear-gradient(90deg, var(--green), var(--green-bright), var(--sand));
-            transition: width 1s cubic-bezier(.4,0,.2,1);
-        }
 
-        .hc-bar-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 17px;
-            color: var(--gray);
-        }
 
         /* Quick stats row */
-        .stats-strip {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 0 20px 20px;
-        }
 
-        .stat-chip {
-            background: var(--card);
-            border: 1px solid var(--border2);
-            border-radius: 14px;
-            padding: 14px 10px;
-            text-align: center;
-        }
 
-        .stat-chip-val {
-            font-family: var(--font-display);
-            font-size: 30px;
-            color: var(--white);
-            line-height: 1;
-        }
 
-        .stat-chip-lbl {
-            font-size: 17px;
-            color: var(--gray);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-top: 3px;
-        }
 
         /* Recent rounds */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 20px;
-            margin-bottom: 12px;
-        }
 
         .section-title {
             font-family: var(--font-display);
@@ -306,79 +292,16 @@
             letter-spacing: 0.5px;
         }
 
-        .section-link {
-            font-size: 16px;
-            color: var(--green-bright);
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-family: var(--font-body);
-        }
 
-        .rounds-list {
-            padding: 0 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 24px;
-        }
 
-        .round-row {
-            background: var(--card);
-            border: 1px solid var(--border2);
-            border-radius: 14px;
-            padding: 14px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
 
-        .round-row-date {
-            flex: 1;
-        }
 
-        .round-row-date-main { font-size: 16px; font-weight: 500; }
-        .round-row-date-sub { font-size: 17px; color: var(--gray); margin-top: 2px; }
 
-        .round-row-score {
-            font-family: var(--font-display);
-            font-size: 28px;
-            color: var(--white);
-        }
 
-        .round-row-pts {
-            font-family: var(--font-mono);
-            font-size: 17px;
-            font-weight: 500;
-            padding: 4px 10px;
-            border-radius: 20px;
-            min-width: 48px;
-            text-align: center;
-        }
 
-        .trend-arrow { font-size: 16px; }
 
         /* Play button */
-        .play-cta {
-            margin: 0 20px 24px;
-            background: var(--green-bright);
-            color: #ffffff;
-            border: none;
-            border-radius: 16px;
-            font-family: var(--font-display);
-            font-size: 26px;
-            letter-spacing: 1px;
-            padding: 18px;
-            width: calc(100% - 40px);
-            cursor: pointer;
-            transition: all 0.15s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
 
-        .play-cta:active { transform: scale(0.97); }
 
         .empty-state {
             text-align: center;
@@ -1361,12 +1284,6 @@
         }
 
         /* HC read-only display on Home (edited in Profile) */
-        .hc-readout {
-            font-family: var(--font-display);
-            font-size: 44px;
-            line-height: 1;
-        }
-        .hc-readout-target { color: var(--sand); text-align: right; }
 
         /* AI debrief entry on Stats */
         .stats-review-wrap { padding: 12px 16px 0; flex-shrink: 0; }
@@ -1895,64 +1812,91 @@
 ══════════════════════════════════════ -->
 <div id="screen-home" class="screen">
     <div class="home-scroll">
-        <div class="home-hero">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start">
-                <div>
-                    <div class="home-greeting">Welcome back</div>
-                    <div class="home-name" id="home-name">—</div>
-                    <div class="home-course" id="home-course-display">Loading...</div>
+        <header class="home-header">
+            <div class="home-title">Golf Tracker</div>
+            <button class="home-profile-btn" aria-label="Profile" onclick="showScreen('screen-profile')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+            </button>
+        </header>
+
+        <!-- Road to target (Official Handicap Index — never playingHC) -->
+        <section class="home-section home-road" id="home-road">
+            <div class="home-overline" id="home-road-title">Road to —</div>
+            <div class="home-road-figures">
+                <span class="home-figure" id="home-hi">—</span>
+                <span class="home-road-arrow" aria-hidden="true">→</span>
+                <span class="home-figure home-figure-accent" id="home-target">—</span>
+            </div>
+            <div class="home-road-gap" id="home-gap"></div>
+            <div class="home-note" id="home-hi-note">Official Handicap Index</div>
+        </section>
+
+        <!-- New user: no complete rounds yet -->
+        <section class="home-section home-message" id="home-empty" hidden>
+            <p id="home-empty-text"></p>
+        </section>
+
+        <!-- Recent form (gross scores — an app-level form indicator, not a handicap) -->
+        <section class="home-section" id="home-form" hidden>
+            <div class="home-overline-row">
+                <div class="home-overline">Recent form</div>
+                <div class="home-overline-aside">Gross · newest first</div>
+            </div>
+            <div class="home-scores" id="home-form-scores"></div>
+            <div class="home-form-avg">Average <span class="home-figure-sm" id="home-form-avg"></span> <span id="home-form-meta"></span></div>
+            <div class="home-form-direction" id="home-form-direction" hidden>Form vs previous 5 rounds: <strong id="home-form-direction-val"></strong></div>
+        </section>
+
+        <!-- 1–2 complete rounds: leaks + focus not unlocked yet -->
+        <section class="home-section home-message" id="home-unlock" hidden>
+            <p id="home-unlock-text"></p>
+        </section>
+
+        <!-- Scoring leaks -->
+        <section class="home-section" id="home-leaks" hidden>
+            <div class="home-overline-row">
+                <div class="home-overline">Scoring leaks</div>
+                <div class="home-overline-aside" id="home-leaks-sub"></div>
+            </div>
+            <div class="leak-list">
+                <div class="leak-row" id="leak-blowUps">
+                    <div class="leak-main"><span class="leak-label">Blow-up holes</span><span class="leak-value" id="leak-blowUps-val"></span></div>
+                    <div class="leak-note" id="leak-blowUps-note" hidden></div>
+                </div>
+                <div class="leak-row" id="leak-threePutts">
+                    <div class="leak-main"><span class="leak-label">3-putts</span><span class="leak-value" id="leak-threePutts-val"></span></div>
+                    <div class="leak-note" id="leak-threePutts-note" hidden></div>
+                </div>
+                <div class="leak-row" id="leak-teeShotsOB">
+                    <div class="leak-main"><span class="leak-label">Tee shots OB</span><span class="leak-value" id="leak-teeShotsOB-val"></span></div>
+                    <div class="leak-note" id="leak-teeShotsOB-note" hidden></div>
                 </div>
             </div>
-        </div>
+            <div class="home-note">From your scorecards. A leak is not always a mistake.</div>
+        </section>
 
-        <!-- HC Progress (read-only — edit in Profile) -->
-        <div class="hc-track">
-            <div class="hc-track-header">
-                <div>
-                    <div class="hc-readout" id="home-hc" style="color:var(--green-bright)">—</div>
-                    <div class="hc-label" style="margin-top:4px">Handicap Index</div>
-                </div>
-                <div class="hc-target-block">
-                    <div class="hc-readout hc-readout-target" id="home-target-hc">—</div>
-                    <div class="hc-label" style="text-align:right;margin-top:4px">Target HC</div>
-                </div>
+        <!-- Current focus + next round (one focus, one tracked target) -->
+        <section class="home-focus" id="home-focus" hidden>
+            <div class="home-overline home-overline-accent">Current focus</div>
+            <h2 class="home-focus-headline" id="home-focus-headline"></h2>
+            <p class="home-focus-evidence" id="home-focus-evidence"></p>
+            <p class="home-focus-principle" id="home-focus-principle" hidden></p>
+            <div class="home-focus-divider"></div>
+            <div class="home-overline home-overline-accent">Next round</div>
+            <div class="home-target" id="home-next-target" hidden>
+                <span class="home-target-marker" aria-hidden="true"></span>
+                <span id="home-next-target-text"></span>
             </div>
-            <div class="hc-bar-track">
-                <div class="hc-bar-fill" id="home-hc-bar" style="width:0%"></div>
+            <div class="home-commitment">
+                <div class="home-commitment-title">No hero recovery shots</div>
+                <div class="home-commitment-sub">Your call on the course. Not scored.</div>
             </div>
-            <div class="hc-bar-labels">
-                <span id="home-hc-bar-lbl">Loading...</span>
-                <span id="home-rounds-played">— rounds</span>
-            </div>
-        </div>
+            <div class="home-routine">PICK → SEE → GO</div>
+        </section>
 
-        <!-- Quick stats -->
-        <div class="stats-strip">
-            <div class="stat-chip">
-                <div class="stat-chip-val" id="home-avg-pts">—</div>
-                <div class="stat-chip-lbl">Avg Pts</div>
-            </div>
-            <div class="stat-chip">
-                <div class="stat-chip-val" id="home-avg-score">—</div>
-                <div class="stat-chip-lbl">Avg Score</div>
-            </div>
-            <div class="stat-chip">
-                <div class="stat-chip-val" id="home-best-pts">—</div>
-                <div class="stat-chip-lbl">Best Pts</div>
-            </div>
-        </div>
+        <div class="home-load-error" id="home-load-error" hidden>Couldn't load your recent rounds.</div>
 
-        <!-- Recent rounds -->
-        <div class="section-header">
-            <div class="section-title">Recent Rounds</div>
-            <button class="section-link" onclick="showScreen('screen-stats')">See all →</button>
-        </div>
-
-        <div id="home-rounds-list" class="rounds-list">
-            <div class="loading-overlay"><div class="spinner"></div> Loading rounds...</div>
-        </div>
-
-        <!-- Resume in-progress round -->
+        <!-- Resume in-progress round (unchanged — redesigned in Phase C) -->
         <div class="resume-banner" id="resume-banner" onclick="resumeRound()">
             <div class="resume-banner-icon">🔄</div>
             <div class="resume-banner-text">
@@ -1962,10 +1906,17 @@
             <div class="resume-banner-arrow">→</div>
         </div>
 
-        <!-- Play CTA -->
-        <button class="play-cta" onclick="showScreen('screen-setup')">
-            ⛳ Play a Round
-        </button>
+        <!-- Start round -->
+        <div class="home-start">
+            <button class="home-start-btn" onclick="showScreen('screen-setup')">START ROUND</button>
+            <div class="home-start-meta">
+                <span id="home-start-course">—</span>
+                <span aria-hidden="true">·</span>
+                <span id="home-start-tee">Yellow tees</span>
+                <span aria-hidden="true">·</span>
+                <button class="home-link-btn" onclick="showScreen('screen-setup')">Change</button>
+            </div>
+        </div>
     </div>
 
     <div class="bottom-nav">
@@ -2374,6 +2325,9 @@ let COURSE_PAR    = 72;
 let currentHole = 0;
 let playingHC   = 27;   // handicap for the CURRENT/NEXT round — rounds may overwrite it
 let officialHI  = null; // Official Handicap Index — only set from profile/prefs load or a Profile save
+let homeModel     = null;  // Phase A coaching model (buildHomeModel) for the signed-in user
+let homeLoadError = false; // history fetch failed and there is no earlier model to show
+let selectedCourseName = null;  // name of the course currently selected for the next round
 let targetHC    = 16;
 let playerName  = 'Rajiv';
 let roundDate   = '';
@@ -2457,13 +2411,8 @@ async function switchCourse(slug) {
             }
 
             document.getElementById('setup-course-tag').textContent = course.name;
-            const courseDisplay = document.getElementById('home-course-display');
-            if (courseDisplay) {   // textContent: course names are database text
-                const par = document.createElement('span');
-                par.textContent = 'Par ' + COURSE_PAR;
-                courseDisplay.textContent = course.name + ' · ';
-                courseDisplay.appendChild(par);
-            }
+            selectedCourseName = course.name;
+            renderStartMeta();
         }
     } catch(e) {
         console.warn('Switch course:', e);
@@ -2517,6 +2466,7 @@ function selectTee(tee) {
         yellowBtn.className = tee === 'yellow' ? 'tee-btn selected-yellow' : 'tee-btn';
         whiteBtn.className  = tee === 'white'  ? 'tee-btn selected-white'  : 'tee-btn';
     }
+    renderStartMeta();
 }
 
 // Apply saved tee selection on load
@@ -2558,19 +2508,31 @@ async function loadHomeData() {
             }
         }
 
-        document.getElementById('home-name').textContent = playerName;
         document.getElementById('setup-name').value = playerName;
         document.getElementById('setup-hc').value   = playingHC;
-        renderHandicapSummary();
+        renderHome();      // Road to target can show immediately
         renderProfile();
 
-        // Load recent rounds — scoped to current user
+        // Load recent rounds — scoped to current user.
+        // recentRounds (unchanged query) still feeds the play screen's pace / halfway logic
+        // and in-progress detection. The coaching model uses its own Phase A query.
         const uid2 = currentUser?.id;
         const roundsUrl = 'rounds?select=*&order=date.desc&limit=20' + (uid2 ? '&user_id=eq.' + uid2 : '');
-        const rounds = await sbFetch(roundsUrl);
+        const [rounds, history] = await Promise.all([
+            sbFetch(roundsUrl),
+            uid2 ? fetchHomeHistory(uid2).then(rows => ({ rows }), err => ({ err })) : Promise.resolve({ rows: [] }),
+        ]);
 
         recentRounds = (rounds || []).sort((a,b) => new Date(b.date) - new Date(a.date));
-        document.getElementById('home-rounds-played').textContent = `${recentRounds.length} rounds logged`;
+
+        if (history.err) {
+            console.warn('Home history:', history.err);
+            homeLoadError = !homeModel;          // keep the last good model if there is one
+        } else {
+            homeModel = buildHomeModel(history.rows || []);
+            homeLoadError = false;
+        }
+        renderHome();
 
         // Check for in-progress round
         const inProgress = recentRounds.find(r => r.round_status === 'in_progress');
@@ -2588,57 +2550,7 @@ async function loadHomeData() {
             window._inProgressRound = null;
         }
 
-        renderHomeRounds();
-        updateHomeStats();
-
     } catch(e) { console.warn('Home data:', e); }
-}
-
-function renderHomeRounds() {
-    const list = document.getElementById('home-rounds-list');
-    if (!recentRounds.length) {
-        list.innerHTML = `<div class="empty-state">
-            <div class="empty-state-icon">⛳</div>
-            <div class="empty-state-title">No rounds yet</div>
-            <div class="empty-state-text">Play your first round and it'll appear here with full stats and hole breakdowns.</div>
-        </div>`;
-        return;
-    }
-
-    list.innerHTML = '';
-    recentRounds.slice(0,5).forEach((r, i) => {
-        const pts = r.stableford_points || 0;
-        const pStyle = getPointsStyle(pts);
-        const prev = recentRounds[i+1];
-        const trend = prev ? (pts > prev.stableford_points ? '↑' : pts < prev.stableford_points ? '↓' : '→') : '';
-        const trendColor = trend === '↑' ? 'var(--green-bright)' : trend === '↓' ? 'var(--red)' : 'var(--gray)';
-        const d = new Date(r.date + 'T12:00:00');
-        const row = document.createElement('div');
-        row.className = 'round-row';
-        row.innerHTML = `
-            <div class="round-row-date">
-                <div class="round-row-date-main">${d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
-                <div class="round-row-date-sub">HC ${r.playing_handicap || playingHC}</div>
-            </div>
-            <span class="trend-arrow" style="color:${trendColor}">${trend}</span>
-            <div class="round-row-score">${r.total_score || '—'}</div>
-            <div class="round-row-pts" style="background:${pStyle.bg}22;color:${pStyle.bg};border:1px solid ${pStyle.bg}44">
-                ${pts} pts
-            </div>`;
-        list.appendChild(row);
-    });
-}
-
-function updateHomeStats() {
-    if (!recentRounds.length) return;
-    const pts   = recentRounds.map(r => r.stableford_points || 0);
-    const scores = recentRounds.filter(r => r.total_score).map(r => r.total_score);
-    const avgPts   = (pts.reduce((a,b)=>a+b,0) / pts.length).toFixed(1);
-    const avgScore = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : '—';
-    const bestPts  = Math.max(...pts);
-    document.getElementById('home-avg-pts').textContent   = avgPts;
-    document.getElementById('home-avg-score').textContent = avgScore;
-    document.getElementById('home-best-pts').textContent  = bestPts;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3508,6 +3420,133 @@ function buildHomeModel(rounds) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  HOME COACHING VIEW
+//  Pure: turns the Phase A model + profile values into the Home screen's
+//  text and show/hide state. No DOM, no globals.
+//  Leak rates are used exactly as the model gives them — already rounded to
+//  1 decimal — for display, focus thresholds, evidence copy and the
+//  next-round target alike. No hidden higher-precision comparisons.
+// ═══════════════════════════════════════════════════════════════
+const HOME_TARGET_DATE_LABEL    = 'Dec 2026';   // UI constant until a target-date column exists
+const FOCUS_MIN_COMPLETE_ROUNDS = 3;
+const FOCUS_ORDER      = ['blowUps', 'threePutts', 'teeShotsOB'];          // coaching hierarchy
+const FOCUS_THRESHOLDS = { blowUps: 2.0, threePutts: 2.0, teeShotsOB: 0.5 };
+const FOCUS_PRINCIPLE  = "One mistake doesn't get a friend.";
+const FOCUS_COPY = {
+    blowUps:     { headline: 'Stop the blow-up hole.',      evidence: r => `You're averaging ${r} zero-point holes per round.`, principle: true  },
+    threePutts:  { headline: 'Cut the three-putts.',        evidence: r => `You're averaging ${r} three-putts per round.`,     principle: false },
+    teeShotsOB:  { headline: 'Keep the tee shot in play.',  evidence: r => `You're averaging ${r} tee shots OB per round.`,    principle: true  },
+    consistency: { headline: 'Keep building consistency.',  evidence: () => 'No single scoring leak is dominating your recent rounds.', principle: false },
+};
+const TARGET_NOUNS = {
+    blowUps:    ['blow-up hole', 'blow-up holes'],
+    threePutts: ['three-putt', 'three-putts'],
+    teeShotsOB: ['tee shot OB', 'tee shots OB'],
+};
+
+const fmt1 = n => (Math.round(n * 10) / 10).toFixed(1);
+
+// The canonical (model-rounded) per-round rate, or null when not available.
+function leakRate(leak) {
+    return (leak && !leak.notEnoughData && typeof leak.perRound === 'number') ? leak.perRound : null;
+}
+
+// V1: first leak in the hierarchy at/above its threshold; otherwise consistency.
+// null until there are FOCUS_MIN_COMPLETE_ROUNDS complete rounds.
+function chooseFocus(model) {
+    if (!model || (model.counts?.complete ?? 0) < FOCUS_MIN_COMPLETE_ROUNDS) return null;
+    const leaks = model.leaks || {};
+    for (const kind of FOCUS_ORDER) {
+        const rate = leakRate(leaks[kind]);
+        if (rate !== null && rate >= FOCUS_THRESHOLDS[kind]) return { kind, rate };
+    }
+    return { kind: 'consistency', rate: null };
+}
+
+// One tracked target for the chosen focus: floor(rate) − 1, never below 0.
+function nextRoundTarget(focus, model) {
+    if (!focus || focus.kind === 'consistency' || !TARGET_NOUNS[focus.kind]) return null;
+    const max = Math.max(0, Math.floor(focus.rate) - 1);
+    const [one, many] = TARGET_NOUNS[focus.kind];
+    return { kind: focus.kind, max, text: max === 0 ? `No ${many}` : `Maximum ${max} ${max === 1 ? one : many}` };
+}
+
+// profile: { hi, target, loadError, targetDateLabel? } — hi/target are numbers or null.
+function buildHomeView(model, profile = {}) {
+    const num = v => (typeof v === 'number' && Number.isFinite(v)) ? v : null;
+    const hi = num(profile.hi), target = num(profile.target);
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+    const view = {
+        road: {
+            title:  target === null ? 'Road to target' : `Road to ${Number.isInteger(target) ? target : fmt1(target)}`,
+            hi:     hi === null ? '—' : fmt1(hi),
+            target: target === null ? '—' : fmt1(target),
+            gap:    hi === null     ? 'Set your Handicap Index in Profile'
+                  : target === null ? 'Set a target in Profile'
+                  : Number(fmt1(hi)) <= Number(fmt1(target)) ? 'Target reached'
+                  : `${fmt1(hi - target)} to go · target ${profile.targetDateLabel || HOME_TARGET_DATE_LABEL}`,
+        },
+        empty:     { show: false, text: '' },
+        form:      { show: false },
+        unlock:    { show: false, text: '' },
+        leaks:     { show: false },
+        focus:     { show: false },
+        loadError: { show: !model && !!profile.loadError },
+    };
+    if (!model) return view;
+
+    const complete = model.counts?.complete ?? 0;
+    if (complete === 0) {
+        view.empty = { show: true, text: 'Play 3 full rounds and your coaching starts here.' };
+        return view;
+    }
+
+    const form = model.recentForm;
+    view.form = {
+        show:      true,
+        scores:    form.rounds.map(r => r.gross).join(' · '),
+        average:   fmt1(form.average),
+        meta:      `· last ${plural(form.roundsCount, 'round')}`,
+        direction: form.direction || null,     // only with 10+ complete rounds
+    };
+
+    if (complete < FOCUS_MIN_COMPLETE_ROUNDS) {
+        const more = FOCUS_MIN_COMPLETE_ROUNDS - complete;
+        view.unlock = { show: true, text: `Play ${more} more full ${more === 1 ? 'round' : 'rounds'} to see your scoring leaks.` };
+        return view;
+    }
+
+    const L = model.leaks, w = L.windowRounds;
+    const row = (key, label, note) => {
+        const rate = leakRate(L[key]);
+        return { key, label, value: rate === null ? 'Not enough data' : fmt1(rate), muted: rate === null,
+                 note: rate === null ? note(L[key]?.qualifyingRounds ?? 0) : '' };
+    };
+    view.leaks = {
+        show: true,
+        sub:  `Per round · last ${w}`,
+        rows: [
+            row('blowUps',    'Blow-up holes', q => `Playing handicap recorded in ${q} of ${w} rounds`),
+            row('threePutts', '3-putts',       q => `Putts recorded on all 18 holes in ${q} of ${w} rounds`),
+            row('teeShotsOB', 'Tee shots OB',  q => `Tee shots recorded on every par 4 and 5 in ${q} of ${w} rounds`),
+        ],
+    };
+
+    const focus = chooseFocus(model);
+    const copy = FOCUS_COPY[focus.kind];
+    view.focus = {
+        show:      true,
+        kind:      focus.kind,
+        headline:  copy.headline,
+        evidence:  copy.evidence(focus.rate === null ? '' : fmt1(focus.rate)),
+        principle: copy.principle ? FOCUS_PRINCIPLE : null,
+        target:    nextRoundTarget(focus, model)?.text || null,
+    };
+    return view;
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  PLAY SCREEN
 // ═══════════════════════════════════════════════════════════════
 async function startRound() {
@@ -4203,6 +4242,69 @@ function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
 
 
 // ═══════════════════════════════════════════════════════════════
+//  HOME SCREEN (rendering only — all text comes from buildHomeView)
+// ═══════════════════════════════════════════════════════════════
+function setHomeText(id, text) { document.getElementById(id).textContent = text; }
+function showHomeEl(id, show) { document.getElementById(id).hidden = !show; }
+
+function renderHome() {
+    if (!document.getElementById('home-road')) return;
+    const v = buildHomeView(homeModel, { hi: officialHI, target: toHandicap(targetHC), loadError: homeLoadError });
+
+    setHomeText('home-road-title', v.road.title);
+    setHomeText('home-hi', v.road.hi);
+    setHomeText('home-target', v.road.target);
+    setHomeText('home-gap', v.road.gap);
+
+    showHomeEl('home-empty', v.empty.show);
+    setHomeText('home-empty-text', v.empty.text);
+
+    showHomeEl('home-form', v.form.show);
+    if (v.form.show) {
+        setHomeText('home-form-scores', v.form.scores);
+        setHomeText('home-form-avg', v.form.average);
+        setHomeText('home-form-meta', v.form.meta);
+        setHomeText('home-form-direction-val', v.form.direction || '');
+        showHomeEl('home-form-direction', !!v.form.direction);
+    }
+
+    showHomeEl('home-unlock', v.unlock.show);
+    setHomeText('home-unlock-text', v.unlock.text);
+
+    showHomeEl('home-leaks', v.leaks.show);
+    if (v.leaks.show) {
+        setHomeText('home-leaks-sub', v.leaks.sub);
+        for (const r of v.leaks.rows) {
+            setHomeText(`leak-${r.key}-val`, r.value);
+            document.getElementById(`leak-${r.key}`).classList.toggle('is-muted', r.muted);
+            setHomeText(`leak-${r.key}-note`, r.note);
+            showHomeEl(`leak-${r.key}-note`, !!r.note);
+        }
+    }
+
+    showHomeEl('home-focus', v.focus.show);
+    if (v.focus.show) {
+        setHomeText('home-focus-headline', v.focus.headline);
+        setHomeText('home-focus-evidence', v.focus.evidence);
+        setHomeText('home-focus-principle', v.focus.principle || '');
+        showHomeEl('home-focus-principle', !!v.focus.principle);
+        setHomeText('home-next-target-text', v.focus.target || '');
+        showHomeEl('home-next-target', !!v.focus.target);
+    }
+
+    showHomeEl('home-load-error', v.loadError.show);
+    renderStartMeta();
+}
+
+// "{course} · {tee} tees · Change" under Start Round.
+function renderStartMeta() {
+    const courseEl = document.getElementById('home-start-course');
+    if (!courseEl) return;
+    courseEl.textContent = selectedCourseName || 'Choose a course';
+    document.getElementById('home-start-tee').textContent = (selectedTee === 'white' ? 'White' : 'Yellow') + ' tees';
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  HANDICAP + PROFILE
 //  officialHI (Official Handicap Index) is set ONLY by the profile/prefs
 //  load and by a Profile save. playingHC is the handicap for the current
@@ -4212,25 +4314,6 @@ function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
 function toHandicap(v) {
     const n = (v === null || v === undefined || v === '') ? NaN : Number(v);
     return Number.isFinite(n) ? n : null;
-}
-
-// Home's read-only HC → target summary + progress bar (unchanged formula, assumes a 28 start).
-function renderHandicapSummary() {
-    const hcEl = document.getElementById('home-hc');
-    if (!hcEl) return;
-    const hi = officialHI;
-    hcEl.textContent = hi !== null ? hi.toFixed(1) : '—';
-    document.getElementById('home-target-hc').textContent = targetHC;
-    if (hi === null) {
-        document.getElementById('home-hc-bar').style.width = '0%';
-        document.getElementById('home-hc-bar-lbl').textContent = 'Set your Handicap Index in Profile';
-        return;
-    }
-    const startHC = 28;
-    const progress = Math.min(100, Math.max(0, ((startHC - hi) / (startHC - targetHC)) * 100));
-    document.getElementById('home-hc-bar').style.width = progress + '%';
-    const needed = hi - targetHC;
-    document.getElementById('home-hc-bar-lbl').textContent = needed > 0 ? `${needed.toFixed(1)} shots to go` : '🎉 Target reached!';
 }
 
 function renderProfile() {
@@ -4261,7 +4344,7 @@ async function saveCurrentHC() {
     officialHI = val;
     if (!activeRoundId) playingHC = val;               // never change the handicap of a round in progress
     document.getElementById('setup-hc').value = val;   // default for the next round
-    renderHandicapSummary();
+    renderHome();
     setProfileStatus('profile-hc-status', 'Saving…');
     try {
         if (currentUser?.id) {
@@ -4279,7 +4362,7 @@ async function saveTargetHC() {
     const val = readHandicapInput('profile-target-hc');
     if (val === null) { setProfileStatus('profile-target-status', 'Enter a target between 0 and 54', true); return; }
     targetHC = val;
-    renderHandicapSummary();
+    renderHome();
     setProfileStatus('profile-target-status', 'Saving…');
     try {
         if (currentUser?.id) {
@@ -4595,6 +4678,8 @@ async function doSignOut() {
     await sb.auth.signOut();
     currentUser = null;
     officialHI  = null;
+    homeModel   = null;   // never show one account's coaching to the next
+    homeLoadError = false;
     showScreen('screen-auth');
 }
 
