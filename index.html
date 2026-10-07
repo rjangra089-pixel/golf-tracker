@@ -791,6 +791,19 @@
 
         .putts-section { border-top: 1px solid var(--border); padding: 14px 16px; }
         .putts-buttons { display: flex; gap: 10px; }
+        .tasp-section { border-top: 1px solid var(--border); padding: 14px 16px; }
+        .tasp-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .tasp-btn {
+            min-height: 48px; border-radius: 10px; border: 1.5px solid var(--border2);
+            background: var(--card2); color: var(--gray); cursor: pointer;
+            font-family: var(--font-mono); font-size: 18px; font-weight: 600;
+            transition: all 0.12s;
+        }
+        .tasp-btn[aria-pressed="true"] { background: rgba(224,92,26,0.12); border-color: var(--orange); color: var(--orange); }
+        .hs-tags { font-family: var(--font-mono); font-size: 15px; color: var(--orange); white-space: nowrap; margin-left: 8px; }
+        .sum-tasp { display: flex; justify-content: center; gap: 18px; padding: 10px 16px 4px; font-family: var(--font-mono); font-size: 16px; color: var(--gray); }
+        .sum-tasp[hidden] { display: none; }
+        .sum-tasp strong { color: var(--white); font-weight: 600; margin-left: 4px; }
 
         .putt-btn {
             flex: 1; height: 46px;
@@ -2259,6 +2272,16 @@
                     <button class="putt-btn" data-putts="4" onclick="selectPutts(4)">4</button>
                 </div>
             </div>
+            <!-- Optional, player-chosen stroke-costing errors. Never set automatically. -->
+            <div class="tasp-section">
+                <div class="section-label" id="tasp-label">Stroke-costing error?</div>
+                <div class="tasp-buttons" role="group" aria-labelledby="tasp-label">
+                    <button class="tasp-btn" data-tag="T" aria-pressed="false" aria-label="T: tee error" onclick="toggleErrorTag('T')">T</button>
+                    <button class="tasp-btn" data-tag="A" aria-pressed="false" aria-label="A: approach error" onclick="toggleErrorTag('A')">A</button>
+                    <button class="tasp-btn" data-tag="S" aria-pressed="false" aria-label="S: short game error" onclick="toggleErrorTag('S')">S</button>
+                    <button class="tasp-btn" data-tag="P" aria-pressed="false" aria-label="P: putting error" onclick="toggleErrorTag('P')">P</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2288,6 +2311,7 @@
             <div class="hero-stat"><div class="hero-val" id="sum-girs">0</div><div class="hero-lbl">GIR</div></div>
             <div class="hero-stat"><div class="hero-val" id="sum-firs">0</div><div class="hero-lbl">Fairways</div></div>
         </div>
+        <div class="sum-tasp" id="sum-tasp" hidden></div>
         <div class="hole-summary-list" id="hole-summary-list"></div>
         <div class="summary-actions">
             <div class="save-status" id="save-status"></div>
@@ -2337,7 +2361,7 @@ let recentRounds = [];
 let holeStats   = []; // per-hole averages from DB
 let activeRoundId = null; // created on tee-off, updated hole by hole
 
-let holeData = Array.from({length:18}, () => ({ score:null, putts:null, fairway:null, gir:null }));
+let holeData = Array.from({length:18}, () => ({ score:null, putts:null, fairway:null, gir:null, tags:[] }));
 
 let statsCharts = {};
 
@@ -3234,6 +3258,42 @@ function getPointsStyle(pts) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  T/A/S/P STROKE-COSTING ERROR TAGS
+//  Chosen explicitly by the player on each hole (T tee · A approach ·
+//  S short game · P putting). NEVER inferred from fairway, GIR, putts or OB.
+//  In memory: holeData[i].tags = ['T','A',…]. Stored on shots.error_tags as
+//  the letters in fixed order ('TA'), or null when none.
+// ═══════════════════════════════════════════════════════════════
+const ERROR_TAG_ORDER = ['T', 'A', 'S', 'P'];
+
+// Any input → stored form: only exact T/A/S/P, no duplicates, T-A-S-P order, null if none.
+function normalizeErrorTags(tags) {
+    const raw = Array.isArray(tags) ? tags : (typeof tags === 'string' ? tags.split('') : []);
+    const out = ERROR_TAG_ORDER.filter(t => raw.includes(t)).join('');
+    return out || null;
+}
+
+// Stored / legacy value (null, undefined, 'TA', ['A','T']) → ordered array.
+function parseErrorTags(value) {
+    const n = normalizeErrorTags(value);
+    return n ? n.split('') : [];
+}
+
+function toggleErrorTag(tag) {
+    if (!ERROR_TAG_ORDER.includes(tag)) return;
+    const d = holeData[currentHole];
+    const current = parseErrorTags(d.tags);
+    d.tags = current.includes(tag) ? current.filter(t => t !== tag) : parseErrorTags([...current, tag]);
+    renderErrorTags(currentHole);
+    saveRoundStateToStorage();   // survives screen lock / reload like the score
+}
+
+function renderErrorTags(idx) {
+    const tags = parseErrorTags(holeData[idx]?.tags);
+    document.querySelectorAll('.tasp-btn').forEach(b => b.setAttribute('aria-pressed', String(tags.includes(b.dataset.tag))));
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  HOME COACHING MODEL
 //  Pure calculations for the coaching home screen — no DOM, no globals.
 //  - Each historic round is evaluated against ITS OWN course's holes,
@@ -3560,7 +3620,7 @@ async function startRound() {
     playerName = document.getElementById('setup-name').value.trim() || 'Golfer';
     playingHC  = parseInt(document.getElementById('setup-hc').value) || 27;
     roundDate  = document.getElementById('setup-date').value;
-    holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null}));
+    holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
     activeRoundId = null;
 
     // selectedTee is already set via selectTee() — persist it
@@ -3622,7 +3682,7 @@ async function resumeRound() {
         const shots = await sbFetch('shots?select=*&round_id=eq.' + round.id + '&order=hole_number');
 
         // 4. Restore holeData from saved shots
-        holeData = Array.from({length: 18}, () => ({score: null, putts: null, fairway: null, gir: null}));
+        holeData = Array.from({length: 18}, () => ({score: null, putts: null, fairway: null, gir: null, tags: []}));
         (shots || []).forEach(s => {
             const idx = s.hole_number - 1;
             if (idx >= 0 && idx < 18) {
@@ -3631,6 +3691,7 @@ async function resumeRound() {
                     putts:   s.putts   || null,
                     fairway: s.fairway || null,
                     gir:     s.gir     ?? null,
+                    tags:    parseErrorTags(s.error_tags),
                 };
             }
         });
@@ -3942,6 +4003,7 @@ function renderHole(idx, fromPrev) {
     girBtns[1].classList.toggle('hit', d.gir===false);
 
     updatePointsDisplay(idx);
+    renderErrorTags(idx);
 
     document.getElementById('btn-prev').style.visibility = idx===0 ? 'hidden' : 'visible';
     document.getElementById('btn-next').textContent = idx===17 ? 'Finish Round →' : 'Next Hole →';
@@ -4016,7 +4078,7 @@ async function autoSaveHole(holeIdx) {
         await sbFetch('shots?round_id=eq.' + activeRoundId + '&hole_number=eq.' + (holeIdx + 1), { method: 'DELETE', prefer: '' });
         await sbFetch('shots', { method: 'POST', body: JSON.stringify({
             round_id: activeRoundId, hole_id: holeId, hole_number: holeIdx + 1,
-            score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir,
+            score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags),
         })});
 
         // Update round totals
@@ -4049,7 +4111,7 @@ async function autoSaveHole(holeIdx) {
             path: 'shots', method: 'POST',
             body: JSON.stringify({
                 round_id: activeRoundId, hole_id: holeId, hole_number: holeIdx + 1,
-                score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir,
+                score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags),
             }),
         });
 
@@ -4141,8 +4203,28 @@ function showSummary() {
             <div style="font-size:17px;color:var(--gray);flex:1">${d.putts?d.putts+' putts':''}</div>
             <div class="hs-score">${d.score||'—'}</div>
             <div class="hs-pts" style="background:${ps.bg}22;color:${ps.bg};border:1px solid ${ps.bg}44">${pts}</div>`;
+        const tags = parseErrorTags(d.tags);
+        if (tags.length) {                       // only holes the player tagged
+            const tagEl = document.createElement('div');
+            tagEl.className = 'hs-tags';
+            tagEl.textContent = '· ' + tags.join(' · ');
+            row.querySelector('.hs-score').after(tagEl);
+        }
         list.appendChild(row);
     });
+
+    // T/A/S/P totals for the round — shown only when anything was tagged
+    const tagTotals = Object.fromEntries(ERROR_TAG_ORDER.map(t => [t, 0]));
+    holeData.forEach(d => parseErrorTags(d.tags).forEach(t => tagTotals[t]++));
+    const sumTasp = document.getElementById('sum-tasp');
+    sumTasp.replaceChildren(...ERROR_TAG_ORDER.map(t => {
+        const span = document.createElement('span');
+        const n = document.createElement('strong');
+        span.textContent = t; n.textContent = tagTotals[t];
+        span.appendChild(n);
+        return span;
+    }));
+    sumTasp.hidden = ERROR_TAG_ORDER.every(t => tagTotals[t] === 0);
 
     // If round was auto-saved, show that state; otherwise show Save button
     const saveStatus = document.getElementById('save-status');
@@ -4180,7 +4262,7 @@ async function saveRound() {
             await sbFetch('shots?round_id=eq.' + activeRoundId, { method: 'DELETE', prefer: '' });
             const shots = holeData.map((d,i) => ({
                 round_id: activeRoundId, hole_id: holeIds[i]||null,
-                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir,
+                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags),
             })).filter(s => s.score);
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
             await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'PATCH', body: JSON.stringify({
@@ -4203,7 +4285,7 @@ async function saveRound() {
 
             const shots = holeData.map((d,i) => ({
                 round_id: activeRoundId, hole_id: holeIds[i]||null,
-                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir,
+                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags),
             })).filter(s => s.score);
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
         }
@@ -4227,7 +4309,7 @@ async function saveRound() {
 function goHome() { showScreen('screen-home'); }
 
 function newRound() {
-    holeData = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null}));
+    holeData = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
     activeRoundId = null;
     showScreen('screen-setup');
 }
@@ -4634,7 +4716,7 @@ async function cancelRound() {
     }
     // Reset round state
     activeRoundId = null;
-    holeData = Array.from({length:18}, () => ({ score:0, putts:0, fairway:null, gir:null }));
+    holeData = Array.from({length:18}, () => ({ score:0, putts:0, fairway:null, gir:null, tags:[] }));
     currentHole = 0;
     clearRoundStateFromStorage(); // wipe persisted state on cancel
     track('round_cancelled', { course: selectedCourseSlug, hole: currentHole + 1 });
