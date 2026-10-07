@@ -3238,6 +3238,192 @@ function getPointsStyle(pts) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  HOME COACHING MODEL
+//  Pure calculations for the coaching home screen — no DOM, no globals.
+//  - Each historic round is evaluated against ITS OWN course's holes,
+//    matched by hole_number (hole ids change when admin re-saves a course).
+//    Never the global HOLES / currently selected course.
+//  - Only complete 18-hole rounds count; round_status alone is not trusted.
+//  - "Recent form" is an app-level indicator built from gross scores. It is
+//    NOT a Handicap Index or WHS Score Differential.
+//  - Returns metrics only. Choosing a coaching focus is a separate step.
+// ═══════════════════════════════════════════════════════════════
+const HOME_HISTORY_LIMIT         = 40;   // enough to find 10 complete rounds among partials
+const HOME_WINDOW_SIZE           = 5;
+const FORM_DIRECTION_THRESHOLD   = 2.0;  // shots, average vs previous 5
+const LEAK_MIN_QUALIFYING_ROUNDS = 3;
+
+// Historic rounds for the home model: newest first, never in-progress.
+// round_status NULL (legacy fallback saves) is kept; completeness is checked per round.
+async function fetchHomeHistory(userId) {
+    if (!userId) throw new Error('fetchHomeHistory: no user');
+    return sbFetch(
+        'rounds?select=id,date,created_at,round_status,course_id,playing_handicap,tee_color,'
+        + 'shots(hole_number,score,putts,fairway),'
+        + 'courses(name,holes(hole_number,par,stroke_index))'
+        + '&user_id=eq.' + encodeURIComponent(userId)
+        + '&or=(round_status.is.null,round_status.neq.in_progress)'
+        + '&order=date.desc,created_at.desc'
+        + '&limit=' + HOME_HISTORY_LIMIT
+    );
+}
+
+const isWholeAtLeast = (v, min) => Number.isInteger(v) && v >= min;
+
+// hole_number → { par, si } for the round's own course, or null unless the
+// course has exactly holes 1–18, each with a whole par >= 1 and SI 1–18.
+function courseHoleMap(round) {
+    const holes = round?.courses?.holes;
+    if (!Array.isArray(holes) || holes.length !== 18) return null;
+    const map = new Map();
+    for (const h of holes) {
+        if (!isWholeAtLeast(h?.hole_number, 1) || h.hole_number > 18) return null;
+        if (map.has(h.hole_number)) return null;
+        if (!isWholeAtLeast(h.par, 1)) return null;
+        if (!isWholeAtLeast(h.stroke_index, 1) || h.stroke_index > 18) return null;
+        map.set(h.hole_number, { par: h.par, si: h.stroke_index });
+    }
+    return map.size === 18 ? map : null;
+}
+
+// Complete = not in progress, valid 18-hole course, and exactly one shot row
+// per hole 1–18, each with a whole-number score >= 1.
+function isCompleteRound(round) {
+    if (!round || round.round_status === 'in_progress') return false;
+    if (!courseHoleMap(round)) return false;
+    const shots = round.shots;
+    if (!Array.isArray(shots) || shots.length !== 18) return false;
+    const seen = new Set();
+    for (const s of shots) {
+        if (!isWholeAtLeast(s?.hole_number, 1) || s.hole_number > 18) return false;
+        if (seen.has(s.hole_number)) return false;
+        if (!isWholeAtLeast(s.score, 1)) return false;
+        seen.add(s.hole_number);
+    }
+    return seen.size === 18;
+}
+
+// Newest first: date desc, then created_at desc (missing created_at sorts last).
+function orderRounds(rounds) {
+    const ts = r => { const t = Date.parse(r?.created_at); return Number.isNaN(t) ? -Infinity : t; };
+    return [...(rounds || [])].sort((a, b) => {
+        const da = a?.date || '', db = b?.date || '';
+        if (da !== db) return da < db ? 1 : -1;
+        return ts(b) - ts(a);
+    });
+}
+
+// Sum of the 18 hole scores (hole-level data is the source of truth).
+function grossScore(round) {
+    return round.shots.reduce((sum, s) => sum + s.score, 0);
+}
+
+// Same rule as getShotsReceived(), but for any hole/handicap.
+function shotsReceivedFor(si, hc) {
+    return Math.floor(hc / 18) + (si <= (hc % 18) ? 1 : 0);
+}
+
+// Same Stableford rule as calcPoints(), but for any hole/handicap.
+function holePoints(par, si, hc, score) {
+    return Math.max(0, par - (score - shotsReceivedFor(si, hc)) + 2);
+}
+
+const round1 = n => Math.round(n * 10) / 10;
+
+// rounds: complete rounds, newest first.
+function recentForm(completeRounds) {
+    const last = completeRounds.slice(0, HOME_WINDOW_SIZE);
+    const prev = completeRounds.slice(HOME_WINDOW_SIZE, HOME_WINDOW_SIZE * 2);
+    if (!last.length) return { available: false, roundsCount: 0 };
+
+    const lastSum = last.reduce((s, r) => s + grossScore(r), 0);
+    const form = {
+        available:     true,
+        roundsCount:   last.length,
+        fullWindow:    last.length === HOME_WINDOW_SIZE,
+        rounds:        last.map(r => ({ id: r.id, date: r.date, gross: grossScore(r) })),
+        average:       round1(lastSum / last.length),
+        previousAverage: null,
+        direction:     null,   // 'improving' | 'steady' | 'slipping' — only with 10+ rounds
+        deltaShots:    null,   // previous avg − last avg; positive = better
+    };
+    if (prev.length === HOME_WINDOW_SIZE) {
+        const prevSum = prev.reduce((s, r) => s + grossScore(r), 0);
+        // Compare integer sums so the 2.0-shot boundary is exact (2.0 × 5 = 10).
+        const diffSum = prevSum - lastSum;
+        const limit   = FORM_DIRECTION_THRESHOLD * HOME_WINDOW_SIZE;
+        form.previousAverage = round1(prevSum / HOME_WINDOW_SIZE);
+        form.deltaShots      = round1(diffSum / HOME_WINDOW_SIZE);
+        form.direction       = diffSum >= limit ? 'improving' : diffSum <= -limit ? 'slipping' : 'steady';
+    }
+    return form;
+}
+
+// Leak rates over the given window of complete rounds (newest first).
+function leakRates(windowRounds) {
+    const windowSize = windowRounds.length;
+
+    // Blow-up holes: 0 Stableford points with that round's own course + playing handicap.
+    let blowUpTotal = 0, blowUpRounds = 0;
+    for (const r of windowRounds) {
+        const hc = Number(r.playing_handicap);
+        if (r.playing_handicap == null || !Number.isFinite(hc) || hc < 0) continue;
+        const holes = courseHoleMap(r);
+        blowUpRounds++;
+        for (const s of r.shots) {
+            const h = holes.get(s.hole_number);
+            if (holePoints(h.par, h.si, hc, s.score) === 0) blowUpTotal++;
+        }
+    }
+    const blowUps = blowUpRounds
+        ? { total: blowUpTotal, qualifyingRounds: blowUpRounds, perRound: round1(blowUpTotal / blowUpRounds) }
+        : { notEnoughData: true, qualifyingRounds: 0, windowRounds: windowSize };
+
+    // 3-putts (putts >= 3). Round qualifies only with putts on all 18 holes; 0 is recorded data.
+    let threePuttTotal = 0, puttRounds = 0;
+    for (const r of windowRounds) {
+        if (!r.shots.every(s => isWholeAtLeast(s.putts, 0))) continue;
+        puttRounds++;
+        threePuttTotal += r.shots.filter(s => s.putts >= 3).length;
+    }
+    const threePutts = puttRounds >= LEAK_MIN_QUALIFYING_ROUNDS
+        ? { total: threePuttTotal, qualifyingRounds: puttRounds, perRound: round1(threePuttTotal / puttRounds) }
+        : { notEnoughData: true, qualifyingRounds: puttRounds, windowRounds: windowSize };
+
+    // Tee shots OB (fairway 'X') on par 4/5 only. Round qualifies only when every
+    // par-4/5 hole has a fairway value. Not a count of all penalties.
+    let obTotal = 0, obRounds = 0;
+    for (const r of windowRounds) {
+        const holes = courseHoleMap(r);
+        const teeHoles = r.shots.filter(s => { const p = holes.get(s.hole_number).par; return p === 4 || p === 5; });
+        if (!teeHoles.every(s => typeof s.fairway === 'string' && s.fairway !== '')) continue;
+        obRounds++;
+        obTotal += teeHoles.filter(s => s.fairway === 'X').length;
+    }
+    const teeShotsOB = obRounds >= LEAK_MIN_QUALIFYING_ROUNDS
+        ? { total: obTotal, qualifyingRounds: obRounds, perRound: round1(obTotal / obRounds) }
+        : { notEnoughData: true, qualifyingRounds: obRounds, windowRounds: windowSize };
+
+    return { windowRounds: windowSize, blowUps, threePutts, teeShotsOB };
+}
+
+// rounds: raw rows from fetchHomeHistory(), any order.
+function buildHomeModel(rounds) {
+    const ordered  = orderRounds(rounds);
+    const complete = ordered.filter(isCompleteRound);
+    const lastFive = complete.slice(0, HOME_WINDOW_SIZE);
+    return {
+        counts: {
+            fetched:  ordered.length,
+            complete: complete.length,
+            skipped:  ordered.length - complete.length,   // partial / invalid / in-progress
+        },
+        recentForm: recentForm(complete),
+        leaks:      leakRates(lastFive),
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  PLAY SCREEN
 // ═══════════════════════════════════════════════════════════════
 async function startRound() {
