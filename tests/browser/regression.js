@@ -68,6 +68,14 @@ const HISTORIES = {
   error: () => { throw new Error('history unavailable'); },
 };
 const grossOf = r => r.shots.reduce((a, s) => a + s.score, 0);
+// Historical round for Coach Review: created before error tagging, legacy Y/N fairways,
+// missing putts/GIR on a couple of holes, one stored note.
+const reviewRoundFixture = () => ({
+  id: 'r-full1', date: '2026-06-12', created_at: '2026-06-12T10:00:00Z', round_status: 'completed', tee_color: null,
+  playing_handicap: 27, stableford_points: 28, courses: { name: 'Course A', holes: holesFor('cA') },
+  shots: PARS.map((p, i) => ({ hole_number: i + 1, score: p + 1 + (i === 0 ? 3 : 0), putts: i === 2 ? null : 2,
+    fairway: p === 3 ? null : (i % 2 ? 'Y' : 'N'), gir: i === 2 ? null : false, error_tags: null, notes: i === 4 ? 'Pulled approach into trees' : null })),
+});
 
 function restResponse(method, url) {
   const u = new URL(url); const path = u.pathname.replace('/rest/v1/', ''); const q = decodeURIComponent(u.search);
@@ -91,6 +99,7 @@ function restResponse(method, url) {
   if (path === 'shots') return shots18('r-live').slice(0, 4).map((x, i) =>
     i === 0 ? { ...x, error_tags: 'TA' } : i === 1 ? { ...x, error_tags: null } : i === 3 ? { ...x, error_tags: 'P' } : x);   // hole 3: legacy row, no field
   if (path === 'rounds') {
+    if (/[?&]id=eq\./.test(q) && q.includes('courses(name,holes(')) return [reviewRoundFixture()];   // Coach Review (history); not user_id=eq.
     if (q.includes('or=(round_status.is.null,round_status.neq.in_progress)')) return HISTORIES[state.history]();   // Phase A home history
     if (q.includes('holes(hole_number,par,stroke_index)')) return debriefRounds();
     return homeRounds();
@@ -937,6 +946,88 @@ const t = async (name, fn) => {
     state.writes.length = 0;
     await ev(`saveRound()`); await waitFor(`document.getElementById('btn-save').textContent === 'SAVED ✓'`);
     assert.deepStrictEqual(shotPosts().flat().filter(b => b.error_tags).map(b => [b.hole_number, b.error_tags]), [[1, 'B'], [2, 'SB'], [3, 'TBP'], [4, 'AB']]);
+  });
+
+  await t('COACH REVIEW: summary toggle — review of the round just played (B totals, 11, 0 putts), back to summary unchanged', async () => {
+    assert.strictEqual(await ev(`document.getElementById('sum-view-summary').getAttribute('aria-pressed')`), 'true');
+    assert.strictEqual(await shown('summary-main'), true); assert.strictEqual(await shown('summary-review'), false);
+    await ev(`document.getElementById('sum-view-review').click()`);
+    assert.strictEqual(await shown('summary-review'), true); assert.strictEqual(await shown('summary-main'), false);
+    const totals = await ev(`Object.fromEntries([...document.querySelectorAll('#summary-review .cr-total')].map(r => [r.querySelector('dt').textContent, r.querySelector('dd').textContent]))`);
+    assert.strictEqual(totals.Errors, 'T 1 | A 1 | S 1 | B 4 | P 1');
+    assert.strictEqual(totals.Penalties, 'not captured');
+    assert.ok(/^\d+$/.test(totals.Score) && totals.Front && totals.Back, JSON.stringify(totals));
+    const nines = await ev(`[...document.querySelectorAll('#summary-review .cr-nine-title')].map(e => e.textContent.split(' · ')[0])`);
+    assert.deepStrictEqual(nines, ['Front 9', 'Back 9']);
+    assert.strictEqual(await ev(`document.querySelectorAll('#summary-review .cr-table tbody tr').length`), 18);
+    assert.strictEqual(await ev(`[...document.querySelectorAll('#summary-review .cr-table tbody tr')][2].children[3].textContent`), 'N/A', 'par-3 fairway N/A');
+    assert.strictEqual(await ev(`[...document.querySelectorAll('#summary-review .cr-table tbody tr')][0].children[3].textContent`), '—', 'unrecorded fairway shown as unknown');
+    const h11 = await ev(`[...document.querySelectorAll('#summary-review .cr-table tbody tr')][10].querySelector('.cr-score').textContent`);
+    assert.strictEqual(h11, '11');
+    await ev(`document.getElementById('sum-view-summary').click()`);
+    assert.strictEqual(await shown('summary-main'), true); assert.strictEqual(await shown('summary-review'), false);
+  });
+
+  await t('COACH REVIEW: Copy Round Data — success copies the exact formatted text; failure shows a selectable fallback', async () => {
+    await ev(`document.getElementById('sum-view-review').click()`);
+    await ev(`window.__copied = null; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.__copied = t; return Promise.resolve(); } } })`);
+    await ev(`document.querySelector('#summary-review .cr-copy-btn').click()`); await sleep(200);
+    assert.strictEqual(await ev(`document.querySelector('#summary-review .cr-copy-status').textContent`), 'Round data copied');
+    assert.strictEqual(await ev(`window.__copied === crFormatRoundText(liveRoundReview())`), true);
+    assert.ok((await ev(`window.__copied`)).startsWith('Round: Course A – Yellow tees\nDate: '));
+    assert.ok((await ev(`window.__copied`)).includes('H1 | Par 4 | Score 5 | FW — | GIR — | Putts — | Errors B'), 'only what was entered');
+    await ev(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } })`);
+    await ev(`document.querySelector('#summary-review .cr-copy-btn').click()`); await sleep(200);
+    assert.match(await ev(`document.querySelector('#summary-review .cr-copy-status').textContent`), /Couldn't copy/);
+    assert.strictEqual(await ev(`(() => { const f = document.querySelector('#summary-review .cr-copy-fallback'); return !f.hidden && f.value === crFormatRoundText(liveRoundReview()); })()`), true);
+  });
+
+  await t('COACH REVIEW: readable at 390×844 and 375×667, light + dark — no horizontal scroll, nothing clipped', async () => {
+    for (const theme of ['light', 'dark']) {
+      await ev(`setTheme('${theme}')`);
+      for (const [w, h] of [[390, 844], [375, 667]]) {
+        await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 2, mobile: true }); await sleep(250);
+        const r = await ev(`(() => { const sc = document.querySelector('#screen-summary .summary-scroll');
+          const over = [...document.querySelectorAll('#summary-review *')].filter(e => e.offsetParent !== null && e.getBoundingClientRect().right > innerWidth + 0.5).map(e => e.className || e.tagName);
+          const clipped = [...document.querySelectorAll('#summary-review td, #summary-review dd')].filter(e => e.scrollWidth > e.clientWidth + 1 && !e.classList.contains('cr-tags')).length;
+          return { hs: document.documentElement.scrollWidth > innerWidth || sc.scrollWidth > sc.clientWidth, over, clipped,
+                   minFont: Math.min(...[...document.querySelectorAll('#summary-review td, #summary-review dt, #summary-review dd')].map(e => parseFloat(getComputedStyle(e).fontSize))) }; })()`);
+        assert.ok(!r.hs && r.over.length === 0 && r.clipped === 0, `${theme} ${w}x${h}: ${JSON.stringify(r)}`);
+        assert.ok(r.minFont >= 13, 'table text ≥ 13px');
+        if (process.env.SHOTS) {
+          await send('Emulation.setDeviceMetricsOverride', { width: w, height: 1900, deviceScaleFactor: 2, mobile: true }); await sleep(400);
+          require('fs').writeFileSync(`${process.env.SHOTS}/coach-review-${w}-${theme}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+        }
+      }
+    }
+    await ev(`setTheme('light')`);
+    await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+    await ev(`activeRoundId = null; clearRoundStateFromStorage(); goHome()`);
+  });
+
+  await t('COACH REVIEW: Stats history — Review only on finished rounds; historical round shows unknowns honestly', async () => {
+    state.inProgress = true; await reloadHome('rich');
+    await ev(`showScreen('screen-stats')`); await statsIdle();
+    const btns = await ev(`[...document.querySelectorAll('#stats-scroll .round-history-item')].map(i => [i.querySelector('.rhi-date').textContent, !!i.querySelector('.rhi-review')])`);
+    assert.deepStrictEqual(btns.map(b => b[1]), [false, true, true], 'no Review on the in-progress round: ' + JSON.stringify(btns));
+    state.inProgress = false;
+    await ev(`document.querySelector('#stats-scroll .rhi-review').click()`);
+    await waitFor(`document.querySelector('.screen.active').id === 'screen-review' && !!document.querySelector('#review-body .cr-table')`);
+    const totals = await ev(`Object.fromEntries([...document.querySelectorAll('#review-body .cr-total')].map(r => [r.querySelector('dt').textContent, r.querySelector('dd').textContent]))`);
+    assert.strictEqual(totals.Errors, 'not captured'); assert.strictEqual(totals.Penalties, 'not captured');
+    assert.strictEqual(totals.Putts, '34 (17/18 holes recorded)'); assert.strictEqual(totals.Fairways, '7/14');
+    assert.strictEqual(totals.GIR, '0/17 recorded (of 18)');
+    assert.match(await ev(`document.querySelector('#review-body .cr-sub').textContent`), /^Tees not recorded · 12 Jun 2026 · HC 27$/);
+    assert.strictEqual(await ev(`document.querySelector('#review-body .cr-note').textContent`), 'Pulled approach into trees');
+    assert.strictEqual(await ev(`document.querySelectorAll('#review-body .cr-tags.is-unknown').length`), 18, 'no per-hole error claims');
+    assert.ok(await ev(`[...document.querySelectorAll('#review-body td')].some(td => td.textContent === 'miss')`), 'legacy N fairway shown as "miss"');
+    if (process.env.SHOTS) {
+      await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 1900, deviceScaleFactor: 2, mobile: true }); await sleep(400);
+      require('fs').writeFileSync(`${process.env.SHOTS}/coach-review-history.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+      await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+    }
+    await ev(`document.querySelector('#screen-review .cr-back').click()`); await statsIdle();
+    assert.strictEqual(await activeScreen(), 'screen-stats');
   });
 
   await t('TASBP: resume from DB restores B tags (TB, B, none, SBP)', async () => {

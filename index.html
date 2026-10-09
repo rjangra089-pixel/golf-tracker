@@ -1418,6 +1418,7 @@
     <!-- Clubhouse design system (live scoring first; other screens migrate later) -->
     <link rel="stylesheet" href="css/tokens.css?v=1">
     <link rel="stylesheet" href="css/play.css?v=2">
+    <link rel="stylesheet" href="css/coach-review.css?v=1">
 </head>
 <body>
 
@@ -1956,6 +1957,11 @@
             <div class="summary-date" id="sum-date"></div>
             <div class="summary-date" id="sum-name"></div>
         </div>
+        <div class="cr-switch" role="group" aria-label="Round view">
+            <button type="button" id="sum-view-summary" aria-pressed="true" onclick="showSummaryView('summary')">Round summary</button>
+            <button type="button" id="sum-view-review" aria-pressed="false" onclick="showSummaryView('review')">Coach review</button>
+        </div>
+        <div id="summary-main">
         <div class="summary-hero">
             <div class="hero-stat big">
                 <div class="hero-val" id="sum-pts">0</div>
@@ -1968,6 +1974,8 @@
         </div>
         <div class="sum-tasp" id="sum-tasp" hidden></div>
         <div class="hole-summary-list" id="hole-summary-list"></div>
+        </div>
+        <div class="cr-root" id="summary-review" hidden></div>
         <div class="summary-actions">
             <div class="save-status" id="save-status"></div>
             <button class="btn-save" id="btn-save" onclick="saveRound()">SAVE ROUND</button>
@@ -1976,6 +1984,18 @@
     </div>
 </div>
 
+<!-- ══════════════════════════════════════
+     SCREEN: COACH REVIEW (historical round, from Stats)
+══════════════════════════════════════ -->
+<div id="screen-review" class="screen">
+    <div class="cr-screen-head">
+        <button type="button" class="cr-back" onclick="showScreen('screen-stats')" aria-label="Back to Stats">‹ Stats</button>
+        <div class="cr-screen-title">Coach review</div>
+    </div>
+    <div class="cr-root" id="review-body"></div>
+</div>
+
+<script src="js/coach-review.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
 //  SUPABASE
@@ -2832,6 +2852,14 @@ async function loadStats() {
                         <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
                     </svg>
                 </button>`;
+            if (r.round_status !== 'in_progress' && crRoundShape(r.shots)) {
+                const reviewBtn = document.createElement('button');
+                reviewBtn.className = 'rhi-review';
+                reviewBtn.textContent = 'Review';
+                reviewBtn.setAttribute('aria-label', 'Coach review for ' + dateStr);
+                reviewBtn.addEventListener('click', () => openRoundReview(r.id));
+                item.querySelector('.rhi-delete').before(reviewBtn);
+            }
             histList.appendChild(item);
         });
         scroll.appendChild(histList);
@@ -2947,6 +2975,53 @@ function toggleErrorTag(tag) {
 function renderErrorTags(idx) {
     const tags = parseErrorTags(holeData[idx]?.tags);
     document.querySelectorAll('.tasp-btn').forEach(b => b.setAttribute('aria-pressed', String(tags.includes(b.dataset.tag))));
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COACH REVIEW — glue to js/coach-review.js (model, text, renderer)
+//  Read-only: builds the review from data already in memory / the DB.
+// ═══════════════════════════════════════════════════════════════
+function liveRoundReview() {
+    // The round just finished on this device (summary screen). Not yet "completed"
+    // in the DB until saved, but every hole is final, so it is reviewable.
+    return crBuildReview({
+        status: 'completed', allowInProgress: true,
+        courseName: selectedCourseName, tee: selectedTee, date: roundDate,
+        createdAt: new Date().toISOString(), playingHandicap: playingHC, stableford: getTotalPoints(),
+        holes: HOLES.map(h => ({ hole_number: h.num, par: h.par, stroke_index: h.si })),
+        shots: holeData.map((d, i) => ({ hole_number: i + 1, score: d.score, putts: d.putts, fairway: d.fairway,
+                                         gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes: null })),
+    });
+}
+
+function showSummaryView(view) {
+    const review = view === 'review';
+    document.getElementById('summary-main').hidden = review;
+    document.getElementById('summary-review').hidden = !review;
+    document.getElementById('sum-view-summary').setAttribute('aria-pressed', String(!review));
+    document.getElementById('sum-view-review').setAttribute('aria-pressed', String(review));
+    if (review) crRenderReview(document.getElementById('summary-review'), liveRoundReview());
+}
+
+// Historical round from Stats → its own review screen (never an in-progress round).
+async function openRoundReview(roundId) {
+    const body = document.getElementById('review-body');
+    body.replaceChildren(crEl('p', 'cr-unavailable', 'Loading round…'));
+    showScreen('screen-review');
+    try {
+        const rows = await sbFetch('rounds?select=id,date,created_at,round_status,tee_color,playing_handicap,stableford_points,'
+            + 'shots(hole_number,score,putts,fairway,gir,error_tags,notes),courses(name,holes(hole_number,par,stroke_index))'
+            + '&id=eq.' + encodeURIComponent(roundId));
+        const r = rows?.[0];
+        if (!r) throw new Error('Round not found');
+        crRenderReview(body, crBuildReview({
+            status: r.round_status, courseName: r.courses?.name, tee: r.tee_color, date: r.date, createdAt: r.created_at,
+            playingHandicap: r.playing_handicap, stableford: r.stableford_points,
+            holes: r.courses?.holes || [], shots: r.shots || [],
+        }));
+    } catch (e) {
+        body.replaceChildren(crEl('p', 'cr-unavailable', "Couldn't load this round. " + (e.message || '')));
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3782,6 +3857,7 @@ function showSummary() {
     document.getElementById('sum-date').textContent  = new Date(roundDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     document.getElementById('sum-name').textContent  = playerName+' · HC '+playingHC;
 
+    showSummaryView('summary');
     const list = document.getElementById('hole-summary-list');
     list.innerHTML = '';
     holeData.forEach((d,i) => {

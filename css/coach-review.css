@@ -1,0 +1,108 @@
+/* ════════════════════════════════════════════════════════════════
+   Coach Review — dense, factual round data (Clubhouse tokens).
+   Everything is namespaced .cr-* / #screen-review so nothing else changes.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Round summary | Coach review toggle (summary screen) ───────── */
+.cr-switch {
+    display: flex; gap: 2px; padding: 2px; margin: 12px 16px 4px;
+    background: var(--cl-track); border-radius: 11px;
+    font-family: var(--cl-font);
+}
+.cr-switch button {
+    flex: 1; min-height: 44px; border: 1px solid transparent; border-radius: 9px;
+    background: transparent; color: var(--cl-text-2);
+    font-family: inherit; font-size: 15px; font-weight: 500; cursor: pointer;
+    transition: background-color var(--cl-dur-select) ease, color var(--cl-dur-select) ease;
+}
+.cr-switch button[aria-pressed="true"] {
+    background: var(--cl-thumb); border-color: var(--cl-thumb-edge); box-shadow: var(--cl-thumb-shadow);
+    color: var(--cl-text); font-weight: 600;
+}
+#screen-summary [hidden], #screen-review [hidden] { display: none !important; }
+
+/* ── Review screen (from Stats history) ─────────────────────────── */
+#screen-review.active { display: flex; flex-direction: column; height: 100dvh; overflow-y: auto; background: var(--cl-bg); }
+#screen-review { font-family: var(--cl-font); color: var(--cl-text); }
+.cr-screen-head {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 8px;
+    padding: max(8px, env(safe-area-inset-top)) 8px 8px;
+    background: var(--cl-bg); border-bottom: 1px solid var(--cl-border);
+}
+.cr-back {
+    min-width: 44px; min-height: 44px; padding: 0 8px;
+    border: 0; background: none; color: var(--cl-accent);
+    font-family: inherit; font-size: 17px; font-weight: 500; cursor: pointer;
+}
+.cr-screen-title { font-size: 17px; font-weight: 600; }
+
+/* ── Review content ─────────────────────────────────────────────── */
+.cr-root {
+    font-family: var(--cl-font); color: var(--cl-text);
+    font-variant-numeric: tabular-nums;
+    padding: 4px 16px 32px;
+}
+.cr-head { margin-bottom: 12px; }
+.cr-title { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
+.cr-sub { font-size: 14px; color: var(--cl-text-2); margin-top: 2px; }
+.cr-totals {
+    margin: 0; padding: 4px 12px;
+    background: var(--cl-surface); border: 1px solid var(--cl-border); border-radius: var(--cl-radius-card);
+}
+.cr-total { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--cl-border); font-size: 14px; }
+.cr-total:first-child { border-top: 0; }
+.cr-total dt { color: var(--cl-text-2); white-space: nowrap; }
+.cr-total dd { margin: 0; font-weight: 600; text-align: right; }
+.cr-total.is-unknown dd { color: var(--cl-text-3); font-weight: 500; }
+.cr-copy-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; }
+.cr-copy-btn {
+    min-height: 44px; padding: 0 16px; border: 0; border-radius: var(--cl-radius-control);
+    background: var(--cl-accent); color: var(--cl-on-accent);
+    font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.cr-copy-btn:active { background: var(--cl-accent-pressed); }
+.cr-copy-status { font-size: 13px; color: var(--cl-text-2); }
+.cr-copy-status.is-error { color: var(--cl-destructive); }
+.cr-copy-fallback {
+    width: 100%; box-sizing: border-box; min-height: 160px; margin-top: 8px; padding: 8px;
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--cl-text); background: var(--cl-surface);
+    border: 1px solid var(--cl-border); border-radius: 8px;
+}
+.cr-nine { margin-top: 16px; }
+.cr-nine-title { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cl-text-3); }
+.cr-table {
+    width: 100%; border-collapse: collapse; table-layout: fixed;
+    background: var(--cl-surface); border: 1px solid var(--cl-border); border-radius: var(--cl-radius-card);
+    overflow: hidden; font-size: 14px;
+}
+.cr-table th {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--cl-text-3); text-align: center; padding: 8px 2px 6px;
+}
+.cr-table th:last-child, .cr-table td:last-child { text-align: left; padding-left: 6px; }
+.cr-table td { text-align: center; padding: 7px 2px; border-top: 1px solid var(--cl-border); }
+.cr-table th:nth-child(1), .cr-table td:nth-child(1) { width: 11%; }
+.cr-table th:nth-child(2), .cr-table td:nth-child(2) { width: 11%; }
+.cr-table th:nth-child(3), .cr-table td:nth-child(3) { width: 14%; }
+.cr-table th:nth-child(4), .cr-table td:nth-child(4) { width: 13%; }
+.cr-table th:nth-child(5), .cr-table td:nth-child(5) { width: 12%; }
+.cr-table th:nth-child(6), .cr-table td:nth-child(6) { width: 13%; }
+.cr-h { color: var(--cl-text-2); }
+.cr-score { font-weight: 700; }
+.cr-table tr.is-dbl .cr-score { text-decoration: underline; text-underline-offset: 3px; }
+.cr-tags { font-weight: 600; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cr-table .is-unknown { color: var(--cl-text-3); font-weight: 400; }
+.cr-note-row td { border-top: 0; padding-top: 0; }
+.cr-note { text-align: left !important; font-size: 13px; color: var(--cl-text-2); padding-left: 8px !important; }
+.cr-footnote { margin: 12px 2px 0; font-size: 12px; line-height: 1.45; color: var(--cl-text-3); }
+.cr-unavailable { font-size: 15px; color: var(--cl-text-2); padding: 16px 0; }
+
+/* ── Stats history: Review button on reviewable rounds ──────────── */
+.rhi-review {
+    min-height: 44px; padding: 0 12px; margin-left: 4px;
+    border: 1px solid var(--border2); border-radius: 10px;
+    background: none; color: var(--green);
+    font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;
+}
