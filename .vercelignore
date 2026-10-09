@@ -1,0 +1,2 @@
+# Test suites are dev-only; never ship them to the public site.
+tests/
