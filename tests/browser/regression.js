@@ -86,6 +86,7 @@ function restResponse(method, url) {
     return COURSES.map(({ id, name, slug, par }) => ({ id, name, slug, par }));
   }
   if (path === 'holes') { const m = q.match(/course_id=eq\.(\w+)/); return m ? holesFor(m[1]) : []; }
+  if (path === 'shots' && state.resumeB) return shots18('r-live').slice(0, 4).map((x, i) => ({ ...x, error_tags: ['TB', 'B', null, 'SBP'][i] }));
   if (path === 'shots' && state.resumeZeroPutt) return shots18('r-live').slice(0, 4).map((x, i) => i === 1 ? { ...x, putts: 0 } : i === 2 ? { ...x, score: 13 } : x);
   if (path === 'shots') return shots18('r-live').slice(0, 4).map((x, i) =>
     i === 0 ? { ...x, error_tags: 'TA' } : i === 1 ? { ...x, error_tags: null } : i === 3 ? { ...x, error_tags: 'P' } : x);   // hole 3: legacy row, no field
@@ -548,7 +549,8 @@ const t = async (name, fn) => {
     state.writes.length = 0;
     await ev(`showScreen('screen-setup'); document.getElementById('setup-hc').value='25'`);
     await ev(`startRound()`); await waitFor(`activeRoundId === 'new-round'`); await statsIdle();
-    const cardTop = () => ev(`Math.round(document.querySelector('#screen-play .scoring-card').getBoundingClientRect().top)`);
+    // Measure settled layout: finish the screen's entry fade/slide (headless Chrome advances it irregularly).
+    const cardTop = () => ev(`(document.getAnimations().forEach(a => a.finish()), document.querySelector('#screen-play .scoring-card').getBoundingClientRect().top)`);
     const tops = [], statuses = [];
     for (let h = 0; h < 9; h++) { await ev(`selectScore(5); nextHole()`); tops.push(await cardTop()); statuses.push(await ev(`document.getElementById('play-status').className + '|' + document.getElementById('play-status').textContent`)); }
     await sleep(500);
@@ -606,7 +608,9 @@ const t = async (name, fn) => {
     await waitFor(`courseId === 'cA'`);
     await ev(`startRound()`); await waitFor(`activeRoundId === 'new-round'`); await statsIdle();
     assert.strictEqual(await ev(`document.getElementById('tasp-label').textContent`), 'Stroke-costing error?');
-    assert.strictEqual(await ev(`[...document.querySelectorAll('.tasp-btn')].map(b => b.textContent).join(' ')`), 'T A S P');
+    assert.strictEqual(await ev(`[...document.querySelectorAll('.tasp-btn')].map(b => b.textContent).join(' ')`), 'T A S B P');
+    assert.strictEqual(await ev(`document.querySelector('#fairway-group .section-label').textContent`), 'Fairway');
+    assert.strictEqual(await ev(`[...document.querySelectorAll('#fairway-group .toggle-btn')].map(b => b.textContent).join(' ')`), '✓ Left Right OB');
     assert.strictEqual(await pressed(), '');
     assert.ok(await ev(`[...document.querySelectorAll('.tasp-btn')].every(b => b.getBoundingClientRect().height >= 44)`), 'tap targets ≥ 44px');
   });
@@ -685,7 +689,7 @@ const t = async (name, fn) => {
     assert.deepStrictEqual(tagged, { 2: '· T', 3: '· P', 4: '· T · A', 5: '· T · A · S · P', 7: '· T · P', 8: '· S', 9: '· A · P', 18: '· T' });
     assert.strictEqual(rows.filter(r => !r[1]).length, 10, 'untagged holes have no tag element');
     assert.strictEqual(await ev(`document.getElementById('sum-tasp').hidden`), false);
-    assert.strictEqual(await ev(`[...document.querySelectorAll('#sum-tasp span')].map(s => s.textContent).join(' ')`), 'T5 A3 S2 P4');
+    assert.strictEqual(await ev(`[...document.querySelectorAll('#sum-tasp span')].map(s => s.textContent).join(' ')`), 'T5 A3 S2 B0 P4');
     state.writes.length = 0;
     await ev(`saveRound()`); await waitFor(`document.getElementById('btn-save').textContent === 'SAVED ✓'`);
     const saved = shotPosts().flat();
@@ -900,6 +904,48 @@ const t = async (name, fn) => {
     await ev(`renderHole(1)`); assert.strictEqual(await puttSel(), '0');
     await ev(`renderHole(2)`); assert.strictEqual(await ev(`document.getElementById('score-10plus').textContent`), '13');
     state.inProgress = false; state.resumeZeroPutt = false;
+    await ev(`cancelRound()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
+  });
+
+  // ═════════════════════════ T/A/S/B/P + Coach Review ═════════════════════════
+  await t('TASBP: B selectable alone/with others, autosaved in T-A-S-B-P order; offline queue + replay keep B', async () => {
+    await reloadHome('rich'); state.writes.length = 0;
+    await startTestRound();
+    await ev(`selectScore(5)`); await tap('B'); assert.strictEqual(await pressed(), 'B'); await ev(`nextHole()`); await sleep(300);
+    await ev(`selectScore(6)`); await tap('B'); await tap('S'); assert.strictEqual(await pressed(), 'SB'); await ev(`nextHole()`); await sleep(300);
+    await ev(`selectScore(4)`); await tap('P'); await tap('B'); await tap('T'); await tap('B'); await tap('B');   // B on, off, on
+    assert.strictEqual(await pressed(), 'TBP');
+    state.offline = true; await ev(`nextHole()`);
+    await waitFor(`(JSON.parse(localStorage.getItem('gt_write_queue') || '[]')).length >= 3`);
+    const q = JSON.parse(await ev(`localStorage.getItem('gt_write_queue')`)).filter(op => op.method === 'POST' && op.path === 'shots').map(op => JSON.parse(op.body));
+    assert.ok(q.some(b => b.hole_number === 3 && b.error_tags === 'TBP'), 'queued with B');
+    state.offline = false; await ev(`window.dispatchEvent(new Event('online'))`); await waitFor(`!localStorage.getItem('gt_write_queue')`);
+    assert.deepStrictEqual([1, 2, 3].map(h => lastShotFor(h).error_tags), ['B', 'SB', 'TBP']);
+  });
+
+  await t('TASBP: reload restores B; final save + summary show B and the B total', async () => {
+    await ev(`selectScore(5)`); await tap('A'); await tap('B');               // hole 4, unsaved
+    await send('Page.reload');
+    await waitFor(`document.querySelector('.screen.active')?.id === 'screen-play' && activeRoundId === 'new-round'`); await wrapStats(); await statsIdle();
+    assert.strictEqual(await pressed(), 'AB');
+    assert.deepStrictEqual(await ev(`holeData.slice(0, 4).map(h => parseErrorTags(h.tags).join(''))`), ['B', 'SB', 'TBP', 'AB']);
+    for (let i = 4; i < 18; i++) await ev(`renderHole(${i}); selectScore(${i === 10 ? 11 : 5}); selectPutts(${i === 6 ? 0 : 2})`);
+    await ev(`renderHole(17); nextHole()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-summary'`);
+    const rows = await ev(`Object.fromEntries([...document.querySelectorAll('#hole-summary-list .hole-summary-row')].map(r => [r.querySelector('.hs-num').textContent, r.querySelector('.hs-tags')?.textContent || '']).filter(x => x[1]))`);
+    assert.deepStrictEqual(rows, { 1: '· B', 2: '· S · B', 3: '· T · B · P', 4: '· A · B' });
+    assert.strictEqual(await ev(`[...document.querySelectorAll('#sum-tasp span')].map(s => s.textContent).join(' ')`), 'T1 A1 S1 B4 P1');
+    state.writes.length = 0;
+    await ev(`saveRound()`); await waitFor(`document.getElementById('btn-save').textContent === 'SAVED ✓'`);
+    assert.deepStrictEqual(shotPosts().flat().filter(b => b.error_tags).map(b => [b.hole_number, b.error_tags]), [[1, 'B'], [2, 'SB'], [3, 'TBP'], [4, 'AB']]);
+  });
+
+  await t('TASBP: resume from DB restores B tags (TB, B, none, SBP)', async () => {
+    state.inProgress = true; state.resumeB = true;
+    await ev(`loadHomeData()`); await waitFor(`!!window._inProgressRound`);
+    await ev(`resumeRound()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-play'`);
+    assert.deepStrictEqual(await ev(`holeData.slice(0, 4).map(h => h.tags.join(''))`), ['TB', 'B', '', 'SBP']);
+    await ev(`renderHole(0)`); assert.strictEqual(await pressed(), 'TB');
+    state.inProgress = false; state.resumeB = false;
     await ev(`cancelRound()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
   });
 

@@ -257,8 +257,8 @@
     font-weight: 600;
 }
 
-/* T / A / S / P — neutral; selected uses ink, never the success accent */
-#screen-play .tasp-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+/* T / A / S / B / P — neutral; selected uses ink, never the success accent */
+#screen-play .tasp-buttons { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 #screen-play .tasp-btn {
     min-height: var(--cl-tap-min);
     border: 0; border-radius: var(--cl-radius-control);

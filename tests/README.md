@@ -25,12 +25,12 @@ updating the extraction at the top of the test.
 
 | Suite | Command | Covers |
 |---|---|---|
-| T/A/S/P | `node tests/unit/tasp.test.js` | `normalizeErrorTags` / `parseErrorTags`: valid letters only, de-duplication, T-A-S-P order, `null` for none, every output passes the DB check constraint |
+| Error tags (T/A/S/B/P) | `node tests/unit/error-tags.test.js` | `normalizeErrorTags` / `parseErrorTags`: valid letters only, de-duplication, T-A-S-B-P order, `null` for none, historical T/A/S/P values unchanged, and every output passes the DB constraint read from the B migration file |
 | Phase A (coaching model) | `node tests/unit/home-model.test.js` | complete-round rules, ordering, gross, Stableford parity with `calcPoints`, each round's own course, form windows/direction, leak rates and data-sufficiency rules, the history query shape |
 | Home / view | `node tests/unit/home-view.test.js` | `chooseFocus` (coaching priority), `nextRoundTarget`, `buildHomeView` states and copy |
 | `sbFetch` | `node tests/unit/sbfetch.test.js` | user token on data requests, anon only for public course/hole reads, no anonymous writes, offline queue replays with the current token and never stores one |
 | `track()` | `node tests/unit/track.test.js` | `Prefer: return=minimal`, no email/PII, no request when signed out |
-| Browser regression | `tests/run-browser.sh` | navigation, Profile, Stats, debrief selection + no active-round mutation, course dropdown safety, coaching Home states, T/A/S/P capture and persistence (autosave, offline queue, reload, resume, final save, summary), live score entry (1–9 + 10+ stepper, putts 0–3 + 4+ stepper, par-3 Tee, collapsed briefing, fit without scrolling at 390×844 and 375×667, light and dark), no console errors |
+| Browser regression | `tests/run-browser.sh` | navigation, Profile, Stats, debrief selection + no active-round mutation, course dropdown safety, coaching Home states, T/A/S/B/P capture and persistence (autosave, offline queue, reload, resume, final save, summary), live score entry (1–9 + 10+ stepper, putts 0–3 + 4+ stepper, par-3 Tee, collapsed briefing, fit without scrolling at 390×844 and 375×667, light and dark), no console errors |
 
 ### Browser suite options
 

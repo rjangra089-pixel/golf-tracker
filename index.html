@@ -1417,7 +1417,7 @@
     </style>
     <!-- Clubhouse design system (live scoring first; other screens migrate later) -->
     <link rel="stylesheet" href="css/tokens.css?v=1">
-    <link rel="stylesheet" href="css/play.css?v=1">
+    <link rel="stylesheet" href="css/play.css?v=2">
 </head>
 <body>
 
@@ -1909,11 +1909,11 @@
 
             <section class="entry-section stats-row" id="tee-gir-row">
                 <div id="fairway-group">
-                    <div class="section-label">Tee</div>
+                    <div class="section-label">Fairway</div>
                     <div class="toggle-group">
-                        <button class="toggle-btn" onclick="selectFairway('C')" aria-label="Fairway hit">Hit</button>
-                        <button class="toggle-btn" onclick="selectFairway('L')" aria-label="Missed left">L</button>
-                        <button class="toggle-btn" onclick="selectFairway('R')" aria-label="Missed right">R</button>
+                        <button class="toggle-btn" onclick="selectFairway('C')" aria-label="Fairway hit">✓</button>
+                        <button class="toggle-btn" onclick="selectFairway('L')" aria-label="Missed left">Left</button>
+                        <button class="toggle-btn" onclick="selectFairway('R')" aria-label="Missed right">Right</button>
                         <button class="toggle-btn" onclick="selectFairway('X')" aria-label="Out of bounds">OB</button>
                     </div>
                 </div>
@@ -1933,6 +1933,7 @@
                     <button class="tasp-btn" data-tag="T" aria-pressed="false" aria-label="T: tee error" onclick="toggleErrorTag('T')">T</button>
                     <button class="tasp-btn" data-tag="A" aria-pressed="false" aria-label="A: approach error" onclick="toggleErrorTag('A')">A</button>
                     <button class="tasp-btn" data-tag="S" aria-pressed="false" aria-label="S: short game error" onclick="toggleErrorTag('S')">S</button>
+                    <button class="tasp-btn" data-tag="B" aria-pressed="false" aria-label="B: bunker error" onclick="toggleErrorTag('B')">B</button>
                     <button class="tasp-btn" data-tag="P" aria-pressed="false" aria-label="P: putting error" onclick="toggleErrorTag('P')">P</button>
                 </div>
             </div>
@@ -2912,15 +2913,16 @@ function getPointsStyle(pts) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  T/A/S/P STROKE-COSTING ERROR TAGS
+//  T/A/S/B/P STROKE-COSTING ERROR TAGS
 //  Chosen explicitly by the player on each hole (T tee · A approach ·
-//  S short game · P putting). NEVER inferred from fairway, GIR, putts or OB.
+//  S short game · B bunker · P putting). NEVER inferred from fairway, GIR,
+//  putts, OB or a bunker visit — B means a bunker error genuinely cost a stroke.
 //  In memory: holeData[i].tags = ['T','A',…]. Stored on shots.error_tags as
-//  the letters in fixed order ('TA'), or null when none.
+//  the letters in fixed order ('TA', 'SB', 'TASBP'), or null when none.
 // ═══════════════════════════════════════════════════════════════
-const ERROR_TAG_ORDER = ['T', 'A', 'S', 'P'];
+const ERROR_TAG_ORDER = ['T', 'A', 'S', 'B', 'P'];
 
-// Any input → stored form: only exact T/A/S/P, no duplicates, T-A-S-P order, null if none.
+// Any input → stored form: only exact T/A/S/B/P, no duplicates, T-A-S-B-P order, null if none.
 function normalizeErrorTags(tags) {
     const raw = Array.isArray(tags) ? tags : (typeof tags === 'string' ? tags.split('') : []);
     const out = ERROR_TAG_ORDER.filter(t => raw.includes(t)).join('');
