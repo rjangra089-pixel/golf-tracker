@@ -22,12 +22,11 @@ const CR_TAG_ORDER = ['T', 'A', 'S', 'B', 'P'];
 // have recorded that data, so it shows "not captured", never 0.
 //  - T/A/S/P: live in production when Vercel deployment golf-tracker-pnuof3j1f
 //    (commit 8eb7b9e) became Ready — created 2026-10-07 12:25:39 UTC + 9 s build.
-//  - B: NOT LIVE YET → null. When B is released (migration applied AND the
-//    production deployment Ready), set this to that exact UTC instant.
-//    While null, no historical round counts as B-capable unless it actually
-//    contains a B tag.
+//  - B: the LATER of (a) the B migration being applied — verified in the SQL
+//    Editor at 2026-10-09T16:20:02.204Z — and (b) the production deployment
+//    that ships the B button becoming Ready. B needs both the UI and the DB.
 const CR_ERROR_TAGS_SINCE = '2026-10-07T12:25:48Z';
-const CR_BUNKER_TAG_SINCE = null;
+const CR_BUNKER_TAG_SINCE = '2026-10-09T16:20:02.204Z';
 const CR_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const crIsWhole = (v, min) => Number.isInteger(v) && v >= min;

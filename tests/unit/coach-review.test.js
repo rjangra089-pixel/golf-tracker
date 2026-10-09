@@ -210,9 +210,24 @@ const B_CUT = '2026-10-10T14:30:00Z';
 const errs = (createdAt, shots, opts = { bunkerTagSince: B_CUT }, extra = {}) =>
   CR.crBuildReview({ status: 'completed', holes: HOLES, shots, createdAt, ...extra }, opts).totals.errors;
 
-t('constants: T/A/S/P cutover is the exact production instant; B not released yet (null)', () => {
+const B_MIGRATION_APPLIED = '2026-10-09T16:20:02.204Z';   // verified in the SQL Editor
+t('constants: T/A/S/P cutover unchanged; B cutover is an exact UTC instant, not before the B migration', () => {
   assert.strictEqual(CR.CR_ERROR_TAGS_SINCE, '2026-10-07T12:25:48Z');
-  assert.strictEqual(CR.CR_BUNKER_TAG_SINCE, null);
+  assert.match(CR.CR_BUNKER_TAG_SINCE, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/);
+  assert.ok(Date.parse(CR.CR_BUNKER_TAG_SINCE) >= Date.parse(B_MIGRATION_APPLIED), 'B cannot be live before the DB accepts it');
+});
+t('SHIPPED B cutover: 1 ms before → not captured; exactly at → B 0; after → B 0', () => {
+  const cut = Date.parse(CR.CR_BUNKER_TAG_SINCE);
+  const zoneless = ms => new Date(ms).toISOString().replace('Z', '');   // the format Supabase returns
+  assert.strictEqual(errs(zoneless(cut - 1), untagged(), {}).B, null);
+  assert.strictEqual(errs(zoneless(cut), untagged(), {}).B, 0);
+  assert.strictEqual(errs(zoneless(cut + 60000), untagged(), {}).B, 0);
+  assert.strictEqual(errs(CR.CR_BUNKER_TAG_SINCE, untagged(), {}).B, 0, 'with Z');
+});
+t('SHIPPED cutover: pre-B round (this morning, 08:34 UTC) → "B not captured"; T/A/S/P still counted', () => {
+  const r = CR.crBuildReview({ status: 'completed', holes: HOLES, shots: tasOnly(), createdAt: '2026-10-09T08:34:53.085647' });
+  assert.deepStrictEqual(r.totals.errors, { T: 2, A: 3, S: 2, B: null, P: 3 });
+  assert.ok(CR.crFormatRoundText(r).includes('Errors: T 2 | A 3 | S 2 | B not captured | P 3'));
 });
 t('B: round earlier on the SAME calendar day as the B release → "B not captured", never B 0', () => {
   assert.strictEqual(errs('2026-10-10T08:34:53.085647', tasOnly()).B, null);
@@ -243,15 +258,14 @@ t('missing / unreadable created_at → conservatively "not captured"', () => {
     assert.deepStrictEqual(errs(c, untagged(), { errorTagsSince: CR.CR_ERROR_TAGS_SINCE, bunkerTagSince: B_CUT }), { T: null, A: null, S: null, B: null, P: null });
   }
 });
-t('B not yet released (cutover null, the shipped default): no historical round is B-capable', () => {
-  assert.strictEqual(errs('2099-01-01T00:00:00Z', untagged(), {}).B, null);
-  assert.strictEqual(errs('2026-10-09T08:34:53.085647', tasOnly(), {}).B, null, "this morning's real round");
+t('unknown B cutover (null): no historical round is B-capable', () => {
+  assert.strictEqual(errs('2099-01-01T00:00:00Z', untagged(), { bunkerTagSince: null }).B, null);
 });
-t('a stored B tag is evidence of capability even before the cutover', () => {
-  assert.strictEqual(errs('2026-10-10T08:00:00Z', shotsFrom(FULL), {}).B, 3);
+t('a stored B tag is evidence of capability even before the shipped cutover', () => {
+  assert.strictEqual(errs('2026-10-09T08:00:00Z', shotsFrom(FULL), {}).B, 3);
 });
-t('round just played on this app version → captured (B 0 when none tagged)', () => {
-  assert.strictEqual(errs('2026-10-10T08:00:00Z', untagged(), {}, { playedOnThisVersion: true }).B, 0);
+t('round just played on this app version → captured (B 0 when none tagged), even before the shipped cutover', () => {
+  assert.strictEqual(errs('2026-10-09T08:00:00Z', untagged(), {}, { playedOnThisVersion: true }).B, 0);
 });
 t('T/A/S/P cutover is exact too: same day (7 Oct) before 12:25:48Z → "not captured"; after → known zeros', () => {
   const opts = { bunkerTagSince: B_CUT };
