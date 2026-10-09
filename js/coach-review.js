@@ -26,7 +26,7 @@ const CR_TAG_ORDER = ['T', 'A', 'S', 'B', 'P'];
 //    Editor at 2026-10-09T16:20:02.204Z — and (b) the production deployment
 //    that ships the B button becoming Ready. B needs both the UI and the DB.
 const CR_ERROR_TAGS_SINCE = '2026-10-07T12:25:48Z';
-const CR_BUNKER_TAG_SINCE = '2026-10-09T16:20:02.204Z';
+const CR_BUNKER_TAG_SINCE = '2026-10-09T16:27:50.488Z';
 const CR_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const crIsWhole = (v, min) => Number.isInteger(v) && v >= min;
