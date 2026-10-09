@@ -17,14 +17,36 @@
 // ════════════════════════════════════════════════════════════════
 
 const CR_TAG_ORDER = ['T', 'A', 'S', 'B', 'P'];
-// Manual error tagging went live 7 Oct 2026; B was added later. Rounds created
-// before these dates have no error data ("not captured"), unless tags exist.
-// Set CR_BUNKER_TAG_SINCE to the production release date of the B tag.
-const CR_ERROR_TAGS_SINCE = '2026-10-07';
-const CR_BUNKER_TAG_SINCE = '2026-10-09';
+// Capability cutovers — exact UTC instants, compared with rounds.created_at
+// (set when the round is started). A round started before a cutover could not
+// have recorded that data, so it shows "not captured", never 0.
+//  - T/A/S/P: live in production when Vercel deployment golf-tracker-pnuof3j1f
+//    (commit 8eb7b9e) became Ready — created 2026-10-07 12:25:39 UTC + 9 s build.
+//  - B: NOT LIVE YET → null. When B is released (migration applied AND the
+//    production deployment Ready), set this to that exact UTC instant.
+//    While null, no historical round counts as B-capable unless it actually
+//    contains a B tag.
+const CR_ERROR_TAGS_SINCE = '2026-10-07T12:25:48Z';
+const CR_BUNKER_TAG_SINCE = null;
 const CR_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const crIsWhole = (v, min) => Number.isInteger(v) && v >= min;
+
+// Supabase returns created_at without a zone ('2026-10-09T08:34:53.085647'); it
+// is UTC. Browsers would read a zone-less timestamp as LOCAL time, so mark it UTC.
+function crUtcMs(v) {
+    if (typeof v !== 'string' || !v) return NaN;
+    const hasZone = /(Z|[+-]\d{2}:?\d{2})$/i.test(v);
+    return Date.parse(hasZone ? v : v + 'Z');
+}
+
+// true only when the round was provably started at/after the cutover instant.
+// Unknown cutover (null) or unreadable timestamp → false ("not captured").
+function crCapturedSince(createdAt, since) {
+    if (!since) return false;
+    const t = crUtcMs(createdAt), c = Date.parse(since);
+    return Number.isFinite(t) && Number.isFinite(c) && t >= c;
+}
 
 // Stored tags ('TA', ['B','T'], null) → ordered array of valid letters.
 function crParseTags(value) {
@@ -69,8 +91,10 @@ function crRoundShape(shots) {
 
 // input: { status, courseName, tee, date, createdAt, playingHandicap, stableford,
 //          holes: [{hole_number, par, stroke_index}], shots: [{hole_number, score, putts,
-//          fairway, gir, error_tags, notes}], allowInProgress }
-function crBuildReview(input) {
+//          fairway, gir, error_tags, notes}], allowInProgress,
+//          playedOnThisVersion }   ← true only for the round just played in this app
+// opts: { errorTagsSince, bunkerTagSince } — cutover overrides (tests); default the constants.
+function crBuildReview(input, opts = {}) {
     const shotsIn = (input.shots || []).filter(s => crIsWhole(s?.score, 1));
     if (input.status === 'in_progress' && !input.allowInProgress) return { reviewable: false, reason: 'in progress' };
     const shape = crRoundShape(shotsIn);
@@ -78,10 +102,14 @@ function crBuildReview(input) {
     const pars = new Map((input.holes || []).map(h => [h.hole_number, h]));
     for (const s of shotsIn) if (!crIsWhole(pars.get(s.hole_number)?.par, 1)) return { reviewable: false, reason: 'course data' };
 
-    const created = String(input.createdAt || '');
+    const errorsSince = 'errorTagsSince' in opts ? opts.errorTagsSince : CR_ERROR_TAGS_SINCE;
+    const bunkerSince = 'bunkerTagSince' in opts ? opts.bunkerTagSince : CR_BUNKER_TAG_SINCE;
+    const live = input.playedOnThisVersion === true;          // this app version has all five buttons
     const anyTags = shotsIn.some(s => crParseTags(s.error_tags).length);
-    const errorsCaptured = anyTags || created >= CR_ERROR_TAGS_SINCE;
-    const bunkerCaptured = shotsIn.some(s => crParseTags(s.error_tags).includes('B')) || created >= CR_BUNKER_TAG_SINCE;
+    const anyB = shotsIn.some(s => crParseTags(s.error_tags).includes('B'));
+    // Evidence (a stored tag) always proves capability; otherwise require the exact cutover.
+    const errorsCaptured = anyTags || live || crCapturedSince(input.createdAt, errorsSince);
+    const bunkerCaptured = anyB || live || crCapturedSince(input.createdAt, bunkerSince);
 
     const holes = shotsIn.slice().sort((a, b) => a.hole_number - b.hole_number).map(s => {
         const par = pars.get(s.hole_number).par;

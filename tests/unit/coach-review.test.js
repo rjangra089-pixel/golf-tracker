@@ -4,7 +4,8 @@ const fs = require('fs'), path = require('path'), assert = require('assert');
 const ROOT = path.join(__dirname, '..', '..');
 const code = fs.readFileSync(path.join(ROOT, 'js', 'coach-review.js'), 'utf8');
 const CR = new Function(code + `
-return { CR_TAG_ORDER, crParseTags, crFairway, crFormatDate, crRoundShape, crBuildReview, crFormatRoundText, crTotalsRows };`)();
+return { CR_TAG_ORDER, CR_ERROR_TAGS_SINCE, CR_BUNKER_TAG_SINCE, crParseTags, crFairway, crFormatDate, crRoundShape, crBuildReview,
+         crFormatRoundText, crTotalsRows, crUtcMs, crCapturedSince };`)();
 
 // Same order as the app's live tagging (index.html ERROR_TAG_ORDER).
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
@@ -154,15 +155,17 @@ t('round tagged before B existed: B "not captured", others counted', () => {
   assert.deepStrictEqual(r.totals.errors, { T: 2, A: 3, S: 2, B: null, P: 3 });
   assert.ok(CR.crFormatRoundText(r).includes('Errors: T 2 | A 3 | S 2 | B not captured | P 3'));
 });
-t('round created after tagging launched but with no tags → known zeros ("-")', () => {
+t('round started after both cutovers but with no tags → known zeros ("-")', () => {
   const shots = shotsFrom(FULL).map(s => ({ ...s, error_tags: null }));
-  const r = CR.crBuildReview({ status: 'completed', holes: HOLES, shots, createdAt: '2026-10-09T09:00:00Z' });
+  const r = CR.crBuildReview({ status: 'completed', holes: HOLES, shots, createdAt: '2026-10-12T09:00:00Z' },
+                             { bunkerTagSince: '2026-10-10T18:00:00Z' });
   assert.deepStrictEqual(r.totals.errors, { T: 0, A: 0, S: 0, B: 0, P: 0 });
   assert.ok(CR.crFormatRoundText(r).includes('H1 | Par 4 | Score 8 | FW → | GIR N | Putts 2 | Errors -'));
 });
 t('only manually stored tags are shown — nothing inferred from FW miss, GIR miss, OB, 3/4-putts, double bogey, bunker', () => {
   const shots = HOLES.map(h => ({ hole_number: h.hole_number, score: h.par + 3, putts: 4, fairway: h.par >= 4 ? 'X' : null, gir: false, error_tags: null }));
-  const r = CR.crBuildReview({ status: 'completed', holes: HOLES, shots, createdAt: '2026-10-09T09:00:00Z' });
+  const r = CR.crBuildReview({ status: 'completed', holes: HOLES, shots, createdAt: '2026-10-12T09:00:00Z' },
+                             { bunkerTagSince: '2026-10-10T18:00:00Z' });
   assert.ok(r.holes.every(h => h.tags.length === 0));
   assert.deepStrictEqual(r.totals.errors, { T: 0, A: 0, S: 0, B: 0, P: 0 });
 });
@@ -198,6 +201,63 @@ t('notes: whitespace collapsed; absent notes omitted', () => {
   const text = CR.crFormatRoundText(full({ shots }));
   assert.ok(text.includes('H2 | Par 4 | Score 5 | FW ✓ | GIR N | Putts 2 | Errors - | Note Lip-out for par'));
   assert.ok(text.includes('H3 | Par 3 | Score 4 | FW N/A | GIR N | Putts 2 | Errors -\n'));
+});
+
+// ── Capability cutovers (exact UTC instants vs rounds.created_at) ───────────────
+const untagged = () => shotsFrom(FULL).map(s => ({ ...s, error_tags: null }));
+const tasOnly = () => shotsFrom(FULL).map(s => ({ ...s, error_tags: s.error_tags ? s.error_tags.replace('B', '') || null : null }));
+const B_CUT = '2026-10-10T14:30:00Z';
+const errs = (createdAt, shots, opts = { bunkerTagSince: B_CUT }, extra = {}) =>
+  CR.crBuildReview({ status: 'completed', holes: HOLES, shots, createdAt, ...extra }, opts).totals.errors;
+
+t('constants: T/A/S/P cutover is the exact production instant; B not released yet (null)', () => {
+  assert.strictEqual(CR.CR_ERROR_TAGS_SINCE, '2026-10-07T12:25:48Z');
+  assert.strictEqual(CR.CR_BUNKER_TAG_SINCE, null);
+});
+t('B: round earlier on the SAME calendar day as the B release → "B not captured", never B 0', () => {
+  assert.strictEqual(errs('2026-10-10T08:34:53.085647', tasOnly()).B, null);
+  assert.ok(CR.crFormatRoundText(CR.crBuildReview({ status: 'completed', holes: HOLES, shots: tasOnly(), createdAt: '2026-10-10T08:34:53.085647' },
+    { bunkerTagSince: B_CUT })).includes('Errors: T 2 | A 3 | S 2 | B not captured | P 3'));
+});
+t('B: round started later the same day (after release) → known B 0', () => {
+  assert.deepStrictEqual(errs('2026-10-10T15:02:11.5', untagged()), { T: 0, A: 0, S: 0, B: 0, P: 0 });
+});
+t('B: boundary — exactly at the cutover counts as captured; 1 ms before does not', () => {
+  assert.strictEqual(errs('2026-10-10T14:30:00.000', untagged()).B, 0);
+  assert.strictEqual(errs('2026-10-10T14:29:59.999', untagged()).B, null);
+});
+t('zone-less created_at is read as UTC whatever the device timezone', () => {
+  const saved = process.env.TZ;
+  for (const tz of ['America/Los_Angeles', 'Asia/Tokyo', 'Europe/London', 'UTC']) {
+    process.env.TZ = tz;
+    assert.strictEqual(CR.crUtcMs('2026-10-10T14:29:59.999'), Date.UTC(2026, 9, 10, 14, 29, 59, 999), tz);
+    assert.strictEqual(errs('2026-10-10T14:29:59.999', untagged()).B, null, tz);
+    assert.strictEqual(errs('2026-10-10T14:30:00', untagged()).B, 0, tz);
+  }
+  process.env.TZ = saved;
+  assert.strictEqual(CR.crUtcMs('2026-10-10T14:30:00+01:00'), Date.UTC(2026, 9, 10, 13, 30), 'explicit offsets respected');
+});
+t('missing / unreadable created_at → conservatively "not captured"', () => {
+  for (const c of [undefined, null, '', 'not a date', 12345]) {
+    assert.strictEqual(errs(c, untagged()).B, null, String(c));
+    assert.deepStrictEqual(errs(c, untagged(), { errorTagsSince: CR.CR_ERROR_TAGS_SINCE, bunkerTagSince: B_CUT }), { T: null, A: null, S: null, B: null, P: null });
+  }
+});
+t('B not yet released (cutover null, the shipped default): no historical round is B-capable', () => {
+  assert.strictEqual(errs('2099-01-01T00:00:00Z', untagged(), {}).B, null);
+  assert.strictEqual(errs('2026-10-09T08:34:53.085647', tasOnly(), {}).B, null, "this morning's real round");
+});
+t('a stored B tag is evidence of capability even before the cutover', () => {
+  assert.strictEqual(errs('2026-10-10T08:00:00Z', shotsFrom(FULL), {}).B, 3);
+});
+t('round just played on this app version → captured (B 0 when none tagged)', () => {
+  assert.strictEqual(errs('2026-10-10T08:00:00Z', untagged(), {}, { playedOnThisVersion: true }).B, 0);
+});
+t('T/A/S/P cutover is exact too: same day (7 Oct) before 12:25:48Z → "not captured"; after → known zeros', () => {
+  const opts = { bunkerTagSince: B_CUT };
+  assert.strictEqual(CR.crBuildReview({ status: 'completed', holes: HOLES, shots: untagged(), createdAt: '2026-10-07T09:10:00.123' }, opts).totals.errorsCaptured, false);
+  assert.strictEqual(CR.crBuildReview({ status: 'completed', holes: HOLES, shots: untagged(), createdAt: '2026-10-07T12:25:47.999' }, opts).totals.errorsCaptured, false);
+  assert.strictEqual(CR.crBuildReview({ status: 'completed', holes: HOLES, shots: untagged(), createdAt: '2026-10-07T12:57:34.608241' }, opts).totals.errorsCaptured, true);
 });
 
 console.log(`\nAll ${n} coach-review tests passed.`);

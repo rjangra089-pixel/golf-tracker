@@ -2988,6 +2988,7 @@ function liveRoundReview() {
         status: 'completed', allowInProgress: true,
         courseName: selectedCourseName, tee: selectedTee, date: roundDate,
         createdAt: new Date().toISOString(), playingHandicap: playingHC, stableford: getTotalPoints(),
+        playedOnThisVersion: true,   // played on this app version, so all five error tags were available
         holes: HOLES.map(h => ({ hole_number: h.num, par: h.par, stroke_index: h.si })),
         shots: holeData.map((d, i) => ({ hole_number: i + 1, score: d.score, putts: d.putts, fairway: d.fairway,
                                          gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes: null })),
