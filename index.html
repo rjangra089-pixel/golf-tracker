@@ -1420,6 +1420,13 @@
     <link rel="stylesheet" href="css/round-editor.css?v=1">
     <link rel="stylesheet" href="css/stats.css?v=1">
     <link rel="stylesheet" href="css/setup.css?v=1">
+<style>
+.round-sync { margin:6px 16px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; font:12px var(--font-body); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+#screen-play .round-sync{margin:0;padding:2px 0;border:0;font-size:11px;gap:4px}
+#screen-play .round-sync button{padding:0 4px}
+.round-sync[hidden]{display:none}.round-sync[data-state="attention"]{border-color:var(--red);color:var(--red)}
+.round-sync button{margin-left:auto;background:transparent;color:inherit;border:1px solid currentColor;border-radius:6px;padding:3px 8px;font:inherit;cursor:pointer}
+</style>
 </head>
 <body>
 
@@ -2666,6 +2673,7 @@ async function startRound() {
     roundDate  = document.getElementById('setup-date').value;
     holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
     activeRoundId = null;
+    roundSyncLast = null; roundSyncHoles={}; roundSyncSet('waiting');
 
     // selectedTee is already set via selectTee() — persist it
     localStorage.setItem('lastTee', selectedTee);
@@ -2695,6 +2703,7 @@ async function startRound() {
         console.log('Round created:', activeRoundId);
     } catch(e) {
         console.warn('Could not pre-create round:', e.message);
+        roundSyncSet('attention'); saveRoundStateToStorage(false);
         // Not fatal — saveRound() on summary is the fallback
     }
     } finally {setupRoundBusy=false;setupRefresh();}
@@ -2748,6 +2757,8 @@ async function resumeRound() {
         const lastScoredHole = shots?.length ? Math.max(...shots.map(s => s.hole_number)) : 0;
         const resumeHole = Math.min(lastScoredHole, 17); // 0-indexed, max hole 17
 
+        roundSyncHoles=Object.fromEntries(holeData.map((h,i)=>[i,JSON.stringify(h)]));
+        roundSyncConfirm(roundSyncRevision); saveRoundStateToStorage(false);
         track('round_resumed', { course: selectedCourseSlug, hole: resumeHole + 1 });
 
         showScreen('screen-play');
@@ -3067,12 +3078,20 @@ function prevHole() {
 }
 
 // Auto-save the hole we just completed
-async function autoSaveHole(holeIdx) {
-    if (!activeRoundId) return; // round not yet created, will fall back to saveRound()
-    const d = holeData[holeIdx];
+let roundSyncHoleChain = Promise.resolve();
+function autoSaveHole(holeIdx) {
+    roundSyncHoleChain = roundSyncHoleChain.catch(() => {}).then(() => autoSaveHoleNow(holeIdx));
+    return roundSyncHoleChain;
+}
+async function autoSaveHoleNow(holeIdx) {
+    if (!activeRoundId) { roundSyncSet('attention'); return; } // final Save is the fallback
+    roundSyncBusy++; roundSyncRender();
+    const syncRevision = roundSyncRevision;
+    const d = JSON.parse(JSON.stringify(holeData[holeIdx]));
     if (!d.score) return; // nothing to save if no score entered
 
     try {
+        if (roundSyncQueue().length) { await flushWriteQueue(); if (roundSyncQueue().length) throw new Error('Earlier changes need to sync'); }
         const holeId = holeIds[holeIdx] || null;
         // Upsert shot for this hole (delete + insert to keep it simple)
         await sbFetch('shots?round_id=eq.' + activeRoundId + '&hole_number=eq.' + (holeIdx + 1), { method: 'DELETE', prefer: '' });
@@ -3094,10 +3113,13 @@ async function autoSaveHole(holeIdx) {
             stableford_points: totalPts, current_hole: holeIdx + 1, round_status: 'in_progress',
         })});
 
-        saveRoundStateToStorage(); // keep localStorage in sync after each hole
+        roundSyncHoles[holeIdx]=JSON.stringify(d);
+        roundSyncConfirm(syncRevision);
+        saveRoundStateToStorage(false); // keep localStorage in sync after each hole
 
     } catch(e) {
         // Network failure — queue writes for when signal returns
+        roundSyncSet(navigator.onLine ? 'attention' : 'waiting');
         console.warn('Auto-save hole', holeIdx+1, '— offline, queuing:', e.message);
         const holeId = holeIds[holeIdx] || null;
         const d = holeData[holeIdx];
@@ -3129,7 +3151,7 @@ async function autoSaveHole(holeIdx) {
                 stableford_points: totalPts, current_hole: holeIdx + 1, round_status: 'in_progress',
             }),
         });
-    }
+    } finally { saveRoundStateToStorage(false); roundSyncBusy--; roundSyncRender(); }
 }
 
 function nextHole() {
@@ -3214,10 +3236,11 @@ function showSummary() {
     const btn = document.getElementById('btn-save');
     if (activeRoundId) {
         saveStatus.className = 'save-status success';
-        saveStatus.textContent = '✓ Round auto-saved as you played';
+        saveStatus.textContent = 'Confirm the round below to finish saving all scores.';
         btn.textContent = 'SYNC & CONFIRM ✓';
         btn.disabled = false;
     } else {
+        saveStatus.textContent = '';
         saveStatus.className = 'save-status';
         btn.disabled = false;
         btn.textContent = 'SAVE ROUND';
@@ -3232,7 +3255,11 @@ async function saveRound() {
     const btn = document.getElementById('btn-save');
     const statusEl = document.getElementById('save-status');
     btn.disabled = true; btn.textContent = 'SAVING...';
+    roundSyncBusy++; roundSyncRender();
     try {
+        await roundSyncHoleChain;
+        await flushWriteQueue();
+        if (roundSyncQueue().length) throw new Error('Earlier changes still need to sync. Retry when connected.');
         let totalScore=0, totalPutts=0, totalGIR=0, totalPts=0;
         holeData.forEach((d,i) => {
             if (d.score) { totalScore+=d.score; totalPts+=calcPoints(i,d.score); }
@@ -3274,6 +3301,8 @@ async function saveRound() {
         }
 
         track('round_saved', { course: selectedCourseSlug, score: totalScore, points: totalPts, holes: holeData.filter(h=>h.score).length });
+        roundSyncHoles=Object.fromEntries(holeData.map((h,i)=>[i,JSON.stringify(h)]));
+        roundSyncConfirm(roundSyncRevision);
         clearRoundStateFromStorage(); // round is done — clean up persisted state
         statusEl.className = 'save-status success';
         statusEl.textContent = '✓ Round saved!';
@@ -3284,9 +3313,11 @@ async function saveRound() {
 
     } catch(e) {
         statusEl.className = 'save-status error';
-        statusEl.textContent = '⚠ Save failed: '+e.message;
+        roundSyncSet(navigator.onLine ? 'attention' : 'waiting');
+        statusEl.textContent = 'Needs attention — save not complete. Your entries are kept on this device. Retry Save Round. '+e.message;
+        saveRoundStateToStorage(false);
         btn.disabled = false; btn.textContent = 'SAVE ROUND';
-    }
+    } finally { roundSyncBusy--; roundSyncRender(); }
 }
 
 function goHome() { showScreen('screen-home'); }
@@ -3303,6 +3334,7 @@ function newRound() {
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    roundSyncRender();
     // Update nav active state — matched by data-nav, not button position
     document.querySelectorAll('.bnav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === id));
     if (id==='screen-stats')   loadStats();
@@ -3785,37 +3817,93 @@ const ROUND_STATE_KEY  = 'gt_active_round_state';
 const COURSE_CACHE_KEY = 'gt_course_cache';
 const WRITE_QUEUE_KEY  = 'gt_write_queue';
 
+let roundSyncState = 'waiting', roundSyncLast = null, roundSyncBusy = 0, roundSyncRevision = 0, roundSyncHoles = {};
+function roundSyncQueue() {
+    try { return JSON.parse(localStorage.getItem(WRITE_QUEUE_KEY) || '[]'); }
+    catch(e) { roundSyncState='attention'; return []; }
+}
+function roundSyncSet(state) { roundSyncState=state; roundSyncRender(); }
+function roundSyncConfirm(revision) {
+    roundSyncLast=Date.now();
+    roundSyncSet(revision===roundSyncRevision && !roundSyncQueue().length && holeData.every((h,i)=>!h.score || roundSyncHoles[i]===JSON.stringify(h)) ? 'saved' : 'waiting');
+}
+function roundSyncRender() {
+    for (const id of ['screen-home','screen-play','screen-summary']) {
+        const screen=document.getElementById(id); if (!screen) continue;
+        let panel=screen.querySelector('.round-sync');
+        if (!panel) {
+            panel=document.createElement('div'); panel.className='round-sync'; panel.setAttribute('role','status');
+            const text=document.createElement('span'); panel.append(text);
+            const button=document.createElement('button'); button.type='button'; button.textContent='Retry sync';
+            button.onclick=roundSyncRetry; panel.append(button);
+            if(id==='screen-play') screen.querySelector('header').append(panel); else screen.prepend(panel);
+        }
+        let stored=null; try {stored=JSON.parse(localStorage.getItem(ROUND_STATE_KEY)||'null');} catch(e) {}
+        const own=stored && (!stored.syncUser || stored.syncUser===currentUser?.id);
+        const queued=roundSyncQueue().length;
+        panel.hidden=!currentUser || (!activeRoundId && !own && !queued);
+        const state=roundSyncState;
+        panel.dataset.state=state;
+        panel.firstChild.textContent=(roundSyncBusy ? 'Syncing…' : state==='saved' && !queued ? '✓ Saved' : state==='attention' ? 'Needs attention — retry sync' : 'Waiting to sync — kept on this device') +
+            (roundSyncLast ? ' · Last synced '+new Date(roundSyncLast).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ' · Not yet synced');
+        panel.lastChild.hidden=state==='saved' && !queued;
+        panel.lastChild.disabled=roundSyncBusy>0;
+    }
+}
+async function roundSyncRetry() {
+    if (roundSyncBusy) return;
+    await flushWriteQueue();
+    if (roundSyncQueue().length) return;
+    if (document.getElementById('screen-summary').classList.contains('active')) { await saveRound(); return; }
+    if (!activeRoundId) {
+        roundSyncBusy++; roundSyncRender();
+        try {
+            if (!currentUser?.id || !courseId) throw new Error('Sign in and restore your course first');
+            const rows=await sbFetch('rounds',{method:'POST',body:JSON.stringify({
+                user_id:currentUser.id,course_id:courseId,date:roundDate,playing_handicap:playingHC,
+                tee_color:selectedTee,round_status:'in_progress',current_hole:currentHole+1,
+                total_score:0,total_putts:0,gir_count:0,stableford_points:0
+            })});
+            if (!rows?.[0]?.id) throw new Error('Round not confirmed');
+            activeRoundId=rows[0].id; saveRoundStateToStorage(false);
+        } catch(e) { roundSyncSet(navigator.onLine ? 'attention':'waiting'); return; }
+        finally {roundSyncBusy--;roundSyncRender();}
+    }
+    for (let i=0;i<holeData.length;i++) if(holeData[i].score) {
+        await autoSaveHole(i); if(roundSyncQueue().length) return;
+    }
+}
+window.addEventListener('offline',()=>roundSyncSet('waiting'));
+
 // ── Offline write queue ──────────────────────────────────────
 function queueWrite(op) {
     try {
         const q = JSON.parse(localStorage.getItem(WRITE_QUEUE_KEY) || '[]');
-        q.push({ ...op, queuedAt: Date.now() });
+        q.push({ ...op, userId: currentUser?.id, queuedAt: Date.now() });
         localStorage.setItem(WRITE_QUEUE_KEY, JSON.stringify(q));
-    } catch(e) { console.warn('Queue write failed:', e); }
+    } catch(e) { roundSyncSet('attention'); console.warn('Queue write failed:', e); }
 }
 
-async function flushWriteQueue() {
-    let q;
-    try { q = JSON.parse(localStorage.getItem(WRITE_QUEUE_KEY) || '[]'); }
-    catch(e) { return; }
-    if (!q.length) return;
-
-    const failed = [];
-    for (const op of q) {
+let roundSyncFlush = null;
+function flushWriteQueue() {
+    if (roundSyncFlush) return roundSyncFlush;
+    roundSyncFlush = (async () => {
+        roundSyncBusy++; roundSyncRender();
         try {
-            await sbFetch(op.path, { method: op.method, body: op.body, prefer: op.prefer || '' });
-        } catch(e) {
-            // Keep in queue if < 24h old, otherwise drop it
-            if ((Date.now() - op.queuedAt) < 86400000) failed.push(op);
-            console.warn('Flush failed for', op.path, e.message);
-        }
-    }
-    if (failed.length) {
-        localStorage.setItem(WRITE_QUEUE_KEY, JSON.stringify(failed));
-    } else {
-        localStorage.removeItem(WRITE_QUEUE_KEY);
-        showSyncToast();
-    }
+            while (roundSyncQueue().length) {
+                const op = roundSyncQueue()[0];
+                if (op.userId && op.userId !== currentUser?.id) { roundSyncSet('attention'); return; }
+                try { await sbFetch(op.path, {method:op.method,body:op.body,prefer:op.prefer || ''}); }
+                catch(e) { roundSyncSet(navigator.onLine ? 'attention' : 'waiting'); return; }
+                // Re-read so writes appended during the request are preserved.
+                const remaining = roundSyncQueue(); remaining.shift();
+                if (remaining.length) localStorage.setItem(WRITE_QUEUE_KEY,JSON.stringify(remaining));
+                else localStorage.removeItem(WRITE_QUEUE_KEY);
+            }
+            if (roundSyncState !== 'saved') roundSyncSet('waiting');
+        } finally { roundSyncBusy--; roundSyncRender(); }
+    })().finally(() => {roundSyncFlush=null;});
+    return roundSyncFlush;
 }
 
 function showSyncToast() {
@@ -3829,14 +3917,15 @@ function showSyncToast() {
 // Flush queue the moment signal returns
 window.addEventListener('online', () => {
     console.log('[Golf Tracker] Back online — flushing write queue');
-    flushWriteQueue();
+    roundSyncRetry();
 });
 
-function saveRoundStateToStorage() {
-    if (!activeRoundId) { clearRoundStateFromStorage(); return; }
+function saveRoundStateToStorage(dirty = true) {
+    if (dirty) { roundSyncRevision++; roundSyncSet('waiting'); }
     try {
         localStorage.setItem(ROUND_STATE_KEY, JSON.stringify({
             activeRoundId,
+            syncHoles: roundSyncHoles, syncState: roundSyncState, lastSynced: roundSyncLast, syncUser: currentUser?.id,
             currentHole,
             roundDate,
             playingHC,
@@ -3845,7 +3934,7 @@ function saveRoundStateToStorage() {
             holeData,
             savedAt: Date.now(),
         }));
-    } catch(e) { console.warn('Could not persist round state:', e); }
+    } catch(e) { roundSyncSet('attention'); console.warn('Could not persist round state:', e); }
 }
 
 function clearRoundStateFromStorage() {
@@ -3861,9 +3950,10 @@ function restoreRoundStateIfNeeded() {
         if (!raw) return;
         const state = JSON.parse(raw);
         // Ignore stale state older than 24 hours
-        if (!state || (Date.now() - state.savedAt) > 86400000) {
+        if (!state || (state.syncUser && state.syncUser !== currentUser?.id)) {
             clearRoundStateFromStorage(); return;
         }
+        roundSyncHoles=state.syncHoles || {}; roundSyncState=state.syncState || 'waiting'; roundSyncLast=state.lastSynced || null;
         activeRoundId      = state.activeRoundId;
         currentHole        = state.currentHole || 0;
         roundDate          = state.roundDate;
@@ -3900,8 +3990,9 @@ async function bootApp() {
         const raw = localStorage.getItem(ROUND_STATE_KEY);
         if (raw) {
             const state = JSON.parse(raw);
-            if (state && (Date.now() - state.savedAt) < 86400000 && state.activeRoundId) {
+            if (state && (!state.syncUser || state.syncUser === currentUser?.id) && state.holeData) {
                 // Restore round state and jump straight back to play screen
+                roundSyncHoles=state.syncHoles || {}; roundSyncState=state.syncState || 'waiting'; roundSyncLast=state.lastSynced || null;
                 activeRoundId     = state.activeRoundId;
                 currentHole       = state.currentHole || 0;
                 roundDate         = state.roundDate;

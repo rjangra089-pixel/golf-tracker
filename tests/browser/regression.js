@@ -1299,6 +1299,30 @@ const t = async (name, fn) => {
     assert.match(await ev(`document.getElementById('setup-hc-hint').textContent`),/missing/);
   });
 
+  await t('SYNC: honest waiting, confirmed saved, failure retained and retry; summary never assumes saved',async()=>{
+    await reloadHome('rich'); await startTestRound();
+    await ev(`selectScore(5)`);
+    assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Waiting to sync/);
+    await ev(`autoSaveHole(0)`);
+    assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Saved.*Last synced/);
+    await ev(`holeData[1].score=4;saveRoundStateToStorage();autoSaveHole(0)`);
+    assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Waiting to sync/,'another unsynced hole prevents Saved');
+    state.offline=true;
+    await ev(`selectScore(6); autoSaveHole(0)`);
+    await waitFor(`roundSyncQueue().length===3`);
+    assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Needs attention|Waiting to sync/);
+    assert.strictEqual(await ev(`JSON.parse(localStorage.getItem(ROUND_STATE_KEY)).holeData[0].score`),6);
+    await ev(`flushWriteQueue()`);
+    assert.strictEqual(await ev(`roundSyncQueue().length`),3,'failed first operation retains all dependent operations');
+    state.offline=false; await ev(`roundSyncRetry()`);
+    assert.strictEqual(await ev(`roundSyncQueue().length`),0);
+    assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Saved/);
+    await ev(`showSummary()`);
+    assert.ok(!/auto-saved/.test(await ev(`document.getElementById('save-status').textContent`)));
+    await ev(`saveRound()`);
+    assert.strictEqual(await ev(`document.getElementById('btn-save').textContent`),'SAVED ✓');
+  });
+
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {
     await ev(`showScreen('screen-profile'); document.querySelector('.profile-signout').click()`);
     await waitFor(`document.querySelector('.screen.active').id === 'screen-auth'`);

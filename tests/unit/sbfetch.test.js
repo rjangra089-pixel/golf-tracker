@@ -11,7 +11,9 @@ const code = [
   grab(/async function sbFetch\(path, opts = \{\}\) \{[\s\S]*?\n\}/),
   grab(/const WRITE_QUEUE_KEY[^\n]+/),
   grab(/function queueWrite\(op\) \{[\s\S]*?\n\}/),
-  grab(/async function flushWriteQueue\(\) \{[\s\S]*?\n\}/),
+  'let roundSyncFlush=null, roundSyncBusy=0, roundSyncState="waiting";',
+  grab(/function roundSyncQueue\(\) \{[\s\S]*?\n\}/),
+  grab(/function flushWriteQueue\(\) \{[\s\S]*?\n\}/),
 ].join('\n');
 
 const ANON = 'ANON_KEY';
@@ -19,6 +21,8 @@ let session = null;          // what sb.auth.getSession() returns
 let calls = [];              // captured fetch calls
 const store = {};
 const ctx = {
+  currentUser: {id:'u1'},
+  navigator:{onLine:true}, roundSyncRender:()=>{}, roundSyncSet:()=>{},
   SUPABASE_URL: 'https://example.supabase.co',
   SUPABASE_KEY: ANON,
   sb: { auth: { getSession: async () => ({ data: { session }, error: null }) } },
@@ -92,5 +96,17 @@ const apikey = () => calls.at(-1).init.headers.apikey;
   assert.strictEqual(JSON.parse(store['gt_write_queue']).length, 1);
   console.log('PASS 6  signed-out replay sends nothing, op retained for later');
 
+  store.gt_write_queue=JSON.stringify([
+    {path:'shots',method:'POST',body:'{}',queuedAt:0},
+    {path:'rounds?id=eq.1',method:'PATCH',body:'{}',queuedAt:0}
+  ]);
+  calls=[]; await Promise.all([flushWriteQueue(),flushWriteQueue()]);
+  assert.strictEqual(calls.length,0);
+  assert.strictEqual(JSON.parse(store.gt_write_queue).length,2,'old failed writes retained in order');
+  session={access_token:'RESTORED'}; calls=[];
+  await Promise.all([flushWriteQueue(),flushWriteQueue()]);
+  assert.strictEqual(calls.length,2,'single flight prevents duplicate replay');
+  assert.ok(!store.gt_write_queue);
+  console.log('PASS 7  old writes retained, ordered retry and concurrent flush deduplication');
   console.log('\nAll sbFetch auth tests passed.');
 })().catch(e => { console.error('FAIL', e.message); process.exit(1); });
