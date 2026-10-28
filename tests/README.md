@@ -81,3 +81,17 @@ Matching tee layouts share a course, with the actual tee labels and yardages.
 authentication, permissions, duplicate handling and that only new course/hole
 inserts are issued. Browser tests mock search/import and verify phone layouts,
 preview without writes, completing SIs, new-course selection and a zero handicap.
+
+## Course IDs and calculated playing handicap
+
+Provider course IDs are alphanumeric (West Byfleet: `5mvng1k6`), not just integers.
+Import responses include the confirmed complete course so the player can immediately
+add/select it in the library. West Byfleet men's Purple/White/Yellow stroke indexes
+are verified against https://westbyfleet.intelligentgolf.co.uk/scorecard and only
+fill missing provider values when all 18 pars match that published layout.
+
+`playing-handicap.test.js` checks the WHS calculation using unrounded Course
+Handicap, 100%/95% allowances, missing ratings, zero and plus-handicap allocation.
+Setup recalculates for a new course/tee/index/allowance; a whole-number manual
+adjustment remains editable without changing Official Handicap Index or old rounds.
+Reference: https://www.randa.org/is-IS/roh/interpretations/rule-6

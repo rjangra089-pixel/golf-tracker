@@ -5,7 +5,18 @@ const slug=v=>clean(v).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g
 const cache=new Map();
 const requests=new Map();
 export function describeCourse(raw) {
- const c=raw.course||raw, names=[clean(c.club_name),clean(c.course_name)].filter(Boolean);
+ const original=raw.course||raw;
+ // Published club scorecard: https://westbyfleet.intelligentgolf.co.uk/scorecard (checked 28 Oct 2026).
+ const c=JSON.parse(JSON.stringify(original));
+ let scorecardSource=null;
+ if(String(c.id)==='5mvng1k6' && /west byfleet/i.test(c.club_name||c.course_name||'')) {
+  const pars=[4,4,4,3,4,4,5,4,4,4,3,4,3,4,4,4,3,5], sis=[10,8,4,18,12,2,6,16,14,1,15,5,17,11,3,7,13,9];
+  for(const t of c.tees?.male||[]) if(/^(purple|white|yellow)$/i.test(t.tee_name||'') && t.holes?.length===18 && t.holes.every((h,i)=>num(h.par)===pars[i])) {
+   t.holes.forEach((h,i)=>{if(h.handicap===undefined||h.handicap===null||h.handicap==='')h.handicap=sis[i];});
+   scorecardSource='https://westbyfleet.intelligentgolf.co.uk/scorecard';
+  }
+ }
+ const names=[clean(c.club_name),clean(c.course_name)].filter(Boolean);
  const name=[...new Set(names)].join(' — ')||'Unnamed course';
  const choices=[];
  for(const [gender,group] of [['male','Men'],['female','Women']]) (c.tees?.[gender]||[]).forEach((t,i)=>{
@@ -13,7 +24,7 @@ export function describeCourse(raw) {
   const valid=holes.length===18&&holes.every((h,j)=>h.hole_number===j+1&&[3,4,5].includes(h.par)&&Number.isInteger(h.stroke_index)&&h.stroke_index>=1&&h.stroke_index<=18)&&new Set(holes.map(h=>h.stroke_index)).size===18;
   choices.push({id:gender+'-'+i,name:clean(t.tee_name)||'Unnamed tee',group,rating:num(t.course_rating),slope:num(t.slope_rating),holes,valid});
  });
- return {id:String(c.id),name,location:[c.location?.city,c.location?.state,c.location?.country].filter(Boolean).map(clean).join(', '),choices};
+ return {id:String(c.id),name,scorecard_source:scorecardSource,location:[c.location?.city,c.location?.state,c.location?.country].filter(Boolean).map(clean).join(', '),choices};
 }
 export function buildCourseImport(course,choiceId,corrections=null) {
  let primary=course.choices.find(t=>t.id===choiceId);
@@ -29,7 +40,7 @@ export function buildCourseImport(course,choiceId,corrections=null) {
  const teeOptions={},keys=new Map();
  compatible.forEach(t=>{let key=slug(t.name+'-'+t.group);if(teeOptions[key])key+='-'+t.id.split('-')[1];keys.set(t.id,key);teeOptions[key]={name:t.name+' · '+t.group,rating:Number.isFinite(t.rating)?t.rating:null,slope:Number.isFinite(t.slope)?t.slope:null};});
  const fingerprint=createHash('sha256').update(signature).digest('hex').slice(0,10);
- teeOptions._source={provider:'golfcourseapi',id:course.id,card:fingerprint};
+ teeOptions._source={provider:'golfcourseapi',id:course.id,card:fingerprint,scorecard_url:course.scorecard_source||null};
  const holes=primary.holes.map((h,i)=>({hole_number:i+1,par:h.par,stroke_index:h.stroke_index,
   yardage:Number.isInteger(h.yardage)&&h.yardage>0?h.yardage:null,is_danger_hole:false,
   tee_options:Object.fromEntries(compatible.map(t=>[keys.get(t.id),{yardage:Number.isInteger(t.holes[i].yardage)&&t.holes[i].yardage>0?t.holes[i].yardage:null}]))}));
@@ -62,16 +73,16 @@ export default async function handler(req,res) {
    return res.status(200).json({canImport,courses:(data.courses||[]).slice(0,30).map(c=>({id:String(c.id),name:[...new Set([clean(c.club_name),clean(c.course_name)].filter(Boolean))].join(' — '),location:[c.location?.city,c.location?.state,c.location?.country].filter(Boolean).map(clean).join(', ')}))});
   }
   const id=String(req.method==='POST'?req.body?.id:req.query.id);
-  if(!/^\d{1,12}$/.test(id))return res.status(400).json({error:'Choose a course from the search results.'});
+  if(!/^[A-Za-z0-9_-]{1,64}$/.test(id))return res.status(400).json({error:'Choose a course from the search results.'});
   if(req.method==='POST'&&!canImport)return res.status(403).json({error:'Adding a new scorecard requires your existing course-admin permission. You can choose any course already in the app.'});
   const detail=describeCourse(await external('courses/'+id));detail.id=id;
   if(req.method==='GET')return res.status(200).json({...detail,canImport});
   const data=buildCourseImport(detail,String(req.body?.tee),req.body?.holes||null);
-  const path='courses?select=id,slug,name,created_at,tee_options,holes(hole_number,par,stroke_index)&slug=eq.'+encodeURIComponent(data.course.slug);
+  const path='courses?select=id,slug,name,par,location,created_at,tee_options,holes(hole_number,par,stroke_index)&slug=eq.'+encodeURIComponent(data.course.slug);
   const existing=await db(path);let record=existing[0];
   if(record?.holes?.length===18){
    if(!record.tee_options?.[data.tee])return res.status(409).json({error:'This course is already in the app with different tees. Select it from the library, or add those tee details in Admin.'});
-   return res.status(200).json({slug:record.slug,tee:data.tee,existing:true});
+   return res.status(200).json({slug:record.slug,tee:data.tee,existing:true,course:record});
   }
   if(record&&((record.holes||[]).length||record.tee_options?._source?.provider!=='golfcourseapi'))return res.status(409).json({error:'This course needs a scorecard check in Admin. Its existing holes have not been changed.'});
   if(record&&Date.now()-Date.parse(/[Zz]|[+-]\d{2}:?\d{2}$/.test(record.created_at)?record.created_at:record.created_at+'Z')<30000)return res.status(409).json({error:'This course is still being added. Please try again in a moment.'});
@@ -81,6 +92,8 @@ export default async function handler(req,res) {
   }
   if(!record?.id)throw new Error('The course could not be added.');
   await db('holes',{method:'POST',body:JSON.stringify(data.holes.map(h=>({...h,course_id:record.id})))});
-  return res.status(200).json({slug:data.course.slug,tee:data.tee,existing:false});
+  const confirmed=(await db(path))[0];
+  if(confirmed?.holes?.length!==18)throw new Error('The course has not finished saving. Please try Add again.');
+  return res.status(200).json({slug:data.course.slug,tee:data.tee,existing:false,course:confirmed});
  }catch(e){return res.status(e.status===403?403:400).json({error:e.message||'Could not load the course. Please try again.'});}
 }

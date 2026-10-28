@@ -7,7 +7,7 @@ const stMean = xs => xs.length ? xs.reduce((a,b) => a+b, 0) / xs.length : null;
 const stCourseKey = r => String(r.course_id ?? r.courses?.id ?? 'unknown');
 const stTeeKey = r => r.tee_color ? String(r.tee_color) : 'unknown';
 const stCourseName = r => r.courses?.name || 'Course not recorded';
-const stHandicap = r => typeof r.playing_handicap === 'number' && Number.isFinite(r.playing_handicap) && r.playing_handicap >= 0;
+const stHandicap = r => typeof r.playing_handicap === 'number' && Number.isFinite(r.playing_handicap) && r.playing_handicap >= -10;
 const stPuttsKnown = s => stWhole(s.putts) && s.putts <= s.score;
 const stOrder = rows => [...rows].sort((a,b) => String(b.date || '').localeCompare(String(a.date || '')) || (crUtcMs(b.created_at) || 0) - (crUtcMs(a.created_at) || 0));
 
@@ -41,7 +41,7 @@ function stShape(r) {
     return 'partial';
 }
 const stComplete = r => r.round_status !== 'in_progress' && r.shots?.length === 18 && stShape(r) === 'full' && !!stCourseMap(r);
-const stPoints = (r, s, h) => Math.max(0, h.par - s.score + Math.floor(r.playing_handicap / 18) + (h.si <= r.playing_handicap % 18 ? 1 : 0) + 2);
+const stPoints = (r, s, h) => Math.max(0, h.par - s.score + Math.floor(r.playing_handicap / 18) + (h.si <= (r.playing_handicap % 18+18)%18 ? 1 : 0) + 2);
 
 function stSummary(r) {
     const shots = stScoredShots(r), map = stCourseMap(r);

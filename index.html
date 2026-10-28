@@ -1772,8 +1772,8 @@
             <div id="setup-recent-wrap" hidden><h3>Recently played</h3><div id="setup-recent"></div></div>
         </section>
         <section class="su-details"><div class="su-row"><h2>Round details</h2><span id="setup-player"></span></div><input id="setup-name" type="hidden">
-            <div class="su-fields"><label class="su-field">Playing handicap<input id="setup-hc" type="number" value="27" min="0" max="54" step="1" inputmode="numeric"></label><label class="su-field">Date<input id="setup-date" type="date"></label></div>
-            <p class="su-hint">Use the playing handicap for the course and tees you’ll play.</p>
+            <div class="su-fields"><label class="su-field">Playing handicap<input id="setup-hc" type="number" value="" min="-10" max="99" step="1" inputmode="numeric"></label><label class="su-field">Date<input id="setup-date" type="date"></label></div>
+            <label class="su-field">Handicap allowance<select id="setup-allowance"><option value="1">General play · 100%</option><option value="0.95">Singles Stableford / stroke play · 95%</option></select></label><p class="su-hint" id="setup-hc-hint"></p><button type="button" class="su-reset" id="setup-hc-reset" hidden>Use calculated handicap</button>
             <h3>Choose your tees</h3><div id="setup-tees" class="tee-selector"><button type="button" class="tee-btn" id="tee-btn-yellow" onclick="selectTee('yellow')">Yellow</button><button type="button" class="tee-btn" id="tee-btn-white" onclick="selectTee('white')">White</button></div><p class="su-hint" id="setup-tee-meta"></p>
         </section>
         <p id="setup-status" role="status" aria-live="polite"></p>
@@ -2064,7 +2064,7 @@ async function switchCourse(slug) {
         if (version !== setupSwitchVersion) return;
         if (!stCourseMap({courses:{holes}})) throw new Error('This course needs a complete 18-hole scorecard before you can play.');
         const tees = Object.fromEntries(Object.entries(course.tee_options || {}).filter(([k,v]) => !k.startsWith('_') && v && typeof v === 'object'));
-        if (!Object.keys(tees).length) Object.assign(tees,{yellow:{name:'Yellow'},white:{name:'White'}});
+        if (!Object.keys(tees).length) Object.assign(tees,{yellow:{name:'Yellow',rating:course.course_rating??null,slope:course.slope_rating??null},white:{name:'White'}});
         const nextHoles = holes.map(h => ({num:h.hole_number,par:h.par,si:h.stroke_index,
             yards:Object.keys(h.tee_options || {}).length ? Object.fromEntries(Object.entries(h.tee_options).map(([k,v])=>[k,v?.yardage??null])) : {yellow:h.yardage,white:h.yardage},
             danger:h.is_danger_hole||false,tip:h.verified_tip||h.ai_tip||'Play to the fat of the fairway. Take your medicine.',tipSource:h.tip_source||'none',tipVerified:!!h.verified_tip}));
@@ -2152,7 +2152,7 @@ async function loadHomeData() {
         }
 
         document.getElementById('setup-name').value = playerName;
-        document.getElementById('setup-hc').value   = playingHC;
+        setupUpdateHandicap();
         renderHome();      // Road to target can show immediately
         renderProfile();
 
@@ -2204,7 +2204,7 @@ async function loadHomeData() {
 // ═══════════════════════════════════════════════════════════════
 function getShotsReceived(idx) {
     const si = HOLES[idx].si;
-    return Math.floor(playingHC/18) + (si <= (playingHC%18) ? 1 : 0);
+    return Math.floor(playingHC/18) + (si <= ((playingHC%18+18)%18) ? 1 : 0);
 }
 
 function calcPoints(idx, score) {
@@ -2411,7 +2411,7 @@ function grossScore(round) {
 
 // Same rule as getShotsReceived(), but for any hole/handicap.
 function shotsReceivedFor(si, hc) {
-    return Math.floor(hc / 18) + (si <= (hc % 18) ? 1 : 0);
+    return Math.floor(hc / 18) + (si <= ((hc % 18+18)%18) ? 1 : 0);
 }
 
 // Same Stableford rule as calcPoints(), but for any hole/handicap.
@@ -2458,7 +2458,7 @@ function leakRates(windowRounds) {
     let blowUpTotal = 0, blowUpRounds = 0;
     for (const r of windowRounds) {
         const hc = Number(r.playing_handicap);
-        if (r.playing_handicap == null || !Number.isFinite(hc) || hc < 0) continue;
+        if (r.playing_handicap == null || !Number.isFinite(hc) || hc < -10) continue;
         const holes = courseHoleMap(r);
         blowUpRounds++;
         for (const s of r.shots) {
@@ -2656,7 +2656,7 @@ async function startRound() {
     if (setupLoading && setupPendingCourse) await setupPendingCourse;
     const requested = document.getElementById('setup-course-select').value;
     const hcRaw = document.getElementById('setup-hc').value.trim(), hc = hcRaw === '' ? NaN : Number(hcRaw);
-    if (!Number.isInteger(hc) || hc < 0 || hc > 54) { setupStatus('Enter a whole-number playing handicap from 0 to 54.',true); return; }
+    if (!Number.isInteger(hc) || hc < -10 || hc > 99) { setupStatus('Enter a whole-number playing handicap from -10 to 99.',true); return; }
     if (!document.getElementById('setup-date').value) {setupStatus('Choose the round date.',true);return;}
     if (setupLoading || !requested || requested !== selectedCourseSlug || HOLES.length !== 18) {setupStatus('Wait for a complete course scorecard to load before teeing off.',true);return;}
     setupRoundBusy = true; setupRefresh();
@@ -2713,7 +2713,7 @@ async function resumeRound() {
         // 1. Restore round state
         activeRoundId = round.id;
         roundDate     = round.date;
-        playingHC     = round.playing_handicap || playingHC;
+        playingHC     = round.playing_handicap ?? playingHC;
         if (round.tee_color) { selectedTee = round.tee_color; selectTee(selectedTee); }
 
         // 2. Switch to the right course
@@ -3371,6 +3371,7 @@ function renderHome() {
 
 // "{course} · {tee} tees · Change" under Start Round.
 function renderStartMeta() {
+    setupUpdateHandicap();
     const courseEl = document.getElementById('home-start-course');
     if (!courseEl) return;
     courseEl.textContent = selectedCourseName || 'Choose a course';
@@ -3416,7 +3417,7 @@ async function saveCurrentHC() {
     if (val === null) { setProfileStatus('profile-hc-status', 'Enter a Handicap Index between 0 and 54', true); return; }
     officialHI = val;
     if (!activeRoundId) playingHC = val;               // never change the handicap of a round in progress
-    document.getElementById('setup-hc').value = val;   // default for the next round
+    setupUpdateHandicap(true);   // default for the next round
     renderHome();
     setProfileStatus('profile-hc-status', 'Saving…');
     try {
@@ -3612,7 +3613,7 @@ async function doOnboard() {
     const btn    = document.getElementById('btn-onboard');
 
     if (!name) { errEl.textContent = 'Please enter your name'; return; }
-    if (isNaN(hc) || hc < 0 || hc > 54)     { errEl.textContent = 'Please enter a valid handicap (0–54)'; return; }
+    if (isNaN(hc) || hc < -10 || hc > 99)     { errEl.textContent = 'Please enter a valid handicap (0–54)'; return; }
     if (isNaN(target) || target < 0 || target > 54) { errEl.textContent = 'Please enter a valid target handicap'; return; }
     errEl.textContent = '';
     btn.textContent = 'Saving...'; btn.disabled = true;
@@ -4058,12 +4059,12 @@ async function openAssessment(returnTo) {
 
         // Compute Stableford per hole for this round
         function shotsReceivedForRound(si, hc) {
-            return Math.floor(hc/18) + (si <= (hc%18) ? 1 : 0);
+            return Math.floor(hc/18) + (si <= ((hc%18+18)%18) ? 1 : 0);
         }
         const holePoints = holesMeta.map((h, i) => {
             const s = shotsByHole[h.num];
             if (!s || !s.score) return { num: h.num, pts: 0, score: null, par: h.par, si: h.si };
-            const net = s.score - shotsReceivedForRound(h.si, lastRound.playing_handicap || playingHC);
+            const net = s.score - shotsReceivedForRound(h.si, lastRound.playing_handicap ?? playingHC);
             const pts = Math.max(0, h.par - net + 2);
             return { num: h.num, pts, score: s.score, par: h.par, si: h.si, putts: s.putts, gir: s.gir, fairway: s.fairway };
         });
@@ -4110,7 +4111,7 @@ async function openAssessment(returnTo) {
             : 'early days';
 
         // Build the AI prompt
-        const prompt = `You are an expert golf coach giving a warm, encouraging post-round debrief to ${playerName}, a ${lastRound.playing_handicap || playingHC}-handicapper targeting HC ${targetHC}. They just played ${courseName}.
+        const prompt = `You are an expert golf coach giving a warm, encouraging post-round debrief to ${playerName}, a ${lastRound.playing_handicap ?? playingHC}-handicapper targeting HC ${targetHC}. They just played ${courseName}.
 
 ROUND DATA:
 - Date: ${lastRound.date}
@@ -4119,7 +4120,7 @@ ROUND DATA:
 - Total Putts: ${totalPutts} ${avgHistPutts ? `(historical avg: ${avgHistPutts.toFixed(1)})` : ''}
 - GIR: ${girsHit}/${girsTotal} holes (${girsTotal ? Math.round((girsHit/girsTotal)*100) : 0}%)
 - Front 9: ${front9pts} pts (score: ${front9score}) | Back 9: ${back9pts} pts (score: ${back9score})
-- Playing HC: ${lastRound.playing_handicap || playingHC} | Target HC: ${targetHC} | HC gap to close: ${((lastRound.playing_handicap || playingHC) - targetHC).toFixed(1)} shots
+- Playing HC: ${lastRound.playing_handicap ?? playingHC} | Target HC: ${targetHC} | HC gap to close: ${((lastRound.playing_handicap ?? playingHC) - targetHC).toFixed(1)} shots
 - Recent form (last 5 rounds pts, most recent first): ${recentPts.join(', ')} — currently ${formTrend}
 
 HOLE-BY-HOLE THIS ROUND:

@@ -196,12 +196,12 @@ async function onMessage(raw) {
     if (url.includes('/api/courses')) {
       const u=new URL(url);
       if(request.method==='POST') {
-        const fresh={id:'cNew',slug:'gca-9001-card',name:'New <Club> Course',par:72,tee_options:{'blue-men':{name:'Blue · Men',rating:71,slope:123}}};
+        const fresh={id:'cNew',slug:'gca-5mvng1k6-card',name:'New <Club> Course',par:72,tee_options:{'blue-men':{name:'Blue · Men',rating:71,slope:123}}};
         if(!COURSES.some(c=>c.id==='cNew'))COURSES.push(fresh);
         state.importedCourse=true;return fulfill(200,JSON.stringify({slug:fresh.slug,tee:'blue-men'}));
       }
-      if(u.searchParams.get('action')==='search')return fulfill(200,JSON.stringify({canImport:true,courses:[{id:'9001',name:'New <Club> Course',location:'Woking, England'}]}));
-      return fulfill(200,JSON.stringify({id:'9001',name:'New <Club> Course',location:'Woking, England',canImport:true,choices:[{id:'male-0',name:'Blue',group:'Men',valid:true,rating:71,slope:123,holes:holesFor('cA').map(h=>({hole_number:h.hole_number,par:h.par,stroke_index:state.missingCourseSI?null:h.stroke_index,yardage:350}))}]}));
+      if(u.searchParams.get('action')==='search')return fulfill(200,JSON.stringify({canImport:true,courses:[{id:'5mvng1k6',name:'New <Club> Course',location:'Woking, England'}]}));
+      return fulfill(200,JSON.stringify({id:'5mvng1k6',name:'New <Club> Course',location:'Woking, England',canImport:true,choices:[{id:'male-0',name:'Blue',group:'Men',valid:true,rating:71,slope:123,holes:holesFor('cA').map(h=>({hole_number:h.hole_number,par:h.par,stroke_index:state.missingCourseSI?null:h.stroke_index,yardage:350}))}]}));
     }
     if (url.includes('/api/ai-debrief')) { state.debriefPrompt = JSON.parse(request.postData).prompt; return fulfill(200, JSON.stringify({ content: [{ text: DEBRIEF_JSON }] })); }
     if (url.includes('/api/')) return fulfill(500, '{"error":"blocked in test"}');
@@ -286,7 +286,7 @@ const t = async (name, fn) => {
     const w = state.writes.map(x => `${x.method} ${x.url.split('/rest/v1/')[1]} ${x.body}`);
     assert.deepStrictEqual(w, ['PATCH user_preferences?user_id=eq.u-test {"current_handicap":24.3}', 'PATCH profiles?id=eq.u-test {"current_handicap":24.3}']);
     assert.ok(state.writes.every(x => x.auth === 'Bearer TEST_TOKEN'));
-    assert.strictEqual(await ev(`document.getElementById('setup-hc').value`), '24.3');
+    assert.strictEqual(await ev(`document.getElementById('setup-hc').value`), '24');
     assert.strictEqual(await ev(`document.getElementById('home-hi').textContent`), '24.3');
     assert.strictEqual(await ev(`officialHI`), 24.3);
   });
@@ -1276,7 +1276,7 @@ const t = async (name, fn) => {
   await t('SETUP: add a new course from preview, custom tees retained; scratch handicap stays zero',async()=>{
     await ev(`[...document.querySelectorAll('#su-preview [data-field=stroke_index]')].forEach((el,i)=>el.value=i+1);document.querySelector('#su-preview .su-primary').click()`);
     await waitFor(`!document.querySelector('.su-finder')`);
-    assert.strictEqual(await ev(`selectedCourseSlug`),'gca-9001-card');assert.strictEqual(await ev(`selectedTee`),'blue-men');
+    assert.strictEqual(await ev(`selectedCourseSlug`),'gca-5mvng1k6-card');assert.strictEqual(await ev(`selectedTee`),'blue-men');
     assert.strictEqual(await ev(`document.getElementById('tee-btn-blue-men').textContent`),'Blue · Men');
     assert.strictEqual(await ev(`HOLES[0].yards['blue-men']`),360);
     const n=state.writes.length;await ev(`document.getElementById('setup-hc').value='';startRound()`);assert.strictEqual(state.writes.length,n);
@@ -1284,6 +1284,19 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`playingHC`),0);assert.strictEqual(await ev(`document.getElementById('tb-yards').textContent`),'360');
     assert.ok(state.writes.slice(n).some(w=>w.method==='POST'&&w.url.includes('/rounds')&&JSON.parse(w.body).tee_color==='blue-men'));
     await ev(`cancelRound()`);
+  });
+
+
+  await t('SETUP HC: course/tee calculation is whole-number, allowance uses unrounded value, manual override persists',async()=>{
+    await ev(`clearRoundStateFromStorage();activeRoundId=null;showScreen('screen-setup');officialHI=13.6;setupTees={'blue-men':{name:'Blue · Men',rating:71.2,slope:117}};selectedTee='blue-men';HOLES.forEach((h,i)=>h.par=i<16?4:3);document.getElementById('setup-allowance').value='1';setupUpdateHandicap(true)`);
+    assert.strictEqual(await ev(`document.getElementById('setup-hc').value`),'15');
+    await ev(`document.getElementById('setup-allowance').value='0.95';document.getElementById('setup-allowance').dispatchEvent(new Event('change'))`);
+    assert.strictEqual(await ev(`document.getElementById('setup-hc').value`),'15');
+    await ev(`document.getElementById('setup-hc').value='18.7';document.getElementById('setup-hc').dispatchEvent(new Event('change'));setupRefresh()`);
+    assert.strictEqual(await ev(`document.getElementById('setup-hc').value`),'19');assert.strictEqual(await ev(`officialHI`),13.6);
+    await ev(`document.getElementById('setup-hc-reset').click()`);assert.strictEqual(await ev(`document.getElementById('setup-hc').value`),'15');
+    await ev(`setupTees['blue-men'].slope=null;setupUpdateHandicap(true)`);assert.strictEqual(await ev(`document.getElementById('setup-hc').value`),'');
+    assert.match(await ev(`document.getElementById('setup-hc-hint').textContent`),/missing/);
   });
 
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {

@@ -58,3 +58,7 @@
 .su-card-row { display:grid; grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr); gap:8px; align-items:center; margin:8px 0; font-size:13px; color:var(--cl-text-2); }
 .su-card-row input { padding:8px; }
 #screen-setup .su-header { width:100%; }
+.su-save-footer { position:sticky; bottom:-22px; padding:12px 0; background:var(--cl-surface); }
+.su-save-feedback { font-size:14px; line-height:1.5; color:var(--cl-destructive); }
+.su-save-feedback:empty { display:none; }
+#screen-setup .su-reset { min-height:44px; border:0; background:none; color:var(--cl-accent); font:600 13px var(--cl-font); cursor:pointer; text-align:left; }

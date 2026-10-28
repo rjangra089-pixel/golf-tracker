@@ -1,0 +1,16 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const src=fs.readFileSync(path.join(__dirname,'../../js/setup.js'),'utf8');
+const code=src.match(/function calculatePlayingHandicap\([\s\S]*?\n\}/)[0];
+const calc=new Function(code+';return calculatePlayingHandicap;')();
+assert.strictEqual(calc(13.6,117,71.2,70,1),15);
+assert.strictEqual(calc(13.6,117,71.2,70,.95),15);
+assert.strictEqual(calc(25,120,69.1,70,1),26);
+assert.strictEqual(calc(25,120,69.1,70,.95),24);
+assert.strictEqual(calc(25,126,70.6,70,1),28);
+assert.strictEqual(calc(0,113,70,70,1),0);
+assert.strictEqual(calc(0,113,67.5,70,1),-3);
+for(const args of [[null,120,70,72],[25,null,70,72],[25,120,null,72],[25,120,70,null],[25,0,70,72]])assert.strictEqual(calc(...args),null);
+const html=fs.readFileSync(path.join(__dirname,'../../index.html'),'utf8');const helpers=html.match(/function shotsReceivedFor\([\s\S]*?\n\}/)[0];const received=new Function(helpers+';return shotsReceivedFor;')();
+assert.strictEqual(Array.from({length:18},(_,i)=>received(i+1,-3)).reduce((a,b)=>a+b,0),-3);
+assert.strictEqual(Array.from({length:18},(_,i)=>received(i+1,26)).reduce((a,b)=>a+b,0),26);
+console.log('All playing-handicap calculation tests passed.');

@@ -24,7 +24,7 @@ function roundEditValidate(round) {
         const h = map.get(n);
         return !h || !Number.isInteger(h.par) || h.par < 1 || !Number.isInteger(h.stroke_index) || h.stroke_index < 1 || h.stroke_index > 18;
     })) throw new Error('The course hole data is unavailable. Please try again later.');
-    if (!Number.isFinite(round.playing_handicap) || round.playing_handicap < 0) throw new Error('The saved playing handicap is missing.');
+    if (!Number.isFinite(round.playing_handicap) || round.playing_handicap < -10) throw new Error('The saved playing handicap is missing.');
     const shots = round.shots || [];
     if (!shots.length || new Set(shots.map(s => s.hole_number)).size !== shots.length || shots.some(s => !s.id || !map.has(s.hole_number))) {
         throw new Error('This round has missing or duplicate hole records and cannot be edited safely.');
@@ -47,7 +47,7 @@ function roundEditTotals(round) {
         totals.total_score += s.score || 0;
         totals.total_putts += s.putts ?? 0;
         totals.gir_count += s.gir === true ? 1 : 0;
-        if (s.score) totals.stableford_points += Math.max(0, h.par - s.score + Math.floor(round.playing_handicap / 18) + (h.stroke_index <= round.playing_handicap % 18 ? 1 : 0) + 2);
+        if (s.score) totals.stableford_points += Math.max(0, h.par - s.score + Math.floor(round.playing_handicap / 18) + (h.stroke_index <= (round.playing_handicap % 18+18)%18 ? 1 : 0) + 2);
         return totals;
     }, {total_score:0, total_putts:0, gir_count:0, stableford_points:0});
 }

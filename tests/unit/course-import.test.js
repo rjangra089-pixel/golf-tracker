@@ -20,8 +20,8 @@ const src=fs.readFileSync(path.join(__dirname,'../../api/courses.js'),'utf8');
   if(url.includes('api.golfcourseapi.com')){assert.strictEqual(init.headers.Authorization,'Key PROVIDER_KEY');body=url.includes('/search?')?{courses:[raw]}:raw;}
   else if(url.includes('/profiles?'))body=[{is_admin:admin}];
   else if(url.includes('/courses?'))body=existing;
-  else if(url.endsWith('/courses'))body=[{id:'new-id',...JSON.parse(init.body)}];
-  else if(url.endsWith('/holes')){if(failHoles)return {ok:false,status:403};body=JSON.parse(init.body);}
+  else if(url.endsWith('/courses')){body=[{id:'new-id',created_at:new Date().toISOString(),...JSON.parse(init.body)}];existing=[{...body[0],holes:[]}];}
+  else if(url.endsWith('/holes')){if(failHoles)return {ok:false,status:403};body=JSON.parse(init.body);existing[0].holes=body;}
   else throw new Error('Unexpected URL '+url);
   return {ok:true,status:200,json:async()=>body};
  };
@@ -30,11 +30,14 @@ const src=fs.readFileSync(path.join(__dirname,'../../api/courses.js'),'utf8');
  deny=true;result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,401);deny=false;
  admin=false;calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,403);assert.ok(!calls.some(c=>c.init.method));admin=true;
  calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,200);assert.strictEqual(result.data.tee,'blue-men');
+ assert.strictEqual(result.data.course.holes.length,18);
  let writes=calls.filter(c=>c.init.method);assert.strictEqual(writes.length,2);assert.ok(writes.every(c=>c.init.method==='POST'));assert.ok(writes.every(c=>c.init.headers.Authorization==='Bearer TOKEN'));assert.ok(!writes.some(c=>/rounds|shots/.test(c.url)));
+ calls=[];existing=[];result=await run('POST',{id:'5mvng1k6',tee:'male-0'});assert.strictEqual(result.code,200);assert.ok(result.data.slug.startsWith('gca-5mvng1k6-'));
  existing=[{id:'old-id',slug:built.course.slug,holes:built.holes,tee_options:built.course.tee_options}];calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,200);assert.strictEqual(result.data.existing,true);assert.ok(!calls.some(c=>c.init.method));
  existing=[{id:'old-id',slug:built.course.slug,holes:[built.holes[0]]}];calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,409);assert.ok(!calls.some(c=>c.init.method));
  existing=[];failHoles=true;calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,403);assert.ok(calls.every(c=>!['PATCH','DELETE'].includes(c.init.method)));
  calls=[];result=await run('POST',{id:'123',tee:'not-a-tee'});assert.strictEqual(result.code,400);assert.ok(!calls.some(c=>c.init.method));
+ const west={id:'5mvng1k6',club_name:'West Byfleet Golf Club',tees:{male:[{tee_name:'Yellow',holes:[4,4,4,3,4,4,5,4,4,4,3,4,3,4,4,4,3,5].map(par=>({par}))}]}};const verified=describeCourse(west);assert.strictEqual(verified.choices[0].valid,true);assert.strictEqual(verified.choices[0].holes[0].stroke_index,10);assert.ok(verified.scorecard_source.includes('westbyfleet'));
  assert.ok(!src.includes('AB6N'));assert.ok(!/method:['"](?:PATCH|DELETE)/.test(src));
  console.log('All course import tests passed (validation, permission, creation, duplicate/retry and preservation checks).');
 })().catch(e=>{console.error(e);process.exitCode=1;});

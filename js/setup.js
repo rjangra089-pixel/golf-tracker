@@ -3,7 +3,30 @@ let setupCourses=[],setupTees={},setupLoading=false,setupRoundBusy=false,setupSw
 const suEl=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
 const teeLabel=(key,options=setupTees)=>options?.[key]?.name || String(key||'yellow').replace(/-/g,' ').replace(/^./,c=>c.toUpperCase());
 function setupStatus(text,error=false){const e=document.getElementById('setup-status');if(e){e.textContent=text;e.classList.toggle('is-error',error);} }
+let setupHcContext=null,setupHcManual=false,setupHcSuggestion=null;
+function calculatePlayingHandicap(index,slope,rating,par,allowance=1){
+ if([index,slope,rating,par,allowance].some(v=>typeof v!=='number'||!Number.isFinite(v))||index< -10||index>54||slope<55||slope>155||rating<=0||par<=0||![1,.95].includes(allowance))return null;
+ const raw=(index*slope/113+rating-par)*allowance;
+ return Math.sign(raw)*Math.floor(Math.abs(raw)+.5);
+}
+function setupUpdateHandicap(force=false){
+ const field=document.getElementById('setup-hc'),hint=document.getElementById('setup-hc-hint');if(!field||!hint)return;
+ const meta=setupTees[selectedTee]||{}, allowance=Number(document.getElementById('setup-allowance').value);
+ const par=HOLES.length===18?HOLES.reduce((n,h)=>n+h.par,0):null;
+ const context=JSON.stringify([currentUser?.id,officialHI,selectedCourseSlug,selectedTee,meta.rating,meta.slope,par,allowance]);
+ const changed=context!==setupHcContext;
+ setupHcSuggestion=calculatePlayingHandicap(officialHI,meta.slope,meta.rating,par,allowance);
+ if(changed||force){setupHcContext=context;setupHcManual=false;field.value=setupHcSuggestion===null?'':String(setupHcSuggestion);}
+ hint.textContent=setupHcSuggestion===null?'Rating, slope or Handicap Index missing. Enter the club’s whole-number playing handicap.':
+  (setupHcManual?'Your override for this round. Calculated suggestion: '+setupHcSuggestion+'.':'Calculated '+setupHcSuggestion+' from Handicap Index '+officialHI.toFixed(1)+' · '+Math.round(allowance*100)+'% allowance. You can adjust it.');
+ document.getElementById('setup-hc-reset').hidden=!setupHcManual||setupHcSuggestion===null;
+ field.oninput=()=>{setupHcManual=true;setupUpdateHandicap();};
+ field.onchange=()=>{if(field.value.trim()!==''&&Number.isFinite(Number(field.value)))field.value=String(Math.round(Number(field.value)));setupHcManual=true;setupUpdateHandicap();};
+ document.getElementById('setup-hc-reset').onclick=()=>setupUpdateHandicap(true);
+ document.getElementById('setup-allowance').onchange=()=>setupUpdateHandicap(true);
+}
 function setupRefresh(){
+ setupUpdateHandicap();
  const hero=document.getElementById('setup-course-meta');if(!hero)return;
  const c=setupCourses.find(c=>c.slug===selectedCourseSlug);
  hero.textContent=[c?.location,HOLES.length===18?'18 holes · Par '+HOLES.reduce((n,h)=>n+h.par,0)+' · '+teeLabel(selectedTee)+' tees':'Choose a complete scorecard'].filter(Boolean).join(' · ');
@@ -56,9 +79,9 @@ function openCourseFinder(){
 async function setupPreviewCourse(id,d){
  const version=++setupFindVersion,status=d.querySelector('#su-find-status'),root=d.querySelector('#su-preview');status.textContent='Loading scorecards…';root.replaceChildren();
  try{const c=await setupApi('detail',{id});if(setupDialog!==d||version!==setupFindVersion)return;status.textContent='';
- root.append(suEl('h3','',c.name),suEl('p','su-hint',c.location));const label=suEl('label','su-field','Scorecard / tees'),select=document.createElement('select');select.setAttribute('aria-label','Course scorecard');
+ root.append(suEl('h3','',c.name),suEl('p','su-hint',c.location));if(c.scorecard_source){const source=suEl('a','su-hint','Stroke indexes checked against the club scorecard ↗');source.href=c.scorecard_source;source.target='_blank';source.rel='noopener';root.append(source);}const label=suEl('label','su-field','Scorecard / tees'),select=document.createElement('select');select.setAttribute('aria-label','Course scorecard');
  c.choices.forEach(t=>{const o=suEl('option','',t.name+' · '+t.group+' · '+t.holes.length+' holes'+(!t.valid?' · incomplete':''));o.value=t.id;select.append(o);});label.append(select);root.append(label);
- const card=suEl('div','su-card-preview');root.append(card);const save=suEl('button','su-primary','Add course & use it');save.type='button';root.append(save);
+ const card=suEl('div','su-card-preview');root.append(card);const save=suEl('button','su-primary','Add course & use it');save.type='button';const feedback=suEl('p','su-save-feedback');feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');const footer=suEl('div','su-save-footer');footer.append(feedback,save);root.append(footer);
  const draw=()=>{const t=c.choices.find(t=>t.id===select.value);card.replaceChildren();save.disabled=t?.holes.length!==18||!c.canImport;
  if(!t){card.append(suEl('p','su-hint','No scorecards are available for this course.'));return;}
  card.append(suEl('p','su-hint',t.valid?'18 holes · Par '+t.holes.reduce((n,h)=>n+h.par,0)+' · '+[t.rating?'Rating '+t.rating:null,t.slope?'Slope '+t.slope:null].filter(Boolean).join(' · '):'Some scorecard details are missing. Fill them in below from the club scorecard; stroke indexes must be unique from 1 to 18.'));
@@ -66,14 +89,15 @@ async function setupPreviewCourse(id,d){
  const header=suEl('div','su-card-row');['Hole','Par','SI','Yards'].forEach(x=>header.append(suEl('span','',x)));details.append(header);
  t.holes.forEach((h,i)=>{const row=suEl('div','su-card-row');row.append(suEl('span','','H'+(i+1)));for(const key of ['par','stroke_index','yardage']){const input=document.createElement('input');input.type='number';input.inputMode='numeric';input.value=h[key]??'';input.min=key==='par'?'3':'1';input.max=key==='par'?'5':key==='stroke_index'?'18':'1000';input.step='1';input.placeholder='—';input.dataset.field=key;input.dataset.hole=i;input.setAttribute('aria-label','Hole '+(i+1)+' '+key.replace('_',' '));row.append(input);}details.append(row);});card.append(details);
  card.append(suEl('p','su-hint','Check these details against the club scorecard before adding. Only tees with matching pars and stroke indexes will share this course card.'));
+ if(!c.canImport){feedback.textContent='Adding new courses requires course-admin permission.';}
  if(!c.canImport)card.append(suEl('p','su-hint','Adding new scorecards requires course-admin permission. You can select any course already in the app.'));
  };
  select.onchange=draw;draw();
- save.onclick=async()=>{d.dataset.saving='true';save.disabled=true;select.disabled=true;status.textContent='Adding course…';
+ save.onclick=async()=>{d.dataset.saving='true';save.disabled=true;select.disabled=true;status.textContent='Adding course…';feedback.textContent='Adding course…';
  try{const holes=c.choices.find(t=>t.id===select.value).holes.map((h,i)=>Object.fromEntries(['par','stroke_index','yardage'].map(key=>{const raw=card.querySelector('[data-hole="'+i+'"][data-field="'+key+'"]').value.trim();return [key,raw===''?null:Number(raw)];})));
  if(holes.length!==18||holes.some(h=>![3,4,5].includes(h.par)||!Number.isInteger(h.stroke_index)||h.stroke_index<1||h.stroke_index>18)||new Set(holes.map(h=>h.stroke_index)).size!==18)throw new Error('Please complete all pars and stroke indexes (unique 1–18) using the club scorecard.');
- const added=await setupApi('import',{id,tee:select.value,holes});await loadCourseData(false);const ok=await setupChooseCourse(added.slug);if(!ok)throw new Error(document.getElementById('setup-status').textContent||'The course was added. Choose it from the course list.');selectTee(added.tee);setupDialog=null;d.close();d.remove();setupStatus(added.existing?'Course already in the app — ready to play.':'Course added — ready to play.');}
- catch(e){status.textContent=e.message;save.disabled=false;select.disabled=false;}finally{d.dataset.saving='false';}};
+ const added=await setupApi('import',{id,tee:select.value,holes});await loadCourseData(false);if(added.course&&!setupCourses.some(c=>c.slug===added.slug)){setupCourses.push(added.course);const option=suEl('option','',added.course.name+' · Par '+added.course.par);option.value=added.slug;document.getElementById('setup-course-select').append(option);}const ok=await setupChooseCourse(added.slug);if(!ok)throw new Error(document.getElementById('setup-status').textContent||'The course was added. Choose it from the course list.');selectTee(added.tee);setupDialog=null;d.close();d.remove();setupStatus(added.existing?'Course already in the app — ready to play.':'Course added — ready to play.');}
+ catch(e){status.textContent=e.message;feedback.textContent=e.message;save.disabled=false;select.disabled=false;footer.scrollIntoView({block:'nearest'});}finally{d.dataset.saving='false';}};
  root.scrollIntoView({block:'start',behavior:'smooth'});
  }catch(e){if(setupDialog===d&&version===setupFindVersion)status.textContent=e.message;}
 }
