@@ -91,9 +91,9 @@ function restResponse(method, url) {
   if (path === 'courses') {
     if (q.includes('slug=eq.')) return COURSES.filter(c => q.includes('slug=eq.' + c.slug));
     if (q.includes('id=eq.')) return COURSES.filter(c => q.includes('id=eq.' + c.id));
-    return COURSES.map(({ id, name, slug, par }) => ({ id, name, slug, par }));
+    return COURSES.map(c => ({...c}));
   }
-  if (path === 'holes') { const m = q.match(/course_id=eq\.(\w+)/); return m ? holesFor(m[1]) : []; }
+  if (path === 'holes') { const m = q.match(/course_id=eq\.(\w+)/); return m ? holesFor(m[1]).map(h=>m[1]==='cNew'?{...h,tee_options:{'blue-men':{yardage:360}}}:h) : []; }
   if (path === 'shots' && state.resumeB) return shots18('r-live').slice(0, 4).map((x, i) => ({ ...x, error_tags: ['TB', 'B', null, 'SBP'][i] }));
   if (path === 'shots' && state.resumeZeroPutt) return shots18('r-live').slice(0, 4).map((x, i) => i === 1 ? { ...x, putts: 0 } : i === 2 ? { ...x, score: 13 } : x);
   if (path === 'shots') return shots18('r-live').slice(0, 4).map((x, i) =>
@@ -192,6 +192,16 @@ async function onMessage(raw) {
       if (url.includes('/rest/v1/events')) return fulfill(201, '');
       let payload; try { payload = restResponse(request.method, url); } catch (e) { return fulfill(500, JSON.stringify({ message: e.message })); }
       return fulfill(200, JSON.stringify(payload));
+    }
+    if (url.includes('/api/courses')) {
+      const u=new URL(url);
+      if(request.method==='POST') {
+        const fresh={id:'cNew',slug:'gca-9001-card',name:'New <Club> Course',par:72,tee_options:{'blue-men':{name:'Blue · Men',rating:71,slope:123}}};
+        if(!COURSES.some(c=>c.id==='cNew'))COURSES.push(fresh);
+        state.importedCourse=true;return fulfill(200,JSON.stringify({slug:fresh.slug,tee:'blue-men'}));
+      }
+      if(u.searchParams.get('action')==='search')return fulfill(200,JSON.stringify({canImport:true,courses:[{id:'9001',name:'New <Club> Course',location:'Woking, England'}]}));
+      return fulfill(200,JSON.stringify({id:'9001',name:'New <Club> Course',location:'Woking, England',canImport:true,choices:[{id:'male-0',name:'Blue',group:'Men',valid:true,rating:71,slope:123,holes:holesFor('cA').map(h=>({hole_number:h.hole_number,par:h.par,stroke_index:state.missingCourseSI?null:h.stroke_index,yardage:350}))}]}));
     }
     if (url.includes('/api/ai-debrief')) { state.debriefPrompt = JSON.parse(request.postData).prompt; return fulfill(200, JSON.stringify({ content: [{ text: DEBRIEF_JSON }] })); }
     if (url.includes('/api/')) return fulfill(500, '{"error":"blocked in test"}');
@@ -1236,6 +1246,44 @@ const t = async (name, fn) => {
     state.statsError=false;await ev(`document.querySelector('#stats-scroll button').click()`);await statsIdle();
     assert.strictEqual(await ev(`statsRows.length`),2);
     assert.ok(!/Could not load Stats/.test(await ev(`document.getElementById('stats-scroll').textContent`)));
+  });
+
+
+  await t('SETUP: refreshed tee-off page fits phones in light/dark with pinned action', async()=>{
+    await ev(`activeRoundId=null;clearRoundStateFromStorage();showScreen('screen-setup');setupRefresh();document.getAnimations().forEach(a=>a.finish())`);
+    assert.match(await ev(`document.querySelector('.su-hero').textContent`),/Let’s tee off/);
+    for(const [width,height] of [[375,667],[390,844]])for(const mode of ['light','dark']){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:2,mobile:true});await ev(`setTheme('${mode}')`);
+      const fit=await ev(`(()=>{const b=document.getElementById('setup-start').getBoundingClientRect(),s=document.querySelector('.su-scroll');return {page:document.documentElement.scrollWidth<=innerWidth+1,contents:s.scrollWidth<=s.clientWidth+1,action:b.bottom<=innerHeight+1&&b.top>0};})()`);
+      assert.deepStrictEqual(fit,{page:true,contents:true,action:true});
+      if(process.env.SHOTS&&width===390)require('fs').writeFileSync(process.env.SHOTS+'/tee-off-'+mode+'.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    }
+    await ev(`setTheme('light')`);
+  });
+  await t('SETUP: library finder and external preview do not create rounds or mutate live scores',async()=>{
+    const n=state.writes.length;state.missingCourseSI=true;
+    await ev(`openCourseFinder()`);assert.ok(await ev(`document.querySelector('#su-library').textContent.includes('Course A')`));
+    await ev(`document.getElementById('su-query').value='New Club';document.querySelector('.su-search').requestSubmit()`);
+    await waitFor(`!!document.querySelector('#su-results button')`);await ev(`document.querySelector('#su-results button').click()`);
+    await waitFor(`!!document.querySelector('#su-preview .su-primary')`);
+    assert.match(await ev(`document.getElementById('su-preview').textContent`),/Blue/);
+    assert.strictEqual(await ev(`document.querySelectorAll('#su-preview [data-field=stroke_index]').length`),18);
+    assert.strictEqual(await ev(`document.querySelector('#su-preview [data-field=stroke_index]').value`),'');
+    assert.strictEqual(await ev(`document.querySelectorAll('#su-preview img').length`),0);
+    assert.strictEqual(state.writes.length,n);
+    if(process.env.SHOTS)require('fs').writeFileSync(process.env.SHOTS+'/course-finder.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  });
+  await t('SETUP: add a new course from preview, custom tees retained; scratch handicap stays zero',async()=>{
+    await ev(`[...document.querySelectorAll('#su-preview [data-field=stroke_index]')].forEach((el,i)=>el.value=i+1);document.querySelector('#su-preview .su-primary').click()`);
+    await waitFor(`!document.querySelector('.su-finder')`);
+    assert.strictEqual(await ev(`selectedCourseSlug`),'gca-9001-card');assert.strictEqual(await ev(`selectedTee`),'blue-men');
+    assert.strictEqual(await ev(`document.getElementById('tee-btn-blue-men').textContent`),'Blue · Men');
+    assert.strictEqual(await ev(`HOLES[0].yards['blue-men']`),360);
+    const n=state.writes.length;await ev(`document.getElementById('setup-hc').value='';startRound()`);assert.strictEqual(state.writes.length,n);
+    await ev(`document.getElementById('setup-hc').value='0';startRound()`);await waitFor(`activeRoundId==='new-round'`);
+    assert.strictEqual(await ev(`playingHC`),0);assert.strictEqual(await ev(`document.getElementById('tb-yards').textContent`),'360');
+    assert.ok(state.writes.slice(n).some(w=>w.method==='POST'&&w.url.includes('/rounds')&&JSON.parse(w.body).tee_color==='blue-men'));
+    await ev(`cancelRound()`);
   });
 
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {

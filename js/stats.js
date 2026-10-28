@@ -4,7 +4,7 @@ let statsState = {tab:'progress', course:'all', tee:'all', window:5, courseView:
 const stText = (tag, cls, text) => {const el=document.createElement(tag); if(cls) el.className=cls; if(text !== undefined) el.textContent=text; return el;};
 const stFixed = n => n === null ? '—' : n.toFixed(1);
 const stDate = value => crFormatDate(value) || 'Date not recorded';
-const stTeeName = value => value === 'unknown' ? 'Tees not recorded' : value.charAt(0).toUpperCase()+value.slice(1)+' tees';
+const stTeeName = value => value === 'unknown' ? 'Tees not recorded' : value.replace(/-/g,' ').replace(/^./,c=>c.toUpperCase())+' tees';
 const stSigned = n => (n>0?'+':'')+n.toFixed(1);
 
 async function fetchStatsHistory(uid) {

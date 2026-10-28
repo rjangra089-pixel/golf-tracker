@@ -69,3 +69,15 @@ empty states, failed reads/retry, keyboard navigation and light/dark layouts at
 that filters do not change an active round, that the caddie stays course-specific,
 and that saved-round Review/Edit continue to work. Handicap forecasts and their
 chart dependencies have been removed. No migrations are required.
+
+## Tee-off and course finder
+
+The setup page has recent-course shortcuts, the full library, authenticated
+provider search, an editable scorecard preview and create-only course import.
+Imports preserve existing course/hole IDs and use existing admin permissions.
+Missing pars/SIs must be completed from the club scorecard; no guesses are saved.
+Matching tee layouts share a course, with the actual tee labels and yardages.
+`node tests/unit/course-import.test.js` mocks both services and verifies validation,
+authentication, permissions, duplicate handling and that only new course/hole
+inserts are issued. Browser tests mock search/import and verify phone layouts,
+preview without writes, completing SIs, new-course selection and a zero handicap.

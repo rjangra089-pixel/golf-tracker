@@ -1419,6 +1419,7 @@
     <link rel="stylesheet" href="css/coach-review.css?v=1">
     <link rel="stylesheet" href="css/round-editor.css?v=1">
     <link rel="stylesheet" href="css/stats.css?v=1">
+    <link rel="stylesheet" href="css/setup.css?v=1">
 </head>
 <body>
 
@@ -1759,41 +1760,25 @@
      SCREEN: SETUP
 ══════════════════════════════════════ -->
 <div id="screen-setup" class="screen">
-    <div style="flex:1; overflow-y:auto; display:flex; align-items:center; justify-content:center; padding:30px 24px;">
-        <div style="width:100%; max-width:380px; display:flex; flex-direction:column; gap:0; align-items:center;">
-            <div class="setup-logo">TEE OFF</div>
-            <div class="setup-course-tag" id="setup-course-tag">Loading courses...</div>
-            <select class="field-input" id="setup-course-select" style="margin-top:-20px;margin-bottom:12px;text-align:center;font-size:17px;cursor:pointer;" onchange="onCourseChange()">
-                <option value="">Loading...</option>
-            </select>
-
-            <div class="setup-card">
-                <div>
-                    <div class="field-label">Your Name</div>
-                    <input class="field-input" id="setup-name" type="text" placeholder="Rajiv" value="Rajiv" autocomplete="off">
-                </div>
-                <div class="hc-grid">
-                    <div>
-                        <div class="field-label">Playing HC</div>
-                        <input class="field-input" id="setup-hc" type="number" placeholder="27" value="27" min="0" max="54">
-                    </div>
-                    <div>
-                        <div class="field-label">Date</div>
-                        <input class="field-input" id="setup-date" type="date">
-                    </div>
-                </div>
-                <div>
-                    <div class="field-label">Tee</div>
-                    <div class="tee-selector">
-                        <button class="tee-btn" id="tee-btn-yellow" onclick="selectTee('yellow')">⛳ Yellow</button>
-                        <button class="tee-btn" id="tee-btn-white" onclick="selectTee('white')">⬜ White</button>
-                    </div>
-                </div>
-                <button class="btn-teeoff" onclick="startRound()">TEE OFF →</button>
-                <button class="btn-back-setup" onclick="showScreen('screen-home')">← Back to Clubhouse</button>
-            </div>
-        </div>
+    <header class="su-header"><button type="button" class="btn-back-setup" onclick="showScreen('screen-home')">‹ Clubhouse</button><span>New round</span></header>
+    <div class="su-scroll">
+        <section class="su-hero">
+            <svg class="su-landscape" viewBox="0 0 400 180" aria-hidden="true"><path d="M0 125Q90 70 180 130T400 115V180H0Z" fill="#216746"/><path d="M220 180Q160 150 245 120T290 60Q340 40 350 65T310 120Q270 150 300 180Z" fill="#86b779"/><ellipse cx="320" cy="65" rx="27" ry="12" fill="#bcdb9f"/><path d="M320 65V22l27 9-27 9" fill="#f4ce77" stroke="#f4ce77" stroke-width="2"/><circle cx="80" cy="38" r="17" fill="#f4ce77" opacity=".85"/></svg>
+            <p class="su-eyebrow">Make the next shot count</p><h1>Let’s tee off.</h1><p class="su-routine">PICK → SEE → GO</p>
+        </section>
+        <section class="su-course-card"><div class="su-row"><span class="su-eyebrow">Your course</span><button type="button" id="setup-find" onclick="openCourseFinder()">Find / add course ↗</button></div>
+            <h2 id="setup-course-tag">Choose your course</h2><p id="setup-course-meta" class="su-hint"></p>
+            <label class="su-field">Course library<select id="setup-course-select" onchange="onCourseChange()"><option value="">Loading courses…</option></select></label>
+            <div id="setup-recent-wrap" hidden><h3>Recently played</h3><div id="setup-recent"></div></div>
+        </section>
+        <section class="su-details"><div class="su-row"><h2>Round details</h2><span id="setup-player"></span></div><input id="setup-name" type="hidden">
+            <div class="su-fields"><label class="su-field">Playing handicap<input id="setup-hc" type="number" value="27" min="0" max="54" step="1" inputmode="numeric"></label><label class="su-field">Date<input id="setup-date" type="date"></label></div>
+            <p class="su-hint">Use the playing handicap for the course and tees you’ll play.</p>
+            <h3>Choose your tees</h3><div id="setup-tees" class="tee-selector"><button type="button" class="tee-btn" id="tee-btn-yellow" onclick="selectTee('yellow')">Yellow</button><button type="button" class="tee-btn" id="tee-btn-white" onclick="selectTee('white')">White</button></div><p class="su-hint" id="setup-tee-meta"></p>
+        </section>
+        <p id="setup-status" role="status" aria-live="polite"></p>
     </div>
+    <footer class="su-footer"><span>One mistake doesn’t get a friend.</span><button type="button" class="btn-teeoff" id="setup-start" onclick="startRound()">TEE OFF →</button></footer>
 </div>
 
 <!-- ══════════════════════════════════════
@@ -1992,6 +1977,7 @@
 <script src="js/round-editor.js?v=1"></script>
 <script src="js/stats-model.js?v=1"></script>
 <script src="js/stats.js?v=1"></script>
+<script src="js/setup.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
 //  SUPABASE
@@ -2046,10 +2032,11 @@ async function init() {
     await loadHomeData();
 }
 
-async function loadCourseData() {
+async function loadCourseData(activate = true) {
     try {
-        const courses = await sbFetch('courses?select=id,name,slug,par&order=name');
-        if (!courses || !courses.length) return;
+        const courses = await sbFetch('courses?select=id,name,slug,par,location,tee_options&order=name');
+        setupCourses = courses || [];
+        if (!courses || !courses.length) { setupRefresh(); return; }
 
         // Built with DOM APIs + textContent: course names are database text and
         // must display literally, never be parsed as HTML.
@@ -2062,57 +2049,36 @@ async function loadCourseData() {
             return opt;
         }));
 
-        await switchCourse(selectedCourseSlug);
+        if (activate) await switchCourse(courses.some(c => c.slug === selectedCourseSlug) ? selectedCourseSlug : courses[0].slug);
+        setupRefresh();
     } catch(e) { console.warn('Course load:', e); }
 }
 
 async function switchCourse(slug) {
+    const version = ++setupSwitchVersion;
+    setupLoading = true; setupStatus('Loading course…'); setupRefresh();
     try {
-        const _courseRows = await sbFetch('courses?select=id,name,par,slope_rating,course_rating,tee_options&slug=eq.' + slug);
-        const course = _courseRows?.[0] || null;
-        if (course) {
-            courseId           = course.id;
-            holeStats          = []; // never reuse caddie averages from the previous course
-            selectedCourseSlug = slug;
-            COURSE_PAR         = course.par || 72;
-
-            // Populate rating/slope from DB tee_options if available
-            const teeOpts = course.tee_options || {};
-            COURSE_RATING = {
-                yellow: { rating: teeOpts.yellow?.rating || course.course_rating || 69.0, slope: teeOpts.yellow?.slope || course.slope_rating || 116 },
-                white:  { rating: teeOpts.white?.rating  || course.course_rating || 69.0, slope: teeOpts.white?.slope  || course.slope_rating || 116 },
-            };
-
-            // Fetch full hole data + tip columns
-            const holes = await sbFetch(
-                'holes?select=id,hole_number,par,stroke_index,yardage,is_danger_hole,verified_tip,ai_tip,tip_source&course_id=eq.' + courseId + '&order=hole_number'
-            );
-            if (holes && holes.length) {
-                holeIds = holes.map(h => h.id);
-
-                // Build HOLES entirely from DB — single source of truth for all courses
-                HOLES = holes.map(h => ({
-                    num:         h.hole_number,
-                    par:         h.par,
-                    si:          h.stroke_index,
-                    yards:       { yellow: h.yardage, white: h.yardage },
-                    danger:      h.is_danger_hole || false,
-                    tip:         h.verified_tip || h.ai_tip || 'Play to the fat of the fairway. Take your medicine.',
-                    tipSource:   h.tip_source || 'none',
-                    tipVerified: !!h.verified_tip,
-                }));
-
-                cacheCourseData(slug, HOLES);
-            }
-
-            document.getElementById('setup-course-tag').textContent = course.name;
-            selectedCourseName = course.name;
-            renderStartMeta();
-        }
+        const rows = await sbFetch('courses?select=id,name,par,slope_rating,course_rating,tee_options&slug=eq.' + encodeURIComponent(slug));
+        const course = rows?.[0]; if (!course) throw new Error('Course not found. Please choose another course.');
+        const holes = await sbFetch('holes?select=id,hole_number,par,stroke_index,yardage,tee_options,is_danger_hole,verified_tip,ai_tip,tip_source&course_id=eq.' + course.id + '&order=hole_number');
+        if (version !== setupSwitchVersion) return;
+        if (!stCourseMap({courses:{holes}})) throw new Error('This course needs a complete 18-hole scorecard before you can play.');
+        const tees = Object.fromEntries(Object.entries(course.tee_options || {}).filter(([k,v]) => !k.startsWith('_') && v && typeof v === 'object'));
+        if (!Object.keys(tees).length) Object.assign(tees,{yellow:{name:'Yellow'},white:{name:'White'}});
+        const nextHoles = holes.map(h => ({num:h.hole_number,par:h.par,si:h.stroke_index,
+            yards:Object.keys(h.tee_options || {}).length ? Object.fromEntries(Object.entries(h.tee_options).map(([k,v])=>[k,v?.yardage??null])) : {yellow:h.yardage,white:h.yardage},
+            danger:h.is_danger_hole||false,tip:h.verified_tip||h.ai_tip||'Play to the fat of the fairway. Take your medicine.',tipSource:h.tip_source||'none',tipVerified:!!h.verified_tip}));
+        courseId=course.id; selectedCourseSlug=slug; selectedCourseName=course.name; COURSE_PAR=course.par;
+        COURSE_RATING=tees; setupTees=tees; HOLES=nextHoles;holeIds=holes.map(h=>h.id);holeStats=[];
+        if (!setupTees[selectedTee]) selectedTee=Object.keys(setupTees)[0];
+        document.getElementById('setup-course-select').value=slug;
+        document.getElementById('setup-course-tag').textContent=course.name;
+        cacheCourseData(slug,HOLES);renderStartMeta();setupStatus('');
     } catch(e) {
-        console.warn('Switch course:', e);
-        tryRestoreCourseFromCache(slug);
-    }
+        if(version!==setupSwitchVersion)return;
+        setupStatus(e.message,true);
+        document.getElementById('setup-course-select').value=selectedCourseSlug;
+    } finally { if(version===setupSwitchVersion){setupLoading=false;setupRefresh();} }
 }
 
 function cacheCourseData(slug, holes) {
@@ -2138,30 +2104,12 @@ function tryRestoreCourseFromCache(slug) {
     } catch(e) { console.warn('Course cache restore failed:', e); }
 }
 
-function onCourseChange() {
-    const slug = document.getElementById('setup-course-select').value;
-    if (slug) {
-        localStorage.setItem('lastCourseSlug', slug);
-        if (currentUser?.id) {
-            sbFetch('user_preferences?user_id=eq.' + currentUser.id, {
-                method: 'PATCH',
-                body: JSON.stringify({ last_course_slug: slug })
-            });
-        }
-        switchCourse(slug);
-    }
+async function onCourseChange() {
+    return setupChooseCourse(document.getElementById('setup-course-select').value);
 }
-
 function selectTee(tee) {
-    selectedTee = tee;
-    localStorage.setItem('lastTee', tee);
-    const yellowBtn = document.getElementById('tee-btn-yellow');
-    const whiteBtn  = document.getElementById('tee-btn-white');
-    if (yellowBtn) {
-        yellowBtn.className = tee === 'yellow' ? 'tee-btn selected-yellow' : 'tee-btn';
-        whiteBtn.className  = tee === 'white'  ? 'tee-btn selected-white'  : 'tee-btn';
-    }
-    renderStartMeta();
+    selectedTee = tee; localStorage.setItem('lastTee',tee);
+    setupRefresh(); renderStartMeta();
 }
 
 // Apply saved tee selection on load
@@ -2341,7 +2289,7 @@ function liveRoundReview() {
     // in the DB until saved, but every hole is final, so it is reviewable.
     return crBuildReview({
         status: 'completed', allowInProgress: true,
-        courseName: selectedCourseName, tee: selectedTee, date: roundDate,
+        courseName: selectedCourseName, tee: teeLabel(selectedTee), date: roundDate,
         createdAt: new Date().toISOString(), playingHandicap: playingHC, stableford: getTotalPoints(),
         playedOnThisVersion: true,   // played on this app version, so all five error tags were available
         holes: HOLES.map(h => ({ hole_number: h.num, par: h.par, stroke_index: h.si })),
@@ -2704,8 +2652,17 @@ function buildHomeView(model, profile = {}) {
 //  PLAY SCREEN
 // ═══════════════════════════════════════════════════════════════
 async function startRound() {
+    if (setupRoundBusy) return;
+    if (setupLoading && setupPendingCourse) await setupPendingCourse;
+    const requested = document.getElementById('setup-course-select').value;
+    const hcRaw = document.getElementById('setup-hc').value.trim(), hc = hcRaw === '' ? NaN : Number(hcRaw);
+    if (!Number.isInteger(hc) || hc < 0 || hc > 54) { setupStatus('Enter a whole-number playing handicap from 0 to 54.',true); return; }
+    if (!document.getElementById('setup-date').value) {setupStatus('Choose the round date.',true);return;}
+    if (setupLoading || !requested || requested !== selectedCourseSlug || HOLES.length !== 18) {setupStatus('Wait for a complete course scorecard to load before teeing off.',true);return;}
+    setupRoundBusy = true; setupRefresh();
+    try {
     playerName = document.getElementById('setup-name').value.trim() || 'Golfer';
-    playingHC  = parseInt(document.getElementById('setup-hc').value) || 27;
+    playingHC  = hc;
     roundDate  = document.getElementById('setup-date').value;
     holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
     activeRoundId = null;
@@ -2740,6 +2697,7 @@ async function startRound() {
         console.warn('Could not pre-create round:', e.message);
         // Not fatal — saveRound() on summary is the fallback
     }
+    } finally {setupRoundBusy=false;setupRefresh();}
 }
 
 // ── RESUME IN-PROGRESS ROUND ─────────────────────────────────────
@@ -2872,7 +2830,7 @@ function renderHole(idx, fromPrev) {
     document.getElementById('tb-hole').textContent  = `H${h.num}`;
     document.getElementById('tb-par').textContent   = h.par;
     document.getElementById('tb-si').textContent    = h.si;
-    const hYards = typeof h.yards === 'object' ? (h.yards[selectedTee] || h.yards.yellow) : h.yards;
+    const hYards = typeof h.yards === 'object' ? (h.yards[selectedTee] ?? '—') : h.yards;
     document.getElementById('tb-yards').textContent = hYards;
     const totalPts   = getTotalPoints();
     const holesPlayed = holeData.slice(0, idx).filter(h=>h.score).length;
@@ -3349,6 +3307,7 @@ function showScreen(id) {
     document.querySelectorAll('.bnav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === id));
     if (id==='screen-stats')   loadStats();
     if (id==='screen-profile') renderProfile();
+    if (id==='screen-setup') setupRefresh();
 }
 
 function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
@@ -3415,7 +3374,7 @@ function renderStartMeta() {
     const courseEl = document.getElementById('home-start-course');
     if (!courseEl) return;
     courseEl.textContent = selectedCourseName || 'Choose a course';
-    document.getElementById('home-start-tee').textContent = (selectedTee === 'white' ? 'White' : 'Yellow') + ' tees';
+    document.getElementById('home-start-tee').textContent = teeLabel(selectedTee) + ' tees';
 }
 
 // ═══════════════════════════════════════════════════════════════

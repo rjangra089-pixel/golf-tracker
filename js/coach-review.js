@@ -140,7 +140,7 @@ function crBuildReview(input, opts = {}) {
         holeCount: holes.length,
         meta: {
             course: input.courseName || null,
-            tee: input.tee ? input.tee.charAt(0).toUpperCase() + input.tee.slice(1) : null,
+            tee: input.tee ? input.tee.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase()) : null,
             date: crFormatDate(input.date),
             playingHandicap: Number.isFinite(input.playingHandicap) ? input.playingHandicap : null,
             stableford: Number.isFinite(input.stableford) ? input.stableford : null,
