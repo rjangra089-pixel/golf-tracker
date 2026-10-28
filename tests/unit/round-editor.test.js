@@ -67,7 +67,7 @@ await t('retry repairs round totals when summary update fails',async()=>{
 });
 await t('editor never uses active round or storage queue and integration offers Edit only on saved rounds',()=>{
     assert.ok(!/\b(activeRoundId|holeData|HOLES|playingHC|selectedTee|selectedCourseSlug|queueWrite|localStorage|loadHomeData)\b/.test(code));
-    const html=fs.readFileSync(path.join(__dirname,'../../index.html'),'utf8');assert.ok(html.includes('js/round-editor.js?v=1'));assert.ok(html.includes("editBtn.addEventListener('click', () => openRoundEdit(r.id))"));
+    const html=fs.readFileSync(path.join(__dirname,'../../index.html'),'utf8')+fs.readFileSync(path.join(__dirname,'../../js/stats.js'),'utf8');assert.ok(html.includes('js/round-editor.js?v=1'));assert.ok(html.includes("editBtn.addEventListener('click', () => openRoundEdit(r.id))"));
 });
 console.log(`\nAll ${n} round-editor tests passed.`);
 })().catch(e=>{console.error(e);process.exitCode=1;});

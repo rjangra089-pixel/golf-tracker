@@ -1,0 +1,61 @@
+/* Stats only. Course/tee filters never change active-round state. */
+#screen-stats { background:var(--cl-bg); color:var(--cl-text); font-family:var(--cl-font); }
+#screen-stats .stats-topbar { background:var(--cl-surface); padding:18px 20px 14px; border-color:var(--cl-border); }
+#screen-stats .stats-topbar-title { font:650 26px var(--cl-font); color:var(--cl-text); letter-spacing:-.5px; }
+#screen-stats .stats-topbar-sub { color:var(--cl-text-2); font-size:13px; line-height:1.5; }
+#screen-stats .stats-scroll { padding:16px 16px 28px; gap:16px; }
+#screen-stats .stats-scroll > * { width:100%; max-width:720px; margin-inline:auto; box-sizing:border-box; }
+#screen-stats .st-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:8px 16px; background:var(--cl-surface); border-bottom:1px solid var(--cl-border); }
+#screen-stats .st-tabs button { border:0; border-radius:10px; min-height:44px; background:none; color:var(--cl-text-2); font:600 15px var(--cl-font); cursor:pointer; }
+#screen-stats .st-tabs button[aria-selected="true"] { background:var(--cl-control); color:var(--cl-accent); }
+#screen-stats :focus-visible { outline:2px solid var(--cl-accent); outline-offset:3px; }
+#screen-stats .st-card { background:var(--cl-surface); border:1px solid var(--cl-border); border-radius:16px; padding:18px; }
+#screen-stats .st-section-title { font-size:19px; font-weight:650; line-height:1.3; margin:0 0 6px; }
+#screen-stats .st-caption { color:var(--cl-text-2); font-size:13px; line-height:1.5; margin-top:4px; overflow-wrap:anywhere; }
+#screen-stats .st-message { font-size:15px; line-height:1.6; padding:16px 0; color:var(--cl-text-2); }
+#screen-stats .st-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+#screen-stats .st-filters .st-field:last-child:nth-child(3) { grid-column:1/-1; }
+#screen-stats .st-field { display:flex; flex-direction:column; gap:6px; min-width:0; font-size:13px; color:var(--cl-text-2); }
+#screen-stats .st-field input,#screen-stats .st-field select { min-width:0; max-width:100%; width:100%; box-sizing:border-box; min-height:44px; padding:10px; font:16px var(--cl-font); background:var(--cl-surface); color:var(--cl-text); border:1px solid var(--cl-border); border-radius:10px; }
+#screen-stats .st-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; padding:16px 0; }
+#screen-stats .st-metric dt { color:var(--cl-text-2); font-size:13px; }
+#screen-stats .st-value { font-size:32px; font-weight:650; letter-spacing:-1px; margin:4px 0; }
+#screen-stats .st-pair { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; padding:12px 0; border-top:1px solid var(--cl-border); }
+#screen-stats .st-pair h3 { font-size:14px; font-weight:550; line-height:1.5; }
+#screen-stats .st-pair strong { font-size:15px; text-align:right; flex-shrink:0; max-width:48%; line-height:1.5; }
+#screen-stats .st-pair > div { min-width:0; }
+#screen-stats .st-tag-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; margin:16px 0; }
+#screen-stats .st-tag-count { display:flex; flex-direction:column; align-items:center; text-align:center; gap:4px; min-width:0; }
+#screen-stats .st-tag-count > span:not(.st-caption) { font-size:24px; font-weight:600; }
+#screen-stats .st-tag-count .st-caption { font-size:11px; }
+#screen-stats .st-trend { margin:16px 0 0; }
+#screen-stats .st-trend svg { display:block; width:100%; height:auto; margin-top:14px; overflow:visible; }
+#screen-stats .st-trend-line { fill:none; stroke:var(--cl-accent); stroke-width:2; }
+#screen-stats .st-trend circle { fill:var(--cl-accent); }
+#screen-stats .st-trend text { fill:var(--cl-text-2); font:11px var(--cl-font); text-anchor:middle; }
+#screen-stats details > summary { cursor:pointer; min-height:44px; align-content:center; font-size:15px; font-weight:600; }
+#screen-stats .st-hole { border-top:1px solid var(--cl-border); padding:16px 0 0; margin-top:16px; }
+#screen-stats .st-hole h3 { font-size:16px; font-weight:600; }
+#screen-stats .st-hole .st-pair { border:0; padding:6px 0; }
+#screen-stats .st-hole .st-pair .st-caption { font-size:12px; }
+#screen-stats .st-round-list { display:flex; flex-direction:column; gap:12px; }
+#screen-stats .st-round { display:block; padding:18px; border:1px solid var(--cl-border); background:var(--cl-surface); border-radius:16px; }
+#screen-stats .st-round .rhi-date { font:600 17px var(--cl-font); }
+#screen-stats .st-round .rhi-sub { color:var(--cl-text-2); font-size:14px; overflow-wrap:anywhere; line-height:1.5; }
+#screen-stats .st-round-numbers { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px 0; }
+#screen-stats .rhi-score { font:650 28px var(--cl-font); color:var(--cl-text); }
+#screen-stats .rhi-pts { color:var(--cl-accent); background:var(--cl-control); font:550 14px var(--cl-font); padding:6px 10px; border:0; }
+#screen-stats .st-round-actions { display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px; border-top:1px solid var(--cl-border); padding-top:12px; }
+#screen-stats .rhi-edit,#screen-stats .rhi-review,#screen-stats .st-button { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:10px 16px; margin:0; border:1px solid var(--cl-border); border-radius:10px; background:var(--cl-control); color:var(--cl-accent); font:600 14px var(--cl-font); cursor:pointer; box-sizing:border-box; }
+#screen-stats .st-button { margin-top:12px; }
+#screen-stats .st-round-more { margin-left:auto; }
+#screen-stats .st-round-more > summary { color:var(--cl-text-2); font-size:14px; padding:0 10px; }
+#screen-stats .st-delete { min-height:44px; color:var(--cl-destructive); font:14px var(--cl-font); padding:10px; }
+#screen-stats .round-edit-success { color:var(--cl-accent); font-size:14px; line-height:1.5; }
+@media (max-width:360px) {
+    #screen-stats .st-filters { grid-template-columns:minmax(0,1fr); }
+    #screen-stats .st-pair { gap:8px; }
+    #screen-stats .st-card { padding:14px; }
+}
+#screen-stats .st-tabs { flex-shrink:0; }
+#screen-stats .st-round .rhi-score { margin-right:0; }

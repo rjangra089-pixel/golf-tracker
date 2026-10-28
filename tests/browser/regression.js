@@ -100,6 +100,12 @@ function restResponse(method, url) {
     i === 0 ? { ...x, error_tags: 'TA' } : i === 1 ? { ...x, error_tags: null } : i === 3 ? { ...x, error_tags: 'P' } : x);   // hole 3: legacy row, no field
   if (path === 'rounds') {
     if (state.editRound) return [state.editRound];
+    if (q.includes('courses(id,name,holes(')) {
+      if(state.statsError) throw new Error('Simulated history outage');
+      const rows=state.statsScenario || homeRounds();
+      const offset=Number(u.searchParams.get('offset') || 0),limit=Number(u.searchParams.get('limit') || 100);
+      return rows.slice(offset,offset+limit);
+    }
     if (/[?&]id=eq\./.test(q) && q.includes('courses(name,holes(')) return [reviewRoundFixture()];   // Coach Review (history); not user_id=eq.
     if (q.includes('or=(round_status.is.null,round_status.neq.in_progress)')) return HISTORIES[state.history]();   // Phase A home history
     if (q.includes('holes(hole_number,par,stroke_index)')) return debriefRounds();
@@ -107,6 +113,15 @@ function restResponse(method, url) {
   }
   return [];
 }
+
+const statsFixture = () => {
+  const rs=Array.from({length:10},(_,i)=>mkRound('stats-'+i,day(i),'completed',18));
+  rs.forEach((r,i)=>{r.shots.forEach(s=>{s.gir=null;s.fairway=null;});r.shots[0].gir=true;r.shots[1].gir=false;r.shots[0].fairway='Y';r.shots[1].fairway='N';
+    r.shots[0].putts=0;r.shots[2].putts=i===0?null:2;r.shots[3].putts=3;
+    r.created_at='2026-10-10T12:00:00Z';r.shots[0].error_tags=i===0?'TA':null;});
+  rs.unshift(mkRound('stats-partial','2026-10-05','completed',9),mkRound('stats-live','2026-10-06','in_progress',4));
+  return rs;
+};
 
 const FAKE_SUPABASE_JS = `
 window.__session = { access_token: 'TEST_TOKEN', user: { id: 'u-test', user_metadata: { name: 'Test Golfer' } } };
@@ -348,6 +363,7 @@ const t = async (name, fn) => {
 
   await t('Debrief from Stats reviews newest COMPLETE round (skips in-progress + partial), back returns to Stats', async () => {
     await ev(`showScreen('screen-stats')`); await statsIdle();
+    await ev(`statsTab('rounds')`);
     assert.strictEqual(await ev(`!!document.querySelector('#screen-stats #btn-review-round')`), true);
     state.debriefPrompt = null;
     await ev(`document.getElementById('btn-review-round').click()`);
@@ -1019,6 +1035,7 @@ const t = async (name, fn) => {
   await t('COACH REVIEW: Stats history — Review only on finished rounds; historical round shows unknowns honestly', async () => {
     state.inProgress = true; await reloadHome('rich');
     await ev(`showScreen('screen-stats')`); await statsIdle();
+    await ev(`statsTab('rounds')`);
     const btns = await ev(`[...document.querySelectorAll('#stats-scroll .round-history-item')].map(i => [i.querySelector('.rhi-date').textContent, !!i.querySelector('.rhi-review')])`);
     assert.deepStrictEqual(btns.map(b => b[1]), [false, true, true], 'no Review on the in-progress round: ' + JSON.stringify(btns));
     state.inProgress = false;
@@ -1057,6 +1074,7 @@ const t = async (name, fn) => {
       courses:{name:'Historical course B', holes:holesFor('cB')},
       shots:shots18('edit-round').map((s,i)=>({...s,id:'edit-s'+i,putts:i===0?0:2,error_tags:'TB',notes:'Keep this note'}))});
     await ev(`showScreen('screen-stats')`); await statsIdle();
+    await ev(`statsTab('rounds')`);
     const n = state.writes.length;
     await ev(`document.querySelector('.rhi-edit').click()`);
     await waitFor(`document.querySelector('.round-edit input')`);
@@ -1122,11 +1140,102 @@ const t = async (name, fn) => {
   await t('Round editing: corrections survive reload', async () => {
     await send('Page.reload'); await waitFor(`document.querySelector('.screen.active')?.id==='screen-home' && document.getElementById('home-hi').textContent!=='—'`);
     await wrapStats(); await ev(`showScreen('screen-stats')`); await statsIdle();
+    await ev(`statsTab('rounds')`);
     assert.strictEqual(await ev(`document.querySelector('.rhi-score').textContent`),'88');
     await ev(`document.querySelector('.rhi-edit').click()`); await waitFor(`document.querySelector('.round-edit input')`);
     assert.strictEqual(await ev(`document.querySelector('[aria-label="Hole 1 score"]').value`),'3');
     await ev(`document.querySelector('.round-edit-cancel').click()`);
     state.editRound=null;
+  });
+
+
+  await t('STATS: three tabs, no forecasts, clear full-round eligibility and missing-data coverage', async () => {
+    state.statsWriteStart=state.writes.length;state.statsScenario=statsFixture();
+    await ev(`showScreen('screen-stats')`);await statsIdle();await ev(`statsTab('progress')`);
+    assert.deepStrictEqual(await ev(`[...document.querySelectorAll('#stats-tabs button')].map(b=>b.textContent)`),['Progress','Courses','Rounds']);
+    const p=await ev(`document.getElementById('stats-scroll').textContent`);
+    assert.match(p,/5 complete 18-hole rounds/);assert.match(p,/2 other records excluded/);assert.match(p,/35.0/);assert.match(p,/4\/5 rounds with all 18 putt counts/);
+    assert.match(p,/5\/10 recorded greens hit/); // supporting detail has 5 hits in 10 recorded boolean results
+  });
+
+  await t('STATS: Progress filters do not touch live course, tee, scoring or storage', async () => {
+    const b=courseBRound('stats-b','2026-10-01');state.statsScenario.push(b);
+    await ev(`loadStats()`);
+    await ev(`statsTab('progress');window.__statsActiveBefore=JSON.stringify([activeRoundId,HOLES,holeIds,courseId,selectedCourseSlug,selectedTee,playingHC,holeData,localStorage.getItem(ROUND_STATE_KEY)]); document.querySelector('[aria-label="Progress course"]').value='cB';document.querySelector('[aria-label="Progress course"]').dispatchEvent(new Event('change'))`);
+    assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/1 complete 18-hole round/);
+    assert.strictEqual(await ev(`JSON.stringify([activeRoundId,HOLES,holeIds,courseId,selectedCourseSlug,selectedTee,playingHC,holeData,localStorage.getItem(ROUND_STATE_KEY)])===window.__statsActiveBefore`),true);
+    await ev(`document.querySelector('[aria-label="Progress course"]').value='all';document.querySelector('[aria-label="Progress course"]').dispatchEvent(new Event('change'))`);
+    assert.strictEqual(await ev(`document.querySelectorAll('#chart-trend,#chart-score-trend,#chart-putts').length`),0);
+    assert.ok(!/HC .*Projection|Via Score|Via Points|target for HC 16/.test(await ev(`document.getElementById('stats-scroll').textContent`)));
+  });
+
+  await t('STATS: Courses gives its own evidence and leaves the active course untouched', async () => {
+    await ev(`statsTab('courses'); document.querySelector('[aria-label="Course to explore"]').value='cA';document.querySelector('[aria-label="Course to explore"]').dispatchEvent(new Event('change'))`);
+    const text=await ev(`document.getElementById('stats-scroll').textContent`);assert.match(text,/10 complete 18-hole rounds/);assert.match(text,/Recurring trouble holes/);assert.match(text,/All 18 holes/);
+    assert.strictEqual(await ev(`document.querySelectorAll('#stats-scroll > section .st-hole').length`),3);
+    await ev(`document.querySelector('[aria-label="Course to explore"]').value='cB';document.querySelector('[aria-label="Course to explore"]').dispatchEvent(new Event('change'))`);
+    assert.strictEqual(await ev(`document.querySelectorAll('#stats-scroll > section .st-hole').length`),0);
+    assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/Play at least 3 full rounds/);
+    assert.strictEqual(await ev(`JSON.stringify([activeRoundId,HOLES,holeIds,courseId,selectedCourseSlug,selectedTee,playingHC,holeData,localStorage.getItem(ROUND_STATE_KEY)])===window.__statsActiveBefore`),true);
+  });
+
+
+  await t('STATS: caddie averages refresh for the selected playing course, independently of Stats filters', async () => {
+    await ev(`switchCourse('course-b')`);assert.strictEqual(await ev(`holeStats.length`),0);
+    await ev(`loadStats()`);assert.strictEqual(await ev(`holeStats[0].avg`),4);assert.strictEqual(await ev(`holeStats[0].count`),1);
+    await ev(`switchCourse('course-a');loadStats()`);await statsIdle();
+    assert.strictEqual(await ev(`holeStats[0].avg`),5);assert.strictEqual(await ev(`holeStats[0].count`),10);
+    assert.strictEqual(await ev(`holeStats[0].avgPutts`),0);
+    assert.strictEqual(await ev(`holeStats[0].girPct`),100);assert.strictEqual(await ev(`holeStats[2].girPct`),null);
+  });
+
+  await t('STATS: Rounds keeps partial/in-progress records, searches history and preserves Review/Edit', async () => {
+    await ev(`statsTab('rounds')`);
+    assert.strictEqual(await ev(`document.querySelectorAll('.round-history-item').length`),13);
+    const rows=await ev(`[...document.querySelectorAll('.round-history-item')].map(r=>({text:r.textContent,edit:!!r.querySelector('.rhi-edit'),review:!!r.querySelector('.rhi-review')}))`);
+    assert.ok(rows.some(r=>r.text.includes('In progress')&&!r.edit&&!r.review));
+    assert.ok(rows.some(r=>r.text.includes('Front 9')&&r.edit&&r.review));
+    assert.ok(rows.some(r=>r.text.includes('18 holes')&&r.edit&&r.review));
+    await ev(`document.querySelector('[aria-label="Find a round"]').value='2026-10-05';document.querySelector('[aria-label="Find a round"]').dispatchEvent(new Event('input'))`);
+    assert.strictEqual(await ev(`document.querySelectorAll('.round-history-item').length`),1);
+    assert.match(await ev(`document.querySelector('.round-history-item').textContent`),/Front 9/);
+    await ev(`document.querySelector('[aria-label="Find a round"]').value='';document.querySelector('[aria-label="Find a round"]').dispatchEvent(new Event('input'))`);
+  });
+
+  await t('STATS: keyboard tab navigation and small-phone layouts in light and dark', async () => {
+    await ev(`document.getElementById('st-tab-progress').focus();document.getElementById('st-tab-progress').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
+    assert.strictEqual(await ev(`document.activeElement.id`),'st-tab-courses');
+    assert.strictEqual(await ev(`document.getElementById('st-tab-courses').getAttribute('aria-selected')`),'true');
+    for(const [width,height] of [[375,667],[390,844]]) for(const mode of ['light','dark']) for(const tab of ['progress','courses','rounds']) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:2,mobile:true});await ev(`setTheme('${mode}');if('${tab}'==='courses')statsState.courseView='cA';statsTab('${tab}')`);
+      const layout=await ev(`(()=>{const s=document.getElementById('stats-scroll');const els=[...s.querySelectorAll('section,article,select,input,button,svg')].filter(e=>e.getClientRects().length);return {header:document.querySelector('.stats-topbar').getBoundingClientRect().top>=-1,page:document.documentElement.scrollWidth<=innerWidth+1,panel:s.scrollWidth<=s.clientWidth+1,contents:els.every(e=>{const r=e.getBoundingClientRect();return r.left>=-1&&r.right<=innerWidth+1})};})()`);
+      assert.deepStrictEqual(layout,{header:true,page:true,panel:true,contents:true},width+' '+mode+' '+tab);
+      if(process.env.SHOTS&&width===390) require('fs').writeFileSync(`${process.env.SHOTS}/stats-${tab}-${mode}.png`,Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    }
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});await ev(`setTheme('light')`);
+  });
+
+  await t('STATS: all history pagination preserves rounds beyond the previous 20-round limit', async () => {
+    state.statsScenario=Array.from({length:103},(_,i)=>mkRound('page-'+i,'2026-10-01','completed',18));
+    await ev(`loadStats();statsState.search=''`);await statsIdle();await ev(`statsTab('rounds')`);
+    assert.strictEqual(await ev(`statsRows.length`),103);assert.strictEqual(await ev(`document.querySelectorAll('.round-history-item').length`),25);
+    await ev(`[...document.querySelectorAll('#stats-scroll button')].find(b=>b.textContent==='Show more rounds').click()`);
+    assert.strictEqual(await ev(`document.querySelectorAll('.round-history-item').length`),50);
+    state.statsScenario=[];await ev(`loadStats()`);await ev(`statsTab('progress')`);assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/Your progress starts here/);
+    await ev(`statsTab('courses')`);assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/No course history yet/);
+    await ev(`statsTab('rounds')`);assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/No rounds saved yet/);
+    state.statsScenario=null;
+    assert.strictEqual(state.writes.length,state.statsWriteStart,'Stats browsing, filtering and pagination perform no writes');
+  });
+
+
+  await t('STATS: failed history read shows retry and does not pretend partial data is complete', async () => {
+    state.statsError=true;await ev(`loadStats()`);
+    assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/Could not load Stats/);
+    assert.strictEqual(await ev(`statsRows.length`),0);
+    state.statsError=false;await ev(`document.querySelector('#stats-scroll button').click()`);await statsIdle();
+    assert.strictEqual(await ev(`statsRows.length`),2);
+    assert.ok(!/Could not load Stats/.test(await ev(`document.getElementById('stats-scroll').textContent`)));
   });
 
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {

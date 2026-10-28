@@ -54,3 +54,18 @@ partial rounds, zero and unknown putts, validation before any write, ownership,
 conflicts, interrupted saves/retries, and preservation of tags/notes/round IDs.
 The browser regression suite covers Edit, Cancel, Save, failure/retry, persistence
 across reload, active-round isolation and small-phone layouts in both themes.
+
+## Stats: Progress / Courses / Rounds
+
+`node tests/unit/stats.test.js` exercises the read-only `js/stats-model.js`:
+full-round eligibility, course-specific pars and handicap-based Stableford,
+zero/unknown putts, GIR/fairway recording denominators (including legacy Y/N),
+minimum samples for leak rates, comparable course/tee trends, manual tag
+availability/counts, course trouble-hole ranking and authenticated pagination.
+
+The browser suite covers all three tabs, filters, search, 100+ round pagination,
+empty states, failed reads/retry, keyboard navigation and light/dark layouts at
+375×667 and 390×844. It checks that Stats browsing performs no database writes,
+that filters do not change an active round, that the caddie stays course-specific,
+and that saved-round Review/Edit continue to work. Handicap forecasts and their
+chart dependencies have been removed. No migrations are required.
