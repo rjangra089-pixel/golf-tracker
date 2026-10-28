@@ -353,7 +353,7 @@ const t = async (name, fn) => {
     // play screen still works: score a hole, points + total shots render
     await ev(`showScreen('screen-play'); renderHole(0); selectScore(5)`);
     assert.strictEqual(await ev(`document.getElementById('tb-shots').textContent`), '5');
-    await ev(`cancelRound()`); await waitFor(`activeRoundId === null && document.querySelector('.screen.active').id === 'screen-home'`);
+    await ev(`(async()=>{await cancelRound();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();})()`); await waitFor(`activeRoundId === null && document.querySelector('.screen.active').id === 'screen-home'`);
   });
 
   await t('Resuming an in-progress round (round HC 30) does not change Profile/Home HI', async () => {
@@ -368,7 +368,7 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`document.getElementById('profile-hc').value`), '24.0');
     assert.strictEqual(await ev(`document.getElementById('home-hi').textContent`), '24.0');
     state.inProgress = false;
-    await ev(`cancelRound()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
+    await ev(`(async()=>{await cancelRound();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();})()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
   });
 
   await t('Debrief from Stats reviews newest COMPLETE round (skips in-progress + partial), back returns to Stats', async () => {
@@ -441,7 +441,7 @@ const t = async (name, fn) => {
     // Course A hole 2: par 4, SI 2; hc 25 receives 2 shots → gross 6 = net 4 = 2 pts.
     // (Course B hole 2 is a par 5, which would give 3 pts.)
     assert.strictEqual(await ev(`calcPoints(1, 6)`), 2, 'scoring uses Course A');
-    await ev(`cancelRound()`); await waitFor(`activeRoundId === null && document.querySelector('.screen.active').id === 'screen-home'`);
+    await ev(`(async()=>{await cancelRound();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();})()`); await waitFor(`activeRoundId === null && document.querySelector('.screen.active').id === 'screen-home'`);
     state.debriefCourseB = false;
   });
 
@@ -608,7 +608,7 @@ const t = async (name, fn) => {
     assert.strictEqual(new Set(tops).size, 1, 'status/momentum/halfway never move the entry area: ' + tops);
     assert.strictEqual(await ev(`!!document.querySelector('#screen-play .momentum-badge, #screen-play .milestone-banner, #screen-play #hole-feedback')`), false);
     assert.ok(state.writes.filter(w => w.method === 'POST' && /\/rest\/v1\/shots$/.test(w.url)).length >= 9, 'autosave posted shots');
-    await ev(`cancelRound()`); await waitFor(`activeRoundId === null && document.querySelector('.screen.active').id === 'screen-home'`);
+    await ev(`(async()=>{await cancelRound();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();})()`); await waitFor(`activeRoundId === null && document.querySelector('.screen.active').id === 'screen-home'`);
   });
 
   await t('B2 phone widths 375 / 390 / 414 / 430: no horizontal scroll, nothing past the right edge (light + dark)', async () => {
@@ -761,7 +761,7 @@ const t = async (name, fn) => {
     await ev(`renderHole(0)`); assert.strictEqual(await pressed(), 'TA');
     await ev(`renderHole(2)`); assert.strictEqual(await pressed(), '');
     state.inProgress = false;
-    await ev(`cancelRound()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
+    await ev(`(async()=>{await cancelRound();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();})()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
   });
 
   // ═════════════════════════ Live score entry redesign ═════════════════════════
@@ -774,12 +774,12 @@ const t = async (name, fn) => {
     await ev(`startRound()`); await waitFor(`activeRoundId === 'new-round'`); await statsIdle();
   };
 
-  await t('LIVE: compact header "H1 · Par 4 · 350y · SI 1 · +2", tally line, Cancel, no hole card / points box / recap', async () => {
+  await t('LIVE: compact header "H1 · Par 4 · 350y · SI 1 · +2", tally line, Leave, no hole card / points box / recap', async () => {
     await reloadHome('rich'); state.writes.length = 0;
     await startTestRound();
     assert.strictEqual(await ev(`document.querySelector('.play-hole-line').textContent.replace(/\\s+/g, ' ').trim()`), 'H1 · Par 4 · 350y · SI 1 · +2');
     assert.strictEqual(await ev(`document.querySelector('.play-tally').textContent`), '0 shots · 0 pts');
-    assert.strictEqual(await ev(`document.querySelector('.play-cancel').textContent`), 'Cancel');
+    assert.strictEqual(await ev(`document.querySelector('.play-cancel').textContent`), 'Leave');
     assert.strictEqual(await ev(`!!document.querySelector('#hole-info-card, #points-result, #hole-feedback, #tb-hole-pts')`), false);
   });
 
@@ -953,7 +953,7 @@ const t = async (name, fn) => {
     await ev(`renderHole(1)`); assert.strictEqual(await puttSel(), '0');
     await ev(`renderHole(2)`); assert.strictEqual(await ev(`document.getElementById('score-10plus').textContent`), '13');
     state.inProgress = false; state.resumeZeroPutt = false;
-    await ev(`cancelRound()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
+    await ev(`(async()=>{await cancelRound();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();})()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
   });
 
   // ═════════════════════════ T/A/S/B/P + Coach Review ═════════════════════════
@@ -1078,7 +1078,7 @@ const t = async (name, fn) => {
     assert.deepStrictEqual(await ev(`holeData.slice(0, 4).map(h => h.tags.join(''))`), ['TB', 'B', '', 'SBP']);
     await ev(`renderHole(0)`); assert.strictEqual(await pressed(), 'TB');
     state.inProgress = false; state.resumeB = false;
-    await ev(`cancelRound()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
+    await ev(`(async()=>{await cancelRound();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();})()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
   });
 
 
@@ -1286,7 +1286,7 @@ const t = async (name, fn) => {
     await ev(`document.getElementById('setup-hc').value='0';startRound()`);await waitFor(`activeRoundId==='new-round'`);
     assert.strictEqual(await ev(`playingHC`),0);assert.strictEqual(await ev(`document.getElementById('tb-yards').textContent`),'360');
     assert.ok(state.writes.slice(n).some(w=>w.method==='POST'&&w.url.includes('/rounds')&&JSON.parse(w.body).tee_color==='blue-men'));
-    await ev(`cancelRound()`);
+    await ev(`(async()=>{await cancelRound();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();})()`);
   });
 
 
@@ -1335,6 +1335,26 @@ const t = async (name, fn) => {
       return {first:getShotsReceived(0),seventh:getShotsReceived(6),points:calcPoints(0,4),original:raw[0].stroke_index};
     }finally{HOLES=original;playingHC=hc;}})()`);
     assert.deepStrictEqual(result,{first:1,seventh:2,points:3,original:1});
+  });
+
+  await t('CANCEL SAFETY: stale completed ID cannot delete a round or shots; leaving keeps pending scores',async()=>{
+    await reloadHome('rich');
+    await ev(`completedRoundId=null;activeRoundId='completed-richings-95';currentHole=17;holeData=Array.from({length:18},()=>({score:5,putts:2,tags:[]}));showScreen('screen-play');confirmCancelRound()`);
+    assert.match(await ev(`document.getElementById('cancel-round-overlay').textContent`),/will not be deleted/);
+    const before=state.writes.length;
+    await ev(`cancelRound()`);
+    assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(shots|rounds)(?:\?|$)/.test(w.url)).length,0,'no database round/shot mutations');
+    assert.strictEqual(await ev(`JSON.parse(localStorage.getItem(ROUND_STATE_KEY)).activeRoundId`),'completed-richings-95');
+    assert.strictEqual(await ev(`JSON.parse(localStorage.getItem(ROUND_STATE_KEY)).holeData.length`),18);
+    assert.strictEqual(await ev(`currentHole`),17,'hole not reset before logging');
+    await ev(`activeRoundId=null;clearRoundStateFromStorage();newRound()`);
+    await startTestRound();await ev(`selectScore(5);showSummary();saveRound()`);
+    assert.strictEqual(await ev(`activeRoundId`),null,'saved round detached from live state');
+    assert.strictEqual(await ev(`localStorage.getItem(ROUND_STATE_KEY)`),null);
+    const saved=state.writes.length;await ev(`showSummary();saveRound();cancelRound()`);
+    assert.strictEqual(state.writes.slice(saved).filter(w=>/\/rest\/v1\/(shots|rounds)(?:\?|$)/.test(w.url)).length,0,'repeated save and leave cannot rewrite or delete completed data');
+    assert.strictEqual(await ev(`localStorage.getItem(ROUND_STATE_KEY)`),null,'leaving a saved summary cannot recreate a pending duplicate');
+    await ev(`clearRoundStateFromStorage()`);
   });
 
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {

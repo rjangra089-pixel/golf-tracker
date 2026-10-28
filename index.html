@@ -1799,7 +1799,7 @@
                 <span class="play-hole" id="tb-hole">H1</span>
                 <span class="play-hole-meta">· Par <span id="tb-par">4</span> · <span id="tb-yards">0</span>y · SI <span id="tb-si">1</span><span id="tb-shots-rec-wrap"> · <span id="tb-shots-rec">+0</span></span></span>
             </div>
-            <button class="play-cancel" onclick="confirmCancelRound()">Cancel</button>
+            <button class="play-cancel" onclick="confirmCancelRound()">Leave</button>
         </div>
         <div class="play-tally"><span id="tb-shots">0</span> shots · <span id="tb-pts">0</span> pts</div>
         <div class="play-status" id="play-status" aria-live="polite"></div>
@@ -2001,6 +2001,7 @@ let holeIds     = [];
 let recentRounds = [];
 let holeStats   = []; // per-hole averages from DB
 let activeRoundId = null; // created on tee-off, updated hole by hole
+let completedRoundId = null; // retained only for the read-only summary, never scoring
 
 let holeData = Array.from({length:18}, () => ({ score:null, putts:null, fairway:null, gir:null, tags:[] }));
 
@@ -2663,7 +2664,7 @@ async function startRound() {
     playingHC  = hc;
     roundDate  = document.getElementById('setup-date').value;
     holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
-    activeRoundId = null;
+    activeRoundId = null; completedRoundId = null;
     roundSyncLast = null; roundSyncHoles={}; roundSyncSet('waiting');
 
     // selectedTee is already set via selectTee() — persist it
@@ -2711,7 +2712,7 @@ async function resumeRound() {
 
     try {
         // 1. Restore round state
-        activeRoundId = round.id;
+        activeRoundId = round.id; completedRoundId = null;
         roundDate     = round.date;
         playingHC     = round.playing_handicap ?? playingHC;
         if (round.tee_color) { selectedTee = round.tee_color; selectTee(selectedTee); }
@@ -3019,10 +3020,10 @@ function autoSaveHole(holeIdx) {
 }
 async function autoSaveHoleNow(holeIdx) {
     if (!activeRoundId) { roundSyncSet('attention'); return; } // final Save is the fallback
-    roundSyncBusy++; roundSyncRender();
-    const syncRevision = roundSyncRevision;
     const d = JSON.parse(JSON.stringify(holeData[holeIdx]));
     if (!d.score) return; // nothing to save if no score entered
+    roundSyncBusy++; roundSyncRender();
+    const syncRevision = roundSyncRevision;
 
     try {
         if (roundSyncQueue().length) { await flushWriteQueue(); if (roundSyncQueue().length) throw new Error('Earlier changes need to sync'); }
@@ -3168,7 +3169,11 @@ function showSummary() {
     // If round was auto-saved, show that state; otherwise show Save button
     const saveStatus = document.getElementById('save-status');
     const btn = document.getElementById('btn-save');
-    if (activeRoundId) {
+    if (completedRoundId) {
+        saveStatus.className = 'save-status success';
+        saveStatus.textContent = '✓ Round saved!';
+        btn.textContent = 'SAVED ✓'; btn.disabled = true;
+    } else if (activeRoundId) {
         saveStatus.className = 'save-status success';
         saveStatus.textContent = 'Confirm the round below to finish saving all scores.';
         btn.textContent = 'SYNC & CONFIRM ✓';
@@ -3186,6 +3191,7 @@ function showSummary() {
 //  SAVE  (fallback — round is normally already saved via autoSaveHole)
 // ═══════════════════════════════════════════════════════════════
 async function saveRound() {
+    if (completedRoundId || document.getElementById('btn-save').textContent === 'SAVED ✓') return;
     const btn = document.getElementById('btn-save');
     const statusEl = document.getElementById('save-status');
     btn.disabled = true; btn.textContent = 'SAVING...';
@@ -3223,6 +3229,7 @@ async function saveRound() {
                 user_id: currentUser.id, course_id: courseId, date: roundDate,
                 playing_handicap: playingHC, total_score: totalScore,
                 total_putts: totalPutts, gir_count: totalGIR, stableford_points: totalPts,
+                round_status: 'in_progress', tee_color: selectedTee,
             })});
             if (!_savedRound?.[0]?.id) throw new Error('Failed to save round');
             activeRoundId = _savedRound[0].id;
@@ -3234,9 +3241,12 @@ async function saveRound() {
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
         }
 
-        track('round_saved', { course: selectedCourseSlug, score: totalScore, points: totalPts, holes: holeData.filter(h=>h.score).length });
+        await sbFetch('rounds?id=eq.' + activeRoundId + '&user_id=eq.' + encodeURIComponent(currentUser.id), {method:'PATCH',body:JSON.stringify({round_status:'completed'})});
+        completedRoundId=activeRoundId;
+        track('round_saved', { round_id: completedRoundId, course: selectedCourseSlug, score: totalScore, points: totalPts, holes: holeData.filter(h=>h.score).length });
         roundSyncHoles=Object.fromEntries(holeData.map((h,i)=>[i,JSON.stringify(h)]));
         roundSyncConfirm(roundSyncRevision);
+        activeRoundId = null; // a completed round is never an active scoring/cancellation target
         clearRoundStateFromStorage(); // round is done — clean up persisted state
         statusEl.className = 'save-status success';
         statusEl.textContent = '✓ Round saved!';
@@ -3257,6 +3267,7 @@ async function saveRound() {
 function goHome() { showScreen('screen-home'); }
 
 function newRound() {
+    completedRoundId = null;
     holeData = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
     activeRoundId = null;
     showScreen('screen-setup');
@@ -3615,32 +3626,29 @@ function confirmCancelRound() {
     box.className = 'delete-confirm';
     box.innerHTML = `
         <div class="delete-confirm-box">
-            <div class="delete-confirm-title">Cancel Round?</div>
-            <div class="delete-confirm-sub">Your progress won't be saved. This can't be undone.</div>
+            <div class="delete-confirm-title">Leave this round?</div>
+            <div class="delete-confirm-sub">Your round will not be deleted. Keep your progress and return to the Clubhouse.</div>
             <div class="delete-confirm-btns">
                 <button class="delete-cancel" onclick="document.getElementById('cancel-round-overlay').remove()">Keep Playing</button>
-                <button class="delete-confirm-btn" onclick="cancelRound()">Yes, Cancel</button>
+                <button class="delete-confirm-btn" onclick="cancelRound()">Leave round</button>
             </div>
         </div>`;
     document.body.appendChild(box);
 }
 
 async function cancelRound() {
-    // Delete the pre-created round if it exists
-    if (activeRoundId) {
-        try {
-            await sbFetch('shots?round_id=eq.' + activeRoundId, { method: 'DELETE', prefer: '' });
-            await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'DELETE', prefer: '' });
-        } catch(e) { console.warn('Could not delete cancelled round:', e); }
+    // Leaving NEVER deletes or updates a database row, regardless of the round's
+    // status or a stale ID. Explicit deletion remains a separate Stats action.
+    if (roundSyncBusy || setupRoundBusy) {
+        const message=document.querySelector('#cancel-round-overlay .delete-confirm-sub');
+        if (message) message.textContent='Please wait for the current save to finish, then leave. Your round will not be deleted.';
+        return;
     }
-    // Reset round state
-    activeRoundId = null;
-    holeData = Array.from({length:18}, () => ({ score:0, putts:0, fairway:null, gir:null, tags:[] }));
-    currentHole = 0;
-    clearRoundStateFromStorage(); // wipe persisted state on cancel
-    track('round_cancelled', { course: selectedCourseSlug, hole: currentHole + 1 });
-    // Remove overlay and go home
-    const overlay = document.getElementById('cancel-round-overlay');
+    const leftId=activeRoundId, leftHole=currentHole+1;
+    // Retain the local scorecard and queue, including entries not yet synced.
+    if (!completedRoundId && (leftId || holeData.some(h=>h.score))) saveRoundStateToStorage(false);
+    track('round_left', {round_id:leftId,course:selectedCourseSlug,hole:leftHole,date:roundDate});
+    const overlay=document.getElementById('cancel-round-overlay');
     if (overlay) overlay.remove();
     showScreen('screen-home');
     await loadHomeData();
