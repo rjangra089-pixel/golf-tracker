@@ -1183,7 +1183,7 @@ const t = async (name, fn) => {
   await t('STATS: caddie averages refresh for the selected playing course, independently of Stats filters', async () => {
     await ev(`switchCourse('course-b')`);assert.strictEqual(await ev(`holeStats.length`),0);
     await ev(`loadStats()`);assert.strictEqual(await ev(`holeStats[0].avg`),4);assert.strictEqual(await ev(`holeStats[0].count`),1);
-    await ev(`switchCourse('course-a');loadStats()`);await statsIdle();
+    await ev(`(async()=>{await switchCourse('course-a');await loadStats();})()`);await statsIdle();
     assert.strictEqual(await ev(`holeStats[0].avg`),5);assert.strictEqual(await ev(`holeStats[0].count`),10);
     assert.strictEqual(await ev(`holeStats[0].avgPutts`),0);
     assert.strictEqual(await ev(`holeStats[0].girPct`),100);assert.strictEqual(await ev(`holeStats[2].girPct`),null);
