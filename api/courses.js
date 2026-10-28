@@ -69,7 +69,10 @@ export default async function handler(req,res) {
   const data=buildCourseImport(detail,String(req.body?.tee),req.body?.holes||null);
   const path='courses?select=id,slug,name,created_at,tee_options,holes(hole_number,par,stroke_index)&slug=eq.'+encodeURIComponent(data.course.slug);
   const existing=await db(path);let record=existing[0];
-  if(record?.holes?.length===18)return res.status(200).json({slug:record.slug,tee:data.tee,existing:true});
+  if(record?.holes?.length===18){
+   if(!record.tee_options?.[data.tee])return res.status(409).json({error:'This course is already in the app with different tees. Select it from the library, or add those tee details in Admin.'});
+   return res.status(200).json({slug:record.slug,tee:data.tee,existing:true});
+  }
   if(record&&((record.holes||[]).length||record.tee_options?._source?.provider!=='golfcourseapi'))return res.status(409).json({error:'This course needs a scorecard check in Admin. Its existing holes have not been changed.'});
   if(record&&Date.now()-Date.parse(/[Zz]|[+-]\d{2}:?\d{2}$/.test(record.created_at)?record.created_at:record.created_at+'Z')<30000)return res.status(409).json({error:'This course is still being added. Please try again in a moment.'});
   if(!record){

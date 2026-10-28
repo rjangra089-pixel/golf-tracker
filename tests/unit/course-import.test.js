@@ -31,7 +31,7 @@ const src=fs.readFileSync(path.join(__dirname,'../../api/courses.js'),'utf8');
  admin=false;calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,403);assert.ok(!calls.some(c=>c.init.method));admin=true;
  calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,200);assert.strictEqual(result.data.tee,'blue-men');
  let writes=calls.filter(c=>c.init.method);assert.strictEqual(writes.length,2);assert.ok(writes.every(c=>c.init.method==='POST'));assert.ok(writes.every(c=>c.init.headers.Authorization==='Bearer TOKEN'));assert.ok(!writes.some(c=>/rounds|shots/.test(c.url)));
- existing=[{id:'old-id',slug:built.course.slug,holes:built.holes}];calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,200);assert.strictEqual(result.data.existing,true);assert.ok(!calls.some(c=>c.init.method));
+ existing=[{id:'old-id',slug:built.course.slug,holes:built.holes,tee_options:built.course.tee_options}];calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,200);assert.strictEqual(result.data.existing,true);assert.ok(!calls.some(c=>c.init.method));
  existing=[{id:'old-id',slug:built.course.slug,holes:[built.holes[0]]}];calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,409);assert.ok(!calls.some(c=>c.init.method));
  existing=[];failHoles=true;calls=[];result=await run('POST',{id:'123',tee:'male-0'});assert.strictEqual(result.code,403);assert.ok(calls.every(c=>!['PATCH','DELETE'].includes(c.init.method)));
  calls=[];result=await run('POST',{id:'123',tee:'not-a-tee'});assert.strictEqual(result.code,400);assert.ok(!calls.some(c=>c.init.method));
