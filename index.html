@@ -1419,6 +1419,7 @@
     <link rel="stylesheet" href="css/tokens.css?v=1">
     <link rel="stylesheet" href="css/play.css?v=2">
     <link rel="stylesheet" href="css/coach-review.css?v=1">
+    <link rel="stylesheet" href="css/round-editor.css?v=1">
 </head>
 <body>
 
@@ -1996,6 +1997,7 @@
 </div>
 
 <script src="js/coach-review.js?v=1"></script>
+<script src="js/round-editor.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
 //  SUPABASE
@@ -2852,6 +2854,14 @@ async function loadStats() {
                         <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
                     </svg>
                 </button>`;
+            if (r.round_status !== 'in_progress' && r.shots?.length) {
+                const editBtn = document.createElement('button');
+                editBtn.className = 'rhi-edit';
+                editBtn.textContent = 'Edit';
+                editBtn.setAttribute('aria-label', 'Edit round for ' + dateStr);
+                editBtn.addEventListener('click', () => openRoundEdit(r.id));
+                item.querySelector('.rhi-delete').before(editBtn);
+            }
             if (r.round_status !== 'in_progress' && crRoundShape(r.shots)) {
                 const reviewBtn = document.createElement('button');
                 reviewBtn.className = 'rhi-review';

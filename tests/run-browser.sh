@@ -12,7 +12,17 @@ CDP_PORT="${CDP_PORT:-9333}"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 PROFILE="$(mktemp -d)"
 PIDS=()
-cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; rm -rf "$PROFILE"; }
+cleanup() {
+  for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done
+  for p in "${PIDS[@]:-}"; do wait "$p" 2>/dev/null || true; done
+  # Chrome helper processes may finish writing after the parent has exited.
+  for attempt in {1..10}; do
+    if rm -rf "$PROFILE" 2>/dev/null; then return; fi
+    sleep 0.2
+  done
+  echo "Could not clean up temporary Chrome profile: $PROFILE" >&2
+}
+
 trap cleanup EXIT
 
 if [ -z "${APP:-}" ]; then

@@ -99,6 +99,7 @@ function restResponse(method, url) {
   if (path === 'shots') return shots18('r-live').slice(0, 4).map((x, i) =>
     i === 0 ? { ...x, error_tags: 'TA' } : i === 1 ? { ...x, error_tags: null } : i === 3 ? { ...x, error_tags: 'P' } : x);   // hole 3: legacy row, no field
   if (path === 'rounds') {
+    if (state.editRound) return [state.editRound];
     if (/[?&]id=eq\./.test(q) && q.includes('courses(name,holes(')) return [reviewRoundFixture()];   // Coach Review (history); not user_id=eq.
     if (q.includes('or=(round_status.is.null,round_status.neq.in_progress)')) return HISTORIES[state.history]();   // Phase A home history
     if (q.includes('holes(hole_number,par,stroke_index)')) return debriefRounds();
@@ -162,6 +163,16 @@ async function onMessage(raw) {
           if ('current_handicap' in b) state.hc = b.current_handicap;
           if ('target_handicap' in b) state.target = b.target_handicap;
         }
+      }
+      if (state.editRound && request.method === 'PATCH' && /\/rest\/v1\/(shots|rounds)\?/.test(url)) {
+        if (state.editFailOnce) { state.editFailOnce = false; return fulfill(503, 'Temporary test failure'); }
+        const body = JSON.parse(request.postData);
+        if (url.includes('/shots?')) {
+          const id = new URL(url).searchParams.get('id').slice(3);
+          const shot = state.editRound.shots.find(s => s.id === id);
+          Object.assign(shot, body); return fulfill(200, JSON.stringify([shot]));
+        }
+        Object.assign(state.editRound, body); return fulfill(200, JSON.stringify([state.editRound]));
       }
       if (url.includes('/rest/v1/events')) return fulfill(201, '');
       let payload; try { payload = restResponse(request.method, url); } catch (e) { return fulfill(500, JSON.stringify({ message: e.message })); }
@@ -1038,6 +1049,84 @@ const t = async (name, fn) => {
     await ev(`renderHole(0)`); assert.strictEqual(await pressed(), 'TB');
     state.inProgress = false; state.resumeB = false;
     await ev(`cancelRound()`); await waitFor(`document.querySelector('.screen.active').id === 'screen-home'`);
+  });
+
+
+  await t('Round editing: saved rounds offer Edit; cancel makes no writes', async () => {
+    state.editRound = mkRound('edit-round', '2026-10-20', 'completed', 18, {course_id:'cB', playing_handicap:25,
+      courses:{name:'Historical course B', holes:holesFor('cB')},
+      shots:shots18('edit-round').map((s,i)=>({...s,id:'edit-s'+i,putts:i===0?0:2,error_tags:'TB',notes:'Keep this note'}))});
+    await ev(`showScreen('screen-stats')`); await statsIdle();
+    const n = state.writes.length;
+    await ev(`document.querySelector('.rhi-edit').click()`);
+    await waitFor(`document.querySelector('.round-edit input')`);
+    assert.match(await ev(`document.querySelector('.round-edit-info').textContent`), /Historical course B/);
+    assert.strictEqual(await ev(`document.querySelector('[aria-label="Hole 1 putts"]').value`), '0');
+    for (const [width,height] of [[375,667],[390,844]]) for(const mode of ['light','dark']) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:2,mobile:true});
+      await ev(`setTheme('${mode}'); document.querySelector('.round-edit').scrollTop=0`);
+      const layout=await ev(`(()=>{const d=document.querySelector('.round-edit'),r=d.getBoundingClientRect(),b=d.querySelector('.round-edit-save').getBoundingClientRect();return {fits:r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1,noOverflow:d.scrollWidth<=d.clientWidth+1,button:b.top>=r.top&&b.bottom<=r.bottom+1};})()`);
+      assert.deepStrictEqual(layout,{fits:true,noOverflow:true,button:true},width+' '+mode);
+      await ev(`document.querySelector('[aria-label="Hole 18 putts"]').scrollIntoView({block:'center'})`);
+      assert.strictEqual(await ev(`(()=>{const i=document.querySelector('[aria-label="Hole 18 putts"]').getBoundingClientRect(),b=document.querySelector('.round-edit-save').getBoundingClientRect();return i.bottom<=b.top})()`),true,'hole 18 reachable above footer');
+    }
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});
+    await ev(`setTheme('light')`);
+
+    await ev(`document.querySelector('[aria-label="Hole 1 score"]').value='4'; document.querySelector('.round-edit-cancel').click()`);
+    assert.strictEqual(await ev(`!!document.querySelector('.round-edit')`),false);
+    assert.strictEqual(state.writes.length,n);
+  });
+
+  await t('Round editing: save corrects existing round, uses its own course, preserves active round and refreshes Stats', async () => {
+    const old = JSON.stringify(state.editRound.shots[1]);
+    await ev(`activeRoundId='live-untouched'; playingHC=31; currentHole=4; window.__editBefore=JSON.stringify([activeRoundId,playingHC,currentHole,HOLES,holeIds,courseId,selectedCourseSlug,selectedTee,holeData,localStorage.getItem(ROUND_STATE_KEY)]); document.querySelector('.rhi-edit').click()`);
+    await waitFor(`document.querySelector('.round-edit input')`);
+    if(process.env.SHOTS) {
+      require('fs').writeFileSync(process.env.SHOTS+'/round-editor-light.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+      await ev(`setTheme('dark')`);
+      require('fs').writeFileSync(process.env.SHOTS+'/round-editor-dark.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+      await ev(`setTheme('light')`);
+    }
+    const n=state.writes.length;
+    await ev(`document.querySelector('[aria-label="Hole 1 score"]').value='4'; document.querySelector('.round-edit form').requestSubmit()`);
+    await waitFor(`!!document.querySelector('.round-edit-success')`); await statsIdle();
+    assert.strictEqual(state.editRound.shots[0].score,4); assert.strictEqual(state.editRound.shots[0].putts,0);
+    assert.strictEqual(state.editRound.total_score,89);assert.strictEqual(state.editRound.total_putts,34);
+    const expected=state.editRound.shots.reduce((sum,s)=>{const h=state.editRound.courses.holes[s.hole_number-1];return sum+Math.max(0,h.par-s.score+Math.floor(25/18)+(h.stroke_index<=25%18?1:0)+2)},0);
+    assert.strictEqual(state.editRound.stableford_points,expected);assert.strictEqual(JSON.stringify(state.editRound.shots[1]),old);
+    assert.strictEqual(await ev(`JSON.stringify([activeRoundId,playingHC,currentHole,HOLES,holeIds,courseId,selectedCourseSlug,selectedTee,holeData,localStorage.getItem(ROUND_STATE_KEY)])===window.__editBefore`),true);
+    assert.strictEqual(await ev(`document.querySelector('.rhi-score').textContent`),'89');
+    assert.strictEqual(await ev(`homeModel.recentForm.average`),89);
+    const writes=state.writes.slice(n).filter(w=>!w.url.includes('/events'));
+    assert.strictEqual(writes.length,2);assert.ok(writes.every(w=>w.method==='PATCH'));assert.ok(writes.every(w=>w.auth==='Bearer TEST_TOKEN'));
+    await ev(`activeRoundId=null`);
+  });
+
+  await t('Round editing: invalid putts blocked, failed save keeps entries and retry succeeds', async () => {
+    await ev(`document.querySelector('.rhi-edit').click()`);await waitFor(`document.querySelector('.round-edit input')`);
+    let n=state.writes.length;
+    await ev(`document.querySelector('[aria-label="Hole 1 putts"]').value='6'; document.querySelector('.round-edit form').requestSubmit()`);
+    await waitFor(`document.querySelector('.round-edit-status')?.textContent.includes('Putts cannot')`);
+    assert.strictEqual(state.writes.length,n);
+    state.editFailOnce=true;
+    await ev(`document.querySelector('[aria-label="Hole 1 score"]').value='3'; document.querySelector('[aria-label="Hole 1 putts"]').value='0'; document.querySelector('.round-edit form').requestSubmit()`);
+    await waitFor(`document.querySelector('.round-edit-status')?.textContent.includes('Temporary test failure')`);
+    assert.strictEqual(await ev(`document.querySelector('[aria-label="Hole 1 score"]').value`),'3');
+    assert.strictEqual(await ev(`document.querySelector('.round-edit-save').disabled`),false);
+    await ev(`document.querySelector('.round-edit form').requestSubmit()`);
+    await waitFor(`!document.querySelector('.round-edit') && !!document.querySelector('.round-edit-success')`);
+    assert.strictEqual(state.editRound.total_score,88);
+  });
+
+  await t('Round editing: corrections survive reload', async () => {
+    await send('Page.reload'); await waitFor(`document.querySelector('.screen.active')?.id==='screen-home' && document.getElementById('home-hi').textContent!=='—'`);
+    await wrapStats(); await ev(`showScreen('screen-stats')`); await statsIdle();
+    assert.strictEqual(await ev(`document.querySelector('.rhi-score').textContent`),'88');
+    await ev(`document.querySelector('.rhi-edit').click()`); await waitFor(`document.querySelector('.round-edit input')`);
+    assert.strictEqual(await ev(`document.querySelector('[aria-label="Hole 1 score"]').value`),'3');
+    await ev(`document.querySelector('.round-edit-cancel').click()`);
+    state.editRound=null;
   });
 
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {

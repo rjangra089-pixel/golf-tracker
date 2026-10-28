@@ -45,3 +45,12 @@ APP=https://golf-tracker-snowy.vercel.app/ ONLY='^(Home loads|LIVE)' tests/run-b
 `tests/browser/prod-signed-out.js` is a separate read-only production check
 (signed out, nothing intercepted): start Chrome with
 `--remote-debugging-port=9333` and run `node tests/browser/prod-signed-out.js`.
+
+## Saved round editing
+
+`node tests/unit/round-editor.test.js` checks the actual editor calculations and
+write sequence against an in-memory store. Covers historical course/handicap,
+partial rounds, zero and unknown putts, validation before any write, ownership,
+conflicts, interrupted saves/retries, and preservation of tags/notes/round IDs.
+The browser regression suite covers Edit, Cancel, Save, failure/retry, persistence
+across reload, active-round isolation and small-phone layouts in both themes.
