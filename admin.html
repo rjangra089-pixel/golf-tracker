@@ -1312,18 +1312,18 @@ async function saveCourse() {
         const hWht = parseInt(document.getElementById(`ph-wh-${i}`)?.value) || null;
         return {
             hole_number:      i + 1,
-            par:              parseInt(document.getElementById(`ph-par-${i}`)?.value) || 4,
-            stroke_index:     parseInt(document.getElementById(`ph-si-${i}`)?.value) || (i + 1),
+            par:              Number(document.getElementById(`ph-par-${i}`)?.value || NaN),
+            stroke_index:     Number(document.getElementById(`ph-si-${i}`)?.value || NaN),
             yardage:          hYel,
             tee_options:      { yellow: { yardage: hYel }, white: { yardage: hWht } },
             is_danger_hole:   document.getElementById(`ph-danger-${i}`)?.checked || false,
         };
     });
 
-    // Validate unique stroke indexes only if they're filled in
-    const filledSIs = holes.map(h => h.stroke_index).filter(s => s > 0);
-    if (filledSIs.length === 18 && new Set(filledSIs).size !== 18) {
-        setStatus('save-status', 'error', `⚠ Stroke indexes must be unique 1–18. Please fix duplicates.`);
+    // Missing values must be supplied from the club card; never invent SI or par.
+    if (holes.some(h => ![3,4,5].includes(h.par) || !Number.isInteger(h.stroke_index) || h.stroke_index<1 || h.stroke_index>18)
+        || new Set(holes.map(h=>h.stroke_index)).size!==18) {
+        setStatus('save-status','error','Complete every par and stroke index from the club scorecard. Stroke indexes must be unique whole numbers from 1–18.');
         return;
     }
 

@@ -3770,6 +3770,30 @@ async function doSignOut() {
 //    instead of silently running as anonymous.
 const SB_PUBLIC_READ_TABLES = ['courses', 'holes'];
 
+// Verified club card correction for the legacy Ashford Manor import only.
+// https://www.amgc.co.uk/course-details — White/Yellow, checked 28 Oct 2026.
+// Apply on reads: never overwrite saved rounds, hole IDs or database records.
+function verifiedCourseData(path, data) {
+    const id='c3066a9c-5067-47f5-9df8-99b515427b95';
+    const pars=[4,4,5,4,4,3,4,4,4,4,3,3,4,3,5,4,4,4];
+    const indexes=[9,5,15,3,11,17,1,13,7,6,16,12,2,18,8,14,4,10];
+    const correct=holes=>{
+        if (!Array.isArray(holes) || holes.length!==18) return holes;
+        const ordered=[...holes].sort((a,b)=>a.hole_number-b.hole_number);
+        if (!ordered.every((h,i)=>h.hole_number===i+1 && h.par===pars[i] && h.stroke_index===i+1)) return holes;
+        return holes.map(h=>({...h,stroke_index:indexes[h.hole_number-1]}));
+    };
+    if (path.startsWith('holes?') && new URLSearchParams(path.split('?')[1]).get('course_id')==='eq.'+id) return correct(data);
+    const walk=value=>{
+        if (Array.isArray(value)) return value.map(walk);
+        if (!value || typeof value!=='object') return value;
+        const out=Object.fromEntries(Object.entries(value).map(([k,v])=>[k,walk(v)]));
+        if (value.id===id || value.slug==='ashford-manor-golf-club' || value.name==='Ashford Manor Golf Club') out.holes=correct(value.holes);
+        return out;
+    };
+    return walk(data);
+}
+
 async function sbFetch(path, opts = {}) {
     const method = (opts.method || 'GET').toUpperCase();
     const table  = path.split(/[?/]/)[0];
@@ -3793,7 +3817,7 @@ async function sbFetch(path, opts = {}) {
     });
     if (!res.ok) { const e = await res.text(); throw new Error(e); }
     const text = await res.text();
-    return text ? JSON.parse(text) : [];
+    return text ? (method==='GET' ? verifiedCourseData(path,JSON.parse(text)) : JSON.parse(text)) : [];
 }
 
 // ── Analytics tracker ──────────────────────────────────────────

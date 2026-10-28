@@ -1323,6 +1323,17 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`document.getElementById('btn-save').textContent`),'SAVED ✓');
   });
 
+  await t('SCORECARD: Ashford Manor uses verified SI for live stroke allocation, not hole order',async()=>{
+    const result=await ev(`(()=>{const original=HOLES, hc=playingHC;try{
+      const pars=[4,4,5,4,4,3,4,4,4,4,3,3,4,3,5,4,4,4];
+      const raw=pars.map((par,i)=>({hole_number:i+1,par,stroke_index:i+1}));
+      const card=verifiedCourseData('holes?course_id=eq.c3066a9c-5067-47f5-9df8-99b515427b95',raw);
+      HOLES=card.map(h=>({num:h.hole_number,par:h.par,si:h.stroke_index}));playingHC=25;
+      return {first:getShotsReceived(0),seventh:getShotsReceived(6),points:calcPoints(0,4),original:raw[0].stroke_index};
+    }finally{HOLES=original;playingHC=hc;}})()`);
+    assert.deepStrictEqual(result,{first:1,seventh:2,points:3,original:1});
+  });
+
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {
     await ev(`showScreen('screen-profile'); document.querySelector('.profile-signout').click()`);
     await waitFor(`document.querySelector('.screen.active').id === 'screen-auth'`);

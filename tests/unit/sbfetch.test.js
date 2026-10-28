@@ -7,6 +7,7 @@ const src = fs.readFileSync(process.argv[2] || require('path').join(__dirname, '
 
 const grab = (re) => { const m = src.match(re); if (!m) throw new Error('not found: ' + re); return m[0]; };
 const code = [
+  grab(/function verifiedCourseData\(path, data\) \{[\s\S]*?\n\}/),
   grab(/const SB_PUBLIC_READ_TABLES = [^\n]+/),
   grab(/async function sbFetch\(path, opts = \{\}\) \{[\s\S]*?\n\}/),
   grab(/const WRITE_QUEUE_KEY[^\n]+/),
@@ -21,6 +22,7 @@ let session = null;          // what sb.auth.getSession() returns
 let calls = [];              // captured fetch calls
 const store = {};
 const ctx = {
+  URLSearchParams,
   currentUser: {id:'u1'},
   navigator:{onLine:true}, roundSyncRender:()=>{}, roundSyncSet:()=>{},
   SUPABASE_URL: 'https://example.supabase.co',
