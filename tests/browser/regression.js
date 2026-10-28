@@ -601,8 +601,8 @@ const t = async (name, fn) => {
     for (let h = 0; h < 9; h++) { await ev(`selectScore(5); nextHole()`); tops.push(await cardTop()); statuses.push(await ev(`document.getElementById('play-status').className + '|' + document.getElementById('play-status').textContent`)); }
     await sleep(500);
     assert.strictEqual(await ev(`currentHole`), 9);
-    assert.match(statuses[2],/Settle in/,'first six holes retain settling-in copy');
-    assert.ok(statuses.slice(5).every(x=>/HC: .*Target:/.test(x)),'challenge replaces projections from H7');
+    assert.match(statuses[2],/First 6 holes · challenge starts at hole 7/,'first six holes retain settling-in copy');
+    assert.ok(statuses.slice(5).every(x=>/HC Target.*Challenge Target/.test(x)),'challenge replaces projections from H7');
     assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(statuses.join(' ')), 'no emoji in status');
     assert.strictEqual(new Set(tops).size, 1, 'status/momentum/halfway never move the entry area: ' + tops);
     assert.strictEqual(await ev(`!!document.querySelector('#screen-play .momentum-badge, #screen-play .milestone-banner, #screen-play #hole-feedback')`), false);
@@ -1361,9 +1361,9 @@ const t = async (name, fn) => {
   await t('CHALLENGE: live matched-hole targets and short factual review; scoring and storage stay unchanged',async()=>{
     await reloadHome('rich');await startTestRound();
     await ev(`holeData=buildCaddieTargets(HOLES,playingHC).map(p=>({score:p.target,putts:2,fairway:null,gir:null,tags:[]}));renderHole(6)`);
-    assert.match(await ev(`document.getElementById('play-status').textContent`),/HC: 5 saved.*Target: level/);
+    assert.match(await ev(`document.getElementById('play-status').textContent`),/5 under HC Target.*level with Challenge Target/);
     await ev(`selectScore(holeData[6].score+2)`);
-    assert.match(await ev(`document.getElementById('play-status').textContent`),/HC: 3 saved.*Target: 2 over/);
+    assert.match(await ev(`document.getElementById('play-status').textContent`),/3 under HC Target.*2 over Challenge Target/);
     const count=state.writes.length;
     await ev(`holeData[8].tags=['T','A'];holeData[4].putts=0;holeData[5].putts=null;window.__challengeSnapshot=JSON.stringify([playingHC,holeData,getTotalPoints(),localStorage.getItem(ROUND_STATE_KEY)]);showSummary()`);
     if(process.env.SHOTS){await ev(`document.getAnimations().forEach(a=>a.finish());document.getElementById('summary-quick-review').scrollIntoView({block:'start'})`);require('fs').writeFileSync(`${process.env.SHOTS}/challenge-summary.png`,Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}

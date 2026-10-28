@@ -2803,7 +2803,7 @@ function renderHole(idx, fromPrev) {
     const goal=buildCaddieTargets(HOLES,playingHC)?.[idx];
     document.getElementById('cb-goal').textContent=goal?.target ?? '—';
     document.getElementById('cb-goal').title=goal?.shift ? 'One shot below HC Target on this hole' : 'Same as HC Target on this hole';
-    document.getElementById('cb-goal-note').textContent=idx<6 ? 'Settle in · first 6' : goal?.shift ? '−1 here · −5 round goal' : '−5 round goal';
+    document.getElementById('cb-goal-note').textContent=idx<6 ? 'First 6 holes · challenge starts at hole 7' : goal?.shift ? '−1 here · −5 round goal' : '−5 round goal';
     document.getElementById('cb-target').title='Par '+h.par+' + '+shotsRec+' handicap strokes';
 
     if (hStat?.avg !== null && hStat?.avg !== undefined) {
@@ -2908,8 +2908,8 @@ function updatePlayTally() {
     document.getElementById('tb-shots').textContent = getTotalShots();
     const c=rpChallenge(buildCaddieTargets(HOLES,playingHC),holeData);
     if(!c.available) {setPlayStatus('Challenge unavailable · check course card','challenge');return;}
-    const text=currentHole<6 && !c.afterSix ? 'Settle in · '+holeData.slice(0,6).filter(h=>h.score).length+'/6 scored · challenge from H7' :
-      c.holes ? 'HC: '+rpSaved(c.saved)+' · Target: '+rpTarget(c.overTarget)+' · '+c.holes+' holes' : 'Five-shot challenge · enter your first score';
+    const text=currentHole<6 && !c.afterSix ? 'First 6 holes · challenge starts at hole 7' :
+      c.holes ? rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target · '+c.holes+' holes' : 'Five-shot challenge · enter your first score';
     setPlayStatus(text,'challenge');
     document.getElementById('play-status').title=c.holes+' scored holes only. HC Target '+c.hc+', Target '+c.target+', actual '+c.gross+'. Round goal '+c.roundTarget+' gross. Nothing is projected.';
 }

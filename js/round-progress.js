@@ -6,8 +6,8 @@ function rpChallenge(plan, shots) {
  return {available:true,holes:played.length,complete:played.length===18,gross,hc,target,saved:hc-gross,overTarget:gross-target,cuts:hc-target,
    afterSix:played.filter(h=>h.hole>6).length,roundHc:plan.reduce((n,h)=>n+h.hcTarget,0),roundTarget:plan.reduce((n,h)=>n+h.target,0)};
 }
-function rpSaved(n) {return n>0?n+' saved':n<0?Math.abs(n)+' over':'level';}
-function rpTarget(n) {return n>0?n+' over':n<0?Math.abs(n)+' ahead':'level';}
+function rpSaved(n) {return n>0?n+' under':n<0?Math.abs(n)+' over':'level with';}
+function rpTarget(n) {return n>0?n+' over':n<0?Math.abs(n)+' under':'level with';}
 function rpReflection(plan, shots) {
  const challenge=rpChallenge(plan,shots);
  const played=shots.map((s,i)=>({...s,hole:i+1,plan:plan?.[i],tags:crParseTags(s.tags??s.error_tags)})).filter(s=>Number.isInteger(s.score)&&s.score>0);
@@ -34,7 +34,7 @@ function rpRender(root, model, options={}) {
  add('h3','rp-title',c.complete?'Your round in brief':'Round check-in · '+model.played+'/18 holes');
  if(!options.historical&&c.available&&c.holes){
    add('p','rp-challenge','HC Target: '+c.hc+' · Target: '+c.target+' · Actual: '+c.gross+(c.complete?'':' · scored holes only'));
-   add('p','rp-result',rpSaved(c.saved)+' vs HC Target · '+rpTarget(c.overTarget)+' vs Target');
+   add('p','rp-result',rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target');
    add('p','rp-note',c.complete?'Five-shot goal: '+c.roundTarget+' gross. Holes 1–6 unchanged; five one-shot shifts after hole 6.':'Round goal '+c.roundTarget+' gross · result so far uses only the holes scored.');
  }
  if(options.historical) add('p','rp-note','Based on this round’s recorded data. The five-shot challenge is not scored retrospectively.');
