@@ -1253,6 +1253,21 @@ const t = async (name, fn) => {
   });
 
 
+  await t('SETUP: stale completed round releases course selection; unfinished draft stays intact',async()=>{
+    await reloadHome('rich');
+    const result=await ev(`(async()=>{const fetchBefore=sbFetch,originalSlug=selectedCourseSlug;let reads=[];
+      try {activeRoundId='old-completed';localStorage.setItem(ROUND_STATE_KEY,'preserved draft');
+        sbFetch=async(path,options)=>{if(path.startsWith('rounds?select=id,round_status&')){reads.push(path);return [{id:activeRoundId,round_status:'in_progress'}];}return fetchBefore(path,options);};
+        const blocked=await setupChooseCourse('course-b');
+        const preserved=localStorage.getItem(ROUND_STATE_KEY)==='preserved draft'&&activeRoundId==='old-completed';
+        const restored=document.getElementById('setup-course-select').value===originalSlug;
+        sbFetch=async(path,options)=>{if(path.startsWith('rounds?select=id,round_status&'))return [{id:activeRoundId,round_status:'completed'}];return fetchBefore(path,options);};
+        const allowed=await setupChooseCourse('course-b');
+        return {blocked,preserved,restored,allowed,slug:selectedCourseSlug,active:activeRoundId,stored:localStorage.getItem(ROUND_STATE_KEY),reads:reads.length};
+      }finally{sbFetch=fetchBefore;activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();}})()`);
+    assert.deepStrictEqual(result,{blocked:false,preserved:true,restored:true,allowed:true,slug:'course-b',active:null,stored:null,reads:1});
+  });
+
   await t('SETUP: refreshed tee-off page fits phones in light/dark with pinned action', async()=>{
     await ev(`activeRoundId=null;clearRoundStateFromStorage();showScreen('screen-setup');setupRefresh();document.getAnimations().forEach(a=>a.finish())`);
     assert.match(await ev(`document.querySelector('.su-hero').textContent`),/Let’s tee off/);

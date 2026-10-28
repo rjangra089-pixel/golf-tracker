@@ -44,7 +44,21 @@ function setupRefresh(){
  found.forEach(c=>{const b=suEl('button','su-recent',c.name);b.type='button';b.setAttribute('aria-pressed',String(c.slug===selectedCourseSlug));b.onclick=()=>setupChooseCourse(c.slug);recent.append(b);});
 }
 async function setupChooseCourse(slug){
- if(activeRoundId&&localStorage.getItem(ROUND_STATE_KEY)){setupStatus('You already have a round in progress. Return Home to resume it.',true);return false;}
+ if(activeRoundId&&localStorage.getItem(ROUND_STATE_KEY)){
+  // Old clients left completed round IDs in device storage. Check read-only
+  // before treating one as a live round; never discard an unfinished draft.
+  const id=activeRoundId;
+  try {
+   const rows=await sbFetch('rounds?select=id,round_status&user_id=eq.'+encodeURIComponent(currentUser.id)+'&id=eq.'+encodeURIComponent(id));
+   if(activeRoundId===id&&rows?.[0]?.round_status==='completed'){
+    completedRoundId=id;activeRoundId=null;clearRoundStateFromStorage();
+   }
+  }catch(e){ /* Keep the device draft when its status cannot be checked. */ }
+  if(activeRoundId){
+   document.getElementById('setup-course-select').value=selectedCourseSlug;
+   setupStatus('You have an unfinished round. Return Home and resume it, then save it before starting another round.',true);return false;
+  }
+ }
  document.getElementById('setup-course-select').value=slug;
  setupPendingCourse=switchCourse(slug); await setupPendingCourse;
  if(selectedCourseSlug!==slug||HOLES.length!==18)return false;

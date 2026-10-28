@@ -2667,6 +2667,9 @@ async function startRound() {
     if (setupRoundBusy) return;
     if (setupLoading && setupPendingCourse) await setupPendingCourse;
     const requested = document.getElementById('setup-course-select').value;
+    if (requested && requested !== selectedCourseSlug) {
+        if (!await setupChooseCourse(requested)) return;
+    }
     const hcRaw = document.getElementById('setup-hc').value.trim(), hc = hcRaw === '' ? NaN : Number(hcRaw);
     if (!Number.isInteger(hc) || hc < -10 || hc > 99) { setupStatus('Enter a whole-number playing handicap from -10 to 99.',true); return; }
     if (!document.getElementById('setup-date').value) {setupStatus('Choose the round date.',true);return;}
