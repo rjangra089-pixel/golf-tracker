@@ -1427,6 +1427,11 @@
 .round-sync[hidden]{display:none}.round-sync[data-state="attention"]{border-color:var(--red);color:var(--red)}
 .round-sync button{margin-left:auto;background:transparent;color:inherit;border:1px solid currentColor;border-radius:6px;padding:3px 8px;font:inherit;cursor:pointer}
 </style>
+<style>
+.rp-review{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin:12px 0;font-family:var(--font-body);}
+.rp-title{font-size:19px;margin-bottom:10px}.rp-label{font-size:15px;margin:14px 0 6px}.rp-challenge,.rp-evidence{font-size:14px;line-height:1.5}.rp-result,.rp-action{font-size:15px;line-height:1.5;margin-top:6px;font-weight:600}.rp-note{font-size:12px;color:var(--gray);line-height:1.5;margin-top:6px}
+#screen-play .play-status.challenge{font-size:12px}
+</style>
 </head>
 <body>
 
@@ -1934,6 +1939,7 @@
             <div class="hero-stat"><div class="hero-val" id="sum-girs">0</div><div class="hero-lbl">GIR</div></div>
             <div class="hero-stat"><div class="hero-val" id="sum-firs">0</div><div class="hero-lbl">Fairways</div></div>
         </div>
+        <section id="summary-quick-review" class="rp-review" aria-label="Short post-round review"></section>
         <div class="sum-tasp" id="sum-tasp" hidden></div>
         <div class="hole-summary-list" id="hole-summary-list"></div>
         </div>
@@ -1962,6 +1968,7 @@
 <script src="js/stats-model.js?v=1"></script>
 <script src="js/stats.js?v=1"></script>
 <script src="js/setup.js?v=1"></script>
+<script src="js/round-progress.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
 //  SUPABASE
@@ -2322,6 +2329,12 @@ async function openRoundReview(roundId) {
             playingHandicap: r.playing_handicap, stableford: r.stableford_points,
             holes: r.courses?.holes || [], shots: r.shots || [],
         }));
+        if (r.round_status!=='in_progress' && r.shots?.length===18 && crRoundShape(r.shots)==='full') {
+            const holes=Array.from({length:18},(_,i)=>{const h=r.courses?.holes?.find(h=>h.hole_number===i+1);return {par:h?.par,si:h?.stroke_index};});
+            const shots=Array.from({length:18},(_,i)=>r.shots.find(h=>h.hole_number===i+1));
+            const quick=document.createElement('section');quick.className='rp-review';quick.setAttribute('aria-label','Short post-round review');
+            rpRender(quick,rpReflection(buildCaddieTargets(holes,r.playing_handicap),shots),{historical:true});body.prepend(quick);
+        }
     } catch (e) {
         body.replaceChildren(crEl('p', 'cr-unavailable', "Couldn't load this round. " + (e.message || '')));
     }
@@ -2762,57 +2775,6 @@ async function resumeRound() {
         alert('Could not resume round: ' + e.message);
     }
 }
-// ── Pace calculation ──────────────────────────────────
-function getPaceInfo(holesPlayed, currentPts) {
-    if (!recentRounds.length || holesPlayed === 0) return null;
-    const avgPtsPerHole = recentRounds
-        .filter(r => r.stableford_points)
-        .reduce((s,r) => s + r.stableford_points, 0) / recentRounds.filter(r=>r.stableford_points).length / 18;
-    const bestRound = Math.max(...recentRounds.filter(r=>r.stableford_points).map(r=>r.stableford_points));
-    const projectedTotal = (currentPts / holesPlayed) * 18;
-    const avgProjected   = avgPtsPerHole * 18;
-    return { projectedTotal, avgProjected, bestRound };
-}
-
-// ── Momentum detection ────────────────────────────────
-function getMomentum(upToHole) {
-    // Look at last 3 completed holes
-    if (upToHole < 3) return null;
-    const last3 = [];
-    for (let i = upToHole - 3; i < upToHole; i++) {
-        if (!holeData[i].score) return null;
-        const pts = calcPoints(i, holeData[i].score);
-        const hStat = holeStats[i];
-        const avg = hStat?.avg || (HOLES[i].par + 1.5); // fallback avg
-        last3.push({ pts, score: holeData[i].score, avg });
-    }
-    const allAboveAvg = last3.every(h => h.score <= h.avg);
-    const allBelowAvg = last3.every(h => h.score >= h.avg + 1);
-    const totalPts = last3.reduce((s,h) => s+h.pts, 0);
-    if (totalPts >= 8) return { type:'hot',  icon:'🔥', text:'On fire! 3 holes above average in a row' };
-    if (totalPts >= 6 && allAboveAvg) return { type:'good', icon:'💪', text:'Solid run — keep this going' };
-    if (totalPts <= 2 && allBelowAvg) return { type:'cold', icon:'🧊', text:'Tough spell — reset, breathe, back to basics' };
-    return null;
-}
-
-// ── Milestone check ───────────────────────────────────
-function checkMilestone(idx) {
-    if (idx !== 9) return null; // only halfway for now
-    const f9pts  = holeData.slice(0,9).reduce((s,h,i) => s + (h.score ? calcPoints(i,h.score) : 0), 0);
-    const f9avg  = recentRounds.length
-        ? recentRounds.reduce((s,r) => {
-            const f9shots = (r.shots||[]).filter(s=>s.hole_number<=9);
-            return s + f9shots.reduce((ss,s)=>ss+calcPoints(s.hole_number-1,s.score),0);
-        }, 0) / recentRounds.length
-        : null;
-    const projTotal = f9pts * 2;
-    const best = Math.max(...recentRounds.filter(r=>r.stableford_points).map(r=>r.stableford_points), 0);
-    let sub = `Front 9: ${f9pts} pts`;
-    if (projTotal >= best && best > 0) sub += ` · On pace to beat your best (${best} pts)!`;
-    else if (f9avg !== null) sub += ` · Projected: ~${projTotal} pts (avg: ${Math.round(f9avg*2)})`;
-    return { icon:'🏁', title:'Halfway There!', sub };
-}
-
 function renderHole(idx, fromPrev) {
     currentHole = idx;
     const h = HOLES[idx];
@@ -2831,20 +2793,6 @@ function renderHole(idx, fromPrev) {
     document.getElementById('tb-shots-rec').textContent = `+${shotsRec}`;
     document.getElementById('tb-shots-rec-wrap').hidden = shotsRec <= 0;
     updatePlayTally();
-
-    // One-line status: pace by default (momentum / halfway may replace it in nextHole)
-    let paceText = '', paceKind = '';
-    if (holesPlayed >= 3) {
-        const pace = getPaceInfo(holesPlayed, totalPts);
-        if (pace) {
-            const proj = Math.round(pace.projectedTotal);
-            const diff = proj - Math.round(pace.avgProjected);
-            if (diff >= 2)       { paceText = `↑ On pace for ${proj} pts`; paceKind = 'pace-ahead'; }
-            else if (diff <= -2) { paceText = `↓ Pace: ~${proj} pts`;      paceKind = 'pace-behind'; }
-            else                 { paceText = `→ Avg pace: ~${proj} pts`;  paceKind = 'pace-on'; }
-        }
-    }
-    setPlayStatus(paceText, paceKind);
 
     document.getElementById('progress-fill').style.width = `${(idx/18)*100}%`;
 
@@ -2958,6 +2906,12 @@ function stepPutts(delta) {
 function updatePlayTally() {
     document.getElementById('tb-pts').textContent = getTotalPoints();
     document.getElementById('tb-shots').textContent = getTotalShots();
+    const c=rpChallenge(buildCaddieTargets(HOLES,playingHC),holeData);
+    if(!c.available) {setPlayStatus('Challenge unavailable · check course card','challenge');return;}
+    const text=currentHole<6 && !c.afterSix ? 'Settle in · '+holeData.slice(0,6).filter(h=>h.score).length+'/6 scored · challenge from H7' :
+      c.holes ? 'HC: '+rpSaved(c.saved)+' · Target: '+rpTarget(c.overTarget)+' · '+c.holes+' holes' : 'Five-shot challenge · enter your first score';
+    setPlayStatus(text,'challenge');
+    document.getElementById('play-status').title=c.holes+' scored holes only. HC Target '+c.hc+', Target '+c.target+', actual '+c.gross+'. Round goal '+c.roundTarget+' gross. Nothing is projected.';
 }
 
 // Single status line in the header — never adds height to the entry area.
@@ -3098,11 +3052,6 @@ function nextHole() {
         // Auto-save the hole we just left (fire and forget)
         autoSaveHole(prev);
 
-        // Momentum / halfway temporarily replace the one-line status (no extra height)
-        const momentum = getMomentum(next);
-        if (momentum) setPlayStatus(momentum.text, 'momentum-' + momentum.type);
-        const milestone = checkMilestone(next);
-        if (milestone) setPlayStatus(`Halfway · ${milestone.sub}`, 'halfway');
 
     } else {
         showSummary();
@@ -3129,6 +3078,7 @@ function showSummary() {
     document.getElementById('sum-name').textContent  = playerName+' · HC '+playingHC;
 
     showSummaryView('summary');
+    rpRender(document.getElementById('summary-quick-review'),rpReflection(buildCaddieTargets(HOLES,playingHC),holeData));
     const list = document.getElementById('hole-summary-list');
     list.innerHTML = '';
     holeData.forEach((d,i) => {

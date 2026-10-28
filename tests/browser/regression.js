@@ -591,7 +591,7 @@ const t = async (name, fn) => {
     assert.strictEqual(await T('home-start-tee'), 'Yellow tees');
   });
 
-  await t('B2 play screen intact: pace badge after 3 holes, halfway banner at hole 10, autosave writes shots', async () => {
+  await t('B2 play screen intact: settling-in then challenge status, autosave writes shots', async () => {
     state.writes.length = 0;
     await ev(`showScreen('screen-setup'); document.getElementById('setup-hc').value='25'`);
     await ev(`startRound()`); await waitFor(`activeRoundId === 'new-round'`); await statsIdle();
@@ -601,9 +601,8 @@ const t = async (name, fn) => {
     for (let h = 0; h < 9; h++) { await ev(`selectScore(5); nextHole()`); tops.push(await cardTop()); statuses.push(await ev(`document.getElementById('play-status').className + '|' + document.getElementById('play-status').textContent`)); }
     await sleep(500);
     assert.strictEqual(await ev(`currentHole`), 9);
-    assert.match(statuses[2], /(pace-(ahead|on|behind)\|. (On pace|Avg pace|Pace))|(momentum-\w+\|\S)/, 'pace (or momentum replacing it) after 3 holes: ' + statuses[2]);
-    assert.ok(statuses.slice(2, 8).every(x => /\|\S/.test(x)), 'status line populated from hole 4: ' + statuses);
-    assert.match(statuses[8], /^play-status halfway\|Halfway · Front 9: \d+ pts/, 'halfway replaces status: ' + statuses[8]);
+    assert.match(statuses[2],/Settle in/,'first six holes retain settling-in copy');
+    assert.ok(statuses.slice(5).every(x=>/HC: .*Target:/.test(x)),'challenge replaces projections from H7');
     assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(statuses.join(' ')), 'no emoji in status');
     assert.strictEqual(new Set(tops).size, 1, 'status/momentum/halfway never move the entry area: ' + tops);
     assert.strictEqual(await ev(`!!document.querySelector('#screen-play .momentum-badge, #screen-play .milestone-banner, #screen-play #hole-feedback')`), false);
@@ -869,7 +868,7 @@ const t = async (name, fn) => {
     assert.ok(await vis('cb-goal'));await ev(`prevHole()`);assert.ok(await vis('cb-goal'));await ev(`nextHole()`);await sleep(300);
   });
 
-  await t('LIVE: no last-hole recap after Next; momentum/halfway stay in the one-line status', async () => {
+  await t('LIVE: no last-hole recap after Next; challenge stays in the one-line status', async () => {
     assert.strictEqual(await ev(`typeof showHoleFeedback`), 'undefined');
     assert.strictEqual(await ev(`!!document.getElementById('hole-feedback')`), false);
     assert.ok(await ev(`document.getElementById('play-status').getBoundingClientRect().height <= 20`));
@@ -1055,6 +1054,8 @@ const t = async (name, fn) => {
     await ev(`document.querySelector('#stats-scroll .rhi-review').click()`);
     await waitFor(`document.querySelector('.screen.active').id === 'screen-review' && !!document.querySelector('#review-body .cr-table')`);
     const totals = await ev(`Object.fromEntries([...document.querySelectorAll('#review-body .cr-total')].map(r => [r.querySelector('dt').textContent, r.querySelector('dd').textContent]))`);
+    assert.ok(await ev(`!!document.querySelector('#review-body .rp-review')`));
+    assert.match(await ev(`document.querySelector('#review-body .rp-review').textContent`),/not scored retrospectively/);
     assert.strictEqual(totals.Errors, 'not captured'); assert.strictEqual(totals.Penalties, 'not captured');
     assert.strictEqual(totals.Putts, '34 (17/18 holes recorded)'); assert.strictEqual(totals.Fairways, '7/14');
     assert.strictEqual(totals.GIR, '0/17 recorded (of 18)');
@@ -1355,6 +1356,29 @@ const t = async (name, fn) => {
     assert.strictEqual(state.writes.slice(saved).filter(w=>/\/rest\/v1\/(shots|rounds)(?:\?|$)/.test(w.url)).length,0,'repeated save and leave cannot rewrite or delete completed data');
     assert.strictEqual(await ev(`localStorage.getItem(ROUND_STATE_KEY)`),null,'leaving a saved summary cannot recreate a pending duplicate');
     await ev(`clearRoundStateFromStorage()`);
+  });
+
+  await t('CHALLENGE: live matched-hole targets and short factual review; scoring and storage stay unchanged',async()=>{
+    await reloadHome('rich');await startTestRound();
+    await ev(`holeData=buildCaddieTargets(HOLES,playingHC).map(p=>({score:p.target,putts:2,fairway:null,gir:null,tags:[]}));renderHole(6)`);
+    assert.match(await ev(`document.getElementById('play-status').textContent`),/HC: 5 saved.*Target: level/);
+    await ev(`selectScore(holeData[6].score+2)`);
+    assert.match(await ev(`document.getElementById('play-status').textContent`),/HC: 3 saved.*Target: 2 over/);
+    const count=state.writes.length;
+    await ev(`holeData[8].tags=['T','A'];holeData[4].putts=0;holeData[5].putts=null;window.__challengeSnapshot=JSON.stringify([playingHC,holeData,getTotalPoints(),localStorage.getItem(ROUND_STATE_KEY)]);showSummary()`);
+    if(process.env.SHOTS){await ev(`document.getAnimations().forEach(a=>a.finish());document.getElementById('summary-quick-review').scrollIntoView({block:'start'})`);require('fs').writeFileSync(`${process.env.SHOTS}/challenge-summary.png`,Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
+    const text=await ev(`document.getElementById('summary-quick-review').textContent`);
+    assert.match(text,/One focus for next round: Break the error stack/);assert.match(text,/Putting recorded on 17\/18/);assert.match(text,/multiple types tagged on H9/);
+    assert.strictEqual(await ev(`JSON.stringify([playingHC,holeData,getTotalPoints(),localStorage.getItem(ROUND_STATE_KEY)])===window.__challengeSnapshot`),true);
+    assert.strictEqual(state.writes.length,count,'review is read-only');
+    for(const [w,h] of [[375,667],[390,844]])for(const theme of ['light','dark']){
+      await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:2,mobile:true});await ev(`setTheme('${theme}')`);
+      assert.strictEqual(await ev(`document.documentElement.scrollWidth>innerWidth`),false);
+    }
+    await ev(`holeData[8].tags=[];holeData[0].score=null;showSummary()`);
+    assert.match(await ev(`document.getElementById('summary-quick-review').textContent`),/Round check-in.*17\/18 holes/);
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();goHome();setTheme('light')`);
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});
   });
 
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {

@@ -1,0 +1,17 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const root=path.resolve(__dirname,'../..'),src=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const build=src.match(/function buildCaddieTargets\(holes, handicap\) \{[\s\S]*?\n\}/)[0];
+const {planFor,challenge,reflection}=new Function(fs.readFileSync(path.join(root,'js/coach-review.js'),'utf8')+'\n'+build+'\n'+fs.readFileSync(path.join(root,'js/round-progress.js'),'utf8')+'\nreturn {planFor:buildCaddieTargets,challenge:rpChallenge,reflection:rpReflection};')();
+const holes=Array.from({length:18},(_,i)=>({par:4,si:i+1})),plan=planFor(holes,25);
+const shots=plan.map(h=>({score:h.hcTarget,putts:null,fairway:null,gir:null,tags:[]})),before=JSON.stringify(shots);
+let c=challenge(plan,shots);assert.strictEqual(c.saved,0);assert.strictEqual(c.overTarget,5);assert.strictEqual(c.cuts,5);assert.ok(c.complete);
+assert.strictEqual(challenge(plan,shots.slice(0,6)).cuts,0);
+const partial=shots.map(s=>({...s,score:null}));partial[8].score=plan[8].target;
+c=challenge(plan,partial);assert.strictEqual(c.holes,1);assert.strictEqual(c.target,plan[8].target);assert.strictEqual(c.overTarget,0);
+const goal=shots.map((s,i)=>({...s,score:plan[i].target}));c=challenge(plan,goal);assert.strictEqual(c.saved,5);assert.strictEqual(c.overTarget,0);
+goal[9].score++;assert.strictEqual(challenge(plan,goal).saved,4);goal[9].score--;assert.strictEqual(challenge(plan,goal).saved,5,'edit recomputes');
+const risky=shots.map(s=>({...s,score:s.score+3,putts:3,fairway:'X'}));let review=reflection(plan,risky);assert.deepStrictEqual(review.stacked,[],'outcomes never create error tags');assert.strictEqual(review.focus.title,'Keep tee shots in play');
+risky[8].tags=['T','A'];review=reflection(plan,risky);assert.deepStrictEqual(review.stacked,[9]);assert.strictEqual(review.focus.title,'Break the error stack');
+const putting=shots.map(s=>({...s,putts:2}));putting[0].putts=0;putting[1].putts=null;putting[2].putts=3;putting[3].putts=3;review=reflection(plan,putting);assert.strictEqual(review.puttingKnown,17);assert.strictEqual(review.focus.title,'Cut the three-putts');
+assert.strictEqual(challenge(null,shots).available,false);assert.strictEqual(JSON.stringify(shots),before,'pure model never mutates scores');
+console.log('All round-progress tests passed (partial/full targets, five-shot plan, edits, explicit tags, honest missing data).');
