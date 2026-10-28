@@ -85,64 +85,21 @@
     display: flex; flex-direction: column; gap: 8px;
 }
 
-/* ── Caddie briefing: hairline row, not a card ──────────────────── */
-#screen-play .caddie-briefing {
-    background: none;
-    border-top: 1px solid var(--cl-border);
-    border-bottom: 1px solid var(--cl-border);
-    border-radius: 0;
-    margin: 0;
-}
-#screen-play .caddie-briefing-header {
-    display: flex; align-items: center; gap: 10px;
-    width: 100%; min-height: var(--cl-tap-min);
-    padding: 0 4px;
-    background: none; border: 0; cursor: pointer; text-align: left;
-    color: var(--cl-text);
-}
-#screen-play .caddie-briefing-title {
-    font-size: 15px; font-weight: 500; letter-spacing: 0; text-transform: none;
-    color: var(--cl-text);
-}
-#screen-play .cb-danger-chip {
-    font-size: 12px; font-weight: 600; line-height: 16px;
-    color: var(--cl-destructive);
-    border: 1px solid currentColor; border-radius: 999px;
-    padding: 1px 8px; white-space: nowrap;
-}
-#screen-play .caddie-briefing-chevron {
-    margin-left: auto;
-    font-size: 20px; line-height: 1; color: var(--cl-text-3);
-    transform: none;
-    transition: transform var(--cl-dur-expand) var(--cl-ease);
-}
-#screen-play .caddie-briefing:not(.collapsed) .caddie-briefing-chevron { transform: rotate(90deg); }
-#screen-play .caddie-briefing-body {
-    display: flex; flex-direction: column; gap: 12px;
-    padding: 4px 4px 12px;
-}
-#screen-play .caddie-briefing.collapsed .caddie-briefing-body { display: none; }
-#screen-play .caddie-briefing:not(.collapsed) .caddie-briefing-body {
-    animation: cl-reveal var(--cl-dur-expand) var(--cl-ease);
-}
-@keyframes cl-reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-#screen-play .caddie-stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-#screen-play .caddie-stat { padding: 4px 0; background: none; border: 0; text-align: left; }
-#screen-play .caddie-stat-val { font-size: 22px; font-weight: 600; line-height: 1.2; color: var(--cl-text); }
-/* Neutralise legacy inline styling inside the briefing (no traffic-light colours,
-   one figure size) — CSS only, the briefing's JavaScript is unchanged */
-#screen-play #cb-avg { color: var(--cl-text) !important; }
-#screen-play #cb-gir, #screen-play #cb-rounds { font-size: 22px !important; }
-#screen-play .caddie-stat-lbl {
-    font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none;
-    color: var(--cl-text-3); margin-top: 2px;
-}
-#screen-play .caddie-strategy {
-    font-size: 15px; line-height: 1.5; color: var(--cl-text);
-    background: var(--cl-surface);
-    border: 1px solid var(--cl-border); border-radius: var(--cl-radius-control);
-    padding: 12px 14px;
-}
+/* ── Always-visible, compact numeric briefing ──────────────────── */
+#screen-play .caddie-briefing { border-bottom:1px solid var(--cl-border); margin:0; padding:0 4px 6px; }
+#screen-play .caddie-briefing-header { display:flex;align-items:center;gap:8px;min-height:24px; }
+#screen-play .caddie-briefing-title { font-size:12px;font-weight:600;color:var(--cl-text-2); }
+#screen-play .cb-danger-chip {font-size:10px;color:var(--cl-destructive);border:1px solid currentColor;border-radius:999px;padding:0 5px;white-space:nowrap;}
+#screen-play .caddie-goal-note {margin-left:auto;font-size:11px;color:var(--cl-text-3);text-align:right;}
+#screen-play .caddie-briefing-body {display:flex;flex-direction:column;gap:4px;}
+#screen-play .caddie-stats-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+#screen-play .caddie-stat {padding:0;background:none;border:0;text-align:left;}
+#screen-play .caddie-stat:last-child {text-align:right;}
+#screen-play .caddie-stat:nth-child(2) {text-align:center;}
+#screen-play .caddie-stat-val {font-size:22px;font-weight:600;line-height:1.1;color:var(--cl-text);}
+#screen-play #cb-avg {color:var(--cl-text) !important;}
+#screen-play .caddie-goal .caddie-stat-val {color:var(--cl-accent);}
+#screen-play .caddie-stat-lbl {font-size:11px;line-height:14px;font-weight:500;color:var(--cl-text-3);margin-top:1px;}
 
 /* ── Entry group: one surface, hairline dividers ────────────────── */
 #screen-play .scoring-card {
@@ -315,4 +272,14 @@
     #screen-play .btn-nav { height: var(--cl-tap); }
     #screen-play .entry-section,
     #screen-play .tasp-section { padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* Keep the open briefing and normal entry controls together on small phones. */
+@media (max-height:700px) {
+ #screen-play .play-scroll {padding-top:4px;padding-bottom:4px;gap:4px;}
+ #screen-play .entry-section,#screen-play .tasp-section {padding-top:5px;padding-bottom:5px;}
+ #screen-play .section-label,#screen-play .entry-label-row .section-label {margin-bottom:4px;}
+ #screen-play .entry-grid {gap:4px;}
+ #screen-play .score-cell,#screen-play .putt-btn {height:44px;}
+ #screen-play .caddie-stat-val {font-size:20px;}
 }

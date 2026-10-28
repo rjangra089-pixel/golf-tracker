@@ -1808,49 +1808,26 @@
 
     <div class="play-scroll" id="play-scroll">
 
-        <!-- Caddie briefing: collapsed on every hole; opening it is optional -->
-        <div class="caddie-briefing collapsed" id="caddie-briefing">
-            <button class="caddie-briefing-header" id="cb-toggle" aria-expanded="false" onclick="toggleBriefing()">
+        <!-- Always-visible numeric briefing; no generated advice. -->
+        <section class="caddie-briefing" id="caddie-briefing" aria-label="Caddie briefing">
+            <div class="caddie-briefing-header">
                 <span class="caddie-briefing-title">Caddie briefing</span>
                 <span class="cb-danger-chip" id="cb-danger-chip" hidden>Danger hole</span>
-                <span class="caddie-briefing-chevron" aria-hidden="true">▸</span>
-            </button>
+                <span class="caddie-goal-note" id="cb-goal-note"></span>
+            </div>
             <div class="caddie-briefing-body">
                 <div class="caddie-stats-grid">
-                    <div class="caddie-stat">
-                        <div class="caddie-stat-val" id="cb-avg">—</div>
-                        <div class="caddie-stat-lbl">Your Avg</div>
-                    </div>
-                    <div class="caddie-stat">
-                        <div class="caddie-stat-val" id="cb-target">—</div>
-                        <div class="caddie-stat-lbl">Target</div>
-                    </div>
-                    <div class="caddie-stat">
-                        <div class="caddie-stat-val" id="cb-shots">—</div>
-                        <div class="caddie-stat-lbl">Shots HC</div>
-                    </div>
+                    <div class="caddie-stat"><div class="caddie-stat-val" id="cb-target">—</div><div class="caddie-stat-lbl">HC Target</div></div>
+                    <div class="caddie-stat caddie-goal"><div class="caddie-stat-val" id="cb-goal">—</div><div class="caddie-stat-lbl">Target</div></div>
+                    <div class="caddie-stat"><div class="caddie-stat-val" id="cb-shots">—</div><div class="caddie-stat-lbl">Shots HC</div></div>
                 </div>
                 <div class="caddie-stats-grid">
-                    <div class="caddie-stat">
-                        <div class="caddie-stat-val" id="cb-gir" style="font-size:18px">—</div>
-                        <div class="caddie-stat-lbl">GIR %</div>
-                    </div>
-                    <div class="caddie-stat">
-                        <div class="caddie-stat-val" id="cb-putts">—</div>
-                        <div class="caddie-stat-lbl">Avg Putts</div>
-                    </div>
-                    <div class="caddie-stat">
-                        <div class="caddie-stat-val" id="cb-rounds" style="font-size:18px">—</div>
-                        <div class="caddie-stat-lbl">Rounds</div>
-                    </div>
-                </div>
-                <div class="caddie-strategy" id="cb-strategy">Loading strategy...</div>
-                    <div id="cb-tip-badge" style="display:none;"></div>
-                <div id="cb-danger-block" style="display:none;background:rgba(192,57,43,0.06);border:1px solid rgba(192,57,43,0.2);border-radius:10px;padding:10px 14px;font-size:17px;color:var(--red);line-height:1.5">
-                    ⚠️ <strong>Danger hole.</strong> <span id="cb-danger-text"></span>
+                    <div class="caddie-stat"><div class="caddie-stat-val" id="cb-gir">—</div><div class="caddie-stat-lbl">GIR %</div></div>
+                    <div class="caddie-stat"><div class="caddie-stat-val" id="cb-putts">—</div><div class="caddie-stat-lbl">Avg Putts</div></div>
+                    <div class="caddie-stat"><div class="caddie-stat-val" id="cb-avg">—</div><div class="caddie-stat-lbl">Your Avg</div></div>
                 </div>
             </div>
-        </div>
+        </section>
 
         <div class="scoring-card">
             <section class="entry-section">
@@ -2209,6 +2186,20 @@ async function loadHomeData() {
 // ═══════════════════════════════════════════════════════════════
 //  SCORING HELPERS
 // ═══════════════════════════════════════════════════════════════
+// Five one-shot bucket shifts after the six-hole settling-in period.
+// Prioritise the highest handicap-stroke bucket, then easier SI within it.
+// This is a score plan only: official Playing HC and Stableford stay unchanged.
+function buildCaddieTargets(holes, handicap) {
+    if (!Array.isArray(holes) || holes.length!==18 || !Number.isInteger(handicap)) return null;
+    if (holes.some(h=>![3,4,5].includes(h.par)||!Number.isInteger(h.si)||h.si<1||h.si>18)
+        || new Set(holes.map(h=>h.si)).size!==18) return null;
+    const strokes=si=>Math.floor(handicap/18)+(si<=((handicap%18+18)%18)?1:0);
+    const plan=holes.map((h,i)=>({hole:i+1,si:h.si,shots:strokes(h.si),hcTarget:h.par+strokes(h.si),target:h.par+strokes(h.si),shift:false}));
+    const challenge=[...plan.slice(6)].sort((a,b)=>b.shots-a.shots || b.si-a.si || a.hole-b.hole).slice(0,5);
+    for (const h of challenge) { h.target--;h.shift=true; }
+    return plan;
+}
+
 function getShotsReceived(idx) {
     const si = HOLES[idx].si;
     return Math.floor(playingHC/18) + (si <= ((playingHC%18+18)%18) ? 1 : 0);
@@ -2770,16 +2761,6 @@ async function resumeRound() {
         alert('Could not resume round: ' + e.message);
     }
 }
-let briefingCollapsed = true;
-function setBriefingCollapsed(collapsed) {
-    briefingCollapsed = collapsed;
-    document.getElementById('caddie-briefing').classList.toggle('collapsed', collapsed);
-    document.getElementById('cb-toggle').setAttribute('aria-expanded', String(!collapsed));
-}
-function toggleBriefing() {
-    setBriefingCollapsed(!briefingCollapsed);   // stays as chosen for this hole only
-}
-
 // ── Pace calculation ──────────────────────────────────
 function getPaceInfo(holesPlayed, currentPts) {
     if (!recentRounds.length || holesPlayed === 0) return null;
@@ -2869,8 +2850,12 @@ function renderHole(idx, fromPrev) {
     // Caddie briefing
     const hStat   = holeStats[idx];
     document.getElementById('cb-shots').textContent    = shotsRec;
-    document.getElementById('cb-target').textContent   = hStat?.targetScore ?? (h.par + shotsRec);
-    document.getElementById('cb-rounds').textContent   = hStat?.count ?? '—';
+    document.getElementById('cb-target').textContent   = h.par + shotsRec;
+    const goal=buildCaddieTargets(HOLES,playingHC)?.[idx];
+    document.getElementById('cb-goal').textContent=goal?.target ?? '—';
+    document.getElementById('cb-goal').title=goal?.shift ? 'One shot below HC Target on this hole' : 'Same as HC Target on this hole';
+    document.getElementById('cb-goal-note').textContent=idx<6 ? 'Settle in · first 6' : goal?.shift ? '−1 here · −5 round goal' : '−5 round goal';
+    document.getElementById('cb-target').title='Par '+h.par+' + '+shotsRec+' handicap strokes';
 
     if (hStat?.avg !== null && hStat?.avg !== undefined) {
         const avgCol = hStat.avg - h.par <= 0.5 ? 'var(--green-bright)' : hStat.avg - h.par <= 1.5 ? 'var(--orange)' : 'var(--red)';
@@ -2883,58 +2868,7 @@ function renderHole(idx, fromPrev) {
 
     document.getElementById('cb-gir').textContent   = hStat?.girPct  !== null && hStat?.girPct  !== undefined ? hStat.girPct  + '%' : '—';
     document.getElementById('cb-putts').textContent = hStat?.avgPutts !== null && hStat?.avgPutts !== undefined ? hStat.avgPutts.toFixed(1) : '—';
-    // Tip cascade: verified_tip → ai_tip → JS hardcoded fallback
-    const tipText = h.tip || 'Play to the fat of the fairway. Take your medicine.';
-    document.getElementById('cb-strategy').textContent = tipText;
-
-    // Source badge so user knows how reliable the tip is
-    const tipBadgeEl = document.getElementById('cb-tip-badge');
-    if (tipBadgeEl) {
-        if (h.tipVerified) {
-            tipBadgeEl.textContent = '✓ Verified';
-            tipBadgeEl.style.cssText = 'display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(46,168,84,0.15);color:var(--green-bright);border:1px solid rgba(46,168,84,0.3);margin-top:6px;font-family:var(--font-body);';
-        } else if (h.tipSource === 'web_research') {
-            tipBadgeEl.textContent = '⚡ Web sourced';
-            tipBadgeEl.style.cssText = 'display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(181,134,10,0.12);color:var(--sand);border:1px solid rgba(181,134,10,0.25);margin-top:6px;font-family:var(--font-body);';
-        } else if (h.tipSource === 'ai_generated') {
-            tipBadgeEl.textContent = '🤖 AI estimate';
-            tipBadgeEl.style.cssText = 'display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,0.1);color:var(--gray);border:1px solid rgba(100,100,100,0.2);margin-top:6px;font-family:var(--font-body);';
-        } else {
-            tipBadgeEl.style.display = 'none';
-        }
-    }
-
-    const dangerBlock = document.getElementById('cb-danger-block');
     document.getElementById('cb-danger-chip').hidden = !h.danger;
-    if (h.danger) {
-        dangerBlock.style.display = 'block';
-        const dangerTipsHoebridge = {
-            3: 'Stay left. That sharp drop on the left punishes anything wayward.',
-            4: 'Accept bogey here. A 5 is a great score. Do not go for the hero shot.',
-            5: 'Lay up short of the danger zone. A comfortable chip beats a risky approach.',
-            7: 'Find the fairway first. Long and tight — bogey is a win here.',
-            8: 'Club up on the approach. That elevated green eats short shots.',
-            11: 'Keep it simple: fairway, pitch short, two putts. Do not be greedy.',
-            13: 'Two solid shots then wedge. Do not try to reach in two.',
-            15: 'SI 2 — this is hard. Fairway is everything. Stay conservative.',
-            17: 'This is your worst hole. Lay up to 80-100y. Do NOT go for the green in two.',
-        };
-        const dangerTipsRichings = {
-            7:  'SI 2. Long and tight. Find the fairway first — bogey is a great score.',
-            9:  'Long par 4 to finish the front 9. Play conservatively off the tee. Accept bogey.',
-            11: 'SI 3. One of the toughest holes on the course. Fairway, lay up, chip, two putts.',
-            15: 'SI 1 — hardest hole on the card. Tight driving hole. Fairway is everything.',
-            16: 'SI 5. Long demanding par 4. Conservative tee shot, build the hole from there.',
-        };
-        const dangerTips = selectedCourseSlug === 'richings-park-golf-country-club'
-            ? dangerTipsRichings : dangerTipsHoebridge;
-        document.getElementById('cb-danger-text').textContent = dangerTips[h.num] || 'Play conservatively. Take your medicine.';
-    } else {
-        dangerBlock.style.display = 'none';
-    }
-
-    // Briefing starts collapsed on every newly rendered hole (opening it is optional, this hole only)
-    setBriefingCollapsed(true);
 
     // Score grid 1–9 + 10+ (same layout every hole; par marked)
     renderScoreGrid(idx);

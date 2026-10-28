@@ -853,17 +853,20 @@ const t = async (name, fn) => {
     await ev(`renderHole(1)`); assert.strictEqual(await vis('fairway-group'), true); await ev(`renderHole(2)`);
   });
 
-  await t('LIVE: Caddie briefing collapsed on every new hole; opening shows existing content; resets on next hole', async () => {
-    assert.ok(await ev(`document.getElementById('caddie-briefing').classList.contains('collapsed')`));
-    assert.strictEqual(await ev(`document.getElementById('cb-toggle').getAttribute('aria-expanded')`), 'false');
-    assert.strictEqual(await vis('cb-strategy'), false);
-    await ev(`document.getElementById('cb-toggle').click()`);
-    assert.strictEqual(await ev(`document.getElementById('cb-toggle').getAttribute('aria-expanded')`), 'true');
-    assert.ok(await vis('cb-strategy')); assert.ok(await vis('cb-avg')); assert.ok(await vis('cb-target')); assert.ok(await vis('cb-putts'));
-    await ev(`selectScore(3); nextHole()`); await sleep(300);
-    assert.ok(await ev(`document.getElementById('caddie-briefing').classList.contains('collapsed')`), 'collapsed again on the next hole');
-    await ev(`prevHole()`); assert.ok(await ev(`document.getElementById('caddie-briefing').classList.contains('collapsed')`));
-    await ev(`nextHole()`); await sleep(300);
+  await t('LIVE: briefing always open, numeric targets and average bottom-right; five shifts after hole six', async () => {
+    for(const i of [0,5,6,17]){
+      await ev(`renderHole(${i})`);
+      assert.ok(await vis('cb-target'));assert.ok(await vis('cb-goal'));assert.ok(await vis('cb-avg'));
+      assert.strictEqual(await ev(`!!document.getElementById('cb-toggle') || !!document.getElementById('cb-strategy') || !!document.getElementById('cb-danger-block') || !!document.getElementById('cb-rounds')`),false);
+      assert.strictEqual(await ev(`Number(document.getElementById('cb-target').textContent)`),await ev(`HOLES[${i}].par+getShotsReceived(${i})`));
+    }
+    const plan=await ev(`buildCaddieTargets(HOLES,playingHC)`);
+    assert.ok(plan.slice(0,6).every(h=>h.target===h.hcTarget));
+    assert.strictEqual(plan.filter(h=>h.shift).length,5);
+    assert.strictEqual(plan.reduce((n,h)=>n+h.hcTarget-h.target,0),5);
+    assert.strictEqual(await ev(`document.getElementById('cb-avg').closest('.caddie-stats-grid').lastElementChild.contains(document.getElementById('cb-avg'))`),true);
+    await ev(`renderHole(2);selectScore(3);nextHole()`);await sleep(300);
+    assert.ok(await vis('cb-goal'));await ev(`prevHole()`);assert.ok(await vis('cb-goal'));await ev(`nextHole()`);await sleep(300);
   });
 
   await t('LIVE: no last-hole recap after Next; momentum/halfway stay in the one-line status', async () => {
@@ -872,7 +875,7 @@ const t = async (name, fn) => {
     assert.ok(await ev(`document.getElementById('play-status').getBoundingClientRect().height <= 20`));
   });
 
-  await t('LIVE: entry controls fit WITHOUT scrolling (briefing collapsed): 390×844 and 375×667, light + dark', async () => {
+  await t('LIVE: entry controls fit WITHOUT scrolling (briefing always open): 390×844 and 375×667, light + dark', async () => {
     const res = {};
     for (const [w, h] of [[390, 844], [375, 667]]) for (const theme of ['light', 'dark']) {
       await ev(`setTheme('${theme}')`);
@@ -912,7 +915,7 @@ const t = async (name, fn) => {
         await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
         await ev(`renderHole(3); selectScore(12); selectPutts(5); holeData[3].tags = []; toggleErrorTag('T'); toggleErrorTag('A'); toggleErrorTag('P')`); await sleep(400);
         require('fs').writeFileSync(`${process.env.SHOTS}/play-steppers-tasp-${theme}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
-        await ev(`renderHole(2); toggleBriefing()`); await sleep(500);
+        await ev(`renderHole(2)`); await sleep(500);
         require('fs').writeFileSync(`${process.env.SHOTS}/play-par3-briefing-${theme}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
         await ev(`holeData[3].tags = []; selectScore(5); renderHole(3)`);
       }
