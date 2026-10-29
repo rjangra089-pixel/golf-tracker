@@ -1413,7 +1413,7 @@ const t = async (name, fn) => {
   });
 
   await t('TOOLS: switching rounds preserves exact local scores and goal; manager makes no round/shot writes',async()=>{
-    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();roundChallengePlan=null;roundChallengeRecorded=false;currentUser.user_metadata.golf_challenge_shots=3`);
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();localStorage.removeItem(rtDraftKey());roundChallengePlan=null;roundChallengeRecorded=false;currentUser.user_metadata.golf_challenge_shots=3`);
     await reloadHome('rich');await startTestRound();await ev(`selectScore(6);selectPutts(0);autoSaveHole(0)`);
     const before=state.writes.length;
     const result=await ev(`(async()=>{const fetchBefore=sbFetch;try{
@@ -1459,6 +1459,29 @@ const t = async (name, fn) => {
     const result=await ev(`(async()=>{const old=fetchStatsHistory;try{showScreen('screen-setup');const rows=Array.from({length:3},()=>({round_status:'completed',course_id:courseId,playing_handicap:25,tee_color:selectedTee,courses:{holes:HOLES.map(h=>({hole_number:h.num,par:h.par,stroke_index:h.si}))},shots:buildCaddieTargets(HOLES,25).map(h=>({hole_number:h.hole,score:h.hole===8?h.hcTarget+3:h.hcTarget,error_tags:h.hole===8?['T']:null}))}));fetchStatsHistory=async()=>rows;await rtRenderCoursePlan();const text=document.getElementById('setup-course-plan').textContent;return {text,width:document.documentElement.scrollWidth<=innerWidth};}finally{fetchStatsHistory=old;}})()`);
     if(process.env.SHOTS){await ev(`document.getAnimations().forEach(a=>a.finish());document.getElementById('setup-course-plan').scrollIntoView({block:'start'})`);require('fs').writeFileSync(process.env.SHOTS+'/course-plan.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
     assert.match(result.text,/last 3 complete rounds/);assert.match(result.text,/Hole 8/);assert.match(result.text,/T error tagged in 3 rounds/);assert.match(result.text,/tee club/);assert.strictEqual(result.width,true);
+    assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
+  });
+
+  await t('INSIGHTS: read-only trends and target-HC plan use same tees, metadata and explicit allowance',async()=>{
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');await ev(`showScreen('screen-stats');loadStats()`);await statsIdle();
+    const before=state.writes.length;
+    await ev(`statsState.course='all';statsState.tee='all';statsState.window=10;statsTab('progress')`);
+    const progress=await ev(`document.getElementById('stats-scroll').textContent`);
+    for(const text of ['What your data says','Consistency','Where the score gaps are','Recorded causes and error stacking','Your round in three parts','Negative is under target'])assert.ok(progress.includes(text),text);
+    assert.ok(!progress.includes('NaN'));assert.match(progress,/not measured strokes/);
+    await ev(`statsState.courseView='cA';statsState.courseTee='all';statsTab('courses')`);
+    assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/Select one course and recorded tee/);
+    await ev(`window.__oldInsightTees=setupCourses.find(c=>c.id==='cA').tee_options;setupCourses.find(c=>c.id==='cA').tee_options={yellow:{rating:72,slope:113}};officialHI=25;targetHC=15;statsState.courseTee='yellow';statsState.targetAllowance=1;statsRender()`);
+    const target=await ev(`document.getElementById('stats-scroll').textContent`);
+    assert.match(target,/Current HI 25.0/);assert.match(target,/Target HI 15.0/);assert.match(target,/Biggest gaps to the target-HC plan/);assert.match(target,/not a strokes-gained comparison/);assert.ok(!target.includes('NaN'));
+    await ev(`document.querySelector('[aria-label="Target comparison allowance"]').value='0.95';document.querySelector('[aria-label="Target comparison allowance"]').dispatchEvent(new Event('change'))`);
+    assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/95% allowance/);
+    for(const [width,height] of [[375,667],[390,844]])for(const theme of ['light','dark']){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:2,mobile:true});await ev(`setTheme('${theme}')`);
+      assert.strictEqual(await ev(`document.getElementById('stats-scroll').scrollWidth<=document.getElementById('stats-scroll').clientWidth+1`),true);
+    }
+    if(process.env.SHOTS){await ev(`document.getAnimations().forEach(a=>a.finish());document.getElementById('stats-scroll').scrollTop=0`);require('fs').writeFileSync(process.env.SHOTS+'/target-hc-plan.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));await ev(`statsTab('progress');document.getAnimations().forEach(a=>a.finish())`);require('fs').writeFileSync(process.env.SHOTS+'/stats-insights.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
+    await ev(`setupCourses.find(c=>c.id==='cA').tee_options=window.__oldInsightTees;setTheme('light')`);
     assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
   });
 

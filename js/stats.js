@@ -119,6 +119,7 @@ function stFilters(root) {
 function statsRenderProgress(root) {
     stFilters(root);
     const p=stProgress(statsRows,statsState.course,statsState.tee,statsState.window);
+    siRenderProgress(root);
     rtChallengeProgress(root,p.played);
     if(!p.full){stCard(root,'Your progress starts here','No complete 18-hole rounds match these filters yet. Nine-hole, partial and in-progress rounds remain available in Rounds.');return;}
     const sample=p.played.length+' complete 18-hole round'+(p.played.length===1?'':'s');
@@ -172,6 +173,7 @@ function statsRenderCourses(root) {
     stSelectControl(controls,'Course to explore',statsState.courseView,courses.map(c=>[c.id,c.name]),v=>{statsState.courseView=v;statsState.courseTee='all';statsRender();});
     const tees=[...new Set(stSelect(statsRows,statsState.courseView).map(stTeeKey))].sort();
     stSelectControl(controls,'Course tees',statsState.courseTee,[['all','All recorded tees'],...tees.map(t=>[t,stTeeName(t)])],v=>{statsState.courseTee=v;statsRender();});
+    siRenderTarget(root);
     const holes=stCourseHoles(statsRows,statsState.courseView,statsState.courseTee), count=holes[0].count;
     root.append(stText('p','st-caption',count+' complete 18-hole rounds · Each round uses its own course data. Nine-hole, partial and in-progress rounds are excluded.'));
     const danger=stCard(root,'Recurring trouble holes',count<3?'Play at least 3 full rounds on this course and tee selection to identify repeat trouble holes.':'Ranked by zero-point frequency, then average score relative to par. These are observations, not measured strokes lost.');
