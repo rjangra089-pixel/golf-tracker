@@ -1,6 +1,6 @@
 const fs=require('fs'),assert=require('assert');
 const src=fs.readFileSync(require('path').join(__dirname,'../../index.html'),'utf8');
-const code=src.match(/function buildCaddieTargets\(holes, handicap\) \{[\s\S]*?\n\}/)[0];
+const code=src.match(/function buildCaddieTargets\(holes, handicap, shotsBelow = 5\) \{[\s\S]*?\n\}/)[0];
 const build=new Function(code+';return buildCaddieTargets')();
 const sis=[9,5,15,3,11,17,1,13,7,6,16,12,2,18,8,14,4,10];
 const holes=sis.map((si,i)=>({par:i%3===0?3:4,si}));
@@ -21,3 +21,6 @@ assert.strictEqual(build(holes,25.5),null);
 assert.strictEqual(build(holes.slice(1),25),null);
 assert.strictEqual(build(holes.map(h=>({...h,si:1})),25),null);
 console.log('All caddie target tests passed (five shots saved, holes 1–6 unchanged, stroke allocation, no mutations).');
+
+for(const count of [0,2,3,5,12]){const plan=build(holes,25,count);assert.strictEqual(plan.filter(h=>h.shift).length,count);assert.ok(plan.slice(0,6).every(h=>h.target===h.hcTarget));}
+for(const count of [-1,13,2.5,NaN])assert.strictEqual(build(holes,25,count),null);

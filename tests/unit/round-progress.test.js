@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path'),assert=require('assert');
 const root=path.resolve(__dirname,'../..'),src=fs.readFileSync(path.join(root,'index.html'),'utf8');
-const build=src.match(/function buildCaddieTargets\(holes, handicap\) \{[\s\S]*?\n\}/)[0];
+const build=src.match(/function buildCaddieTargets\(holes, handicap, shotsBelow = 5\) \{[\s\S]*?\n\}/)[0];
 const {planFor,challenge,reflection}=new Function(fs.readFileSync(path.join(root,'js/coach-review.js'),'utf8')+'\n'+build+'\n'+fs.readFileSync(path.join(root,'js/round-progress.js'),'utf8')+'\nreturn {planFor:buildCaddieTargets,challenge:rpChallenge,reflection:rpReflection};')();
 const holes=Array.from({length:18},(_,i)=>({par:4,si:i+1})),plan=planFor(holes,25);
 const shots=plan.map(h=>({score:h.hcTarget,putts:null,fairway:null,gir:null,tags:[]})),before=JSON.stringify(shots);

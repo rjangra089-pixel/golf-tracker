@@ -1714,9 +1714,15 @@
         </section>
 
         <section class="profile-section">
-            <div class="field-label">Target Date</div>
-            <div class="profile-value">Dec 2026</div>
-            <div class="profile-hint">Fixed for now</div>
+            <label class="field-label" for="profile-target-date">Target date</label>
+            <input class="field-input" id="profile-target-date" type="date">
+        </section>
+        <section class="profile-section">
+            <label class="field-label" for="profile-challenge-shots">Shots below Playing HC</label>
+            <input class="field-input" id="profile-challenge-shots" type="number" min="0" max="12" step="1" inputmode="numeric">
+            <div class="profile-hint">Default 5. Choose 0–12. New rounds only; reductions start at hole 7.</div>
+            <button class="profile-save" onclick="saveGolfGoals()">Save goals</button>
+            <div class="profile-status" id="profile-goals-status" role="status"></div>
         </section>
 
         <section class="profile-section">
@@ -2197,13 +2203,14 @@ async function loadHomeData() {
 // Five one-shot bucket shifts after the six-hole settling-in period.
 // Prioritise the highest handicap-stroke bucket, then easier SI within it.
 // This is a score plan only: official Playing HC and Stableford stay unchanged.
-function buildCaddieTargets(holes, handicap) {
+function buildCaddieTargets(holes, handicap, shotsBelow = 5) {
+    if (!Number.isInteger(shotsBelow) || shotsBelow<0 || shotsBelow>12) return null;
     if (!Array.isArray(holes) || holes.length!==18 || !Number.isInteger(handicap)) return null;
     if (holes.some(h=>![3,4,5].includes(h.par)||!Number.isInteger(h.si)||h.si<1||h.si>18)
         || new Set(holes.map(h=>h.si)).size!==18) return null;
     const strokes=si=>Math.floor(handicap/18)+(si<=((handicap%18+18)%18)?1:0);
     const plan=holes.map((h,i)=>({hole:i+1,si:h.si,shots:strokes(h.si),hcTarget:h.par+strokes(h.si),target:h.par+strokes(h.si),shift:false}));
-    const challenge=[...plan.slice(6)].sort((a,b)=>b.shots-a.shots || b.si-a.si || a.hole-b.hole).slice(0,5);
+    const challenge=[...plan.slice(6)].sort((a,b)=>b.shots-a.shots || b.si-a.si || a.hole-b.hole).slice(0,shotsBelow);
     for (const h of challenge) { h.target--;h.shift=true; }
     return plan;
 }
@@ -2678,6 +2685,7 @@ async function startRound() {
     try {
     playerName = document.getElementById('setup-name').value.trim() || 'Golfer';
     playingHC  = hc;
+    roundChallengeShots=golfGoals().shots;
     roundDate  = document.getElementById('setup-date').value;
     holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
     activeRoundId = null; completedRoundId = null;
@@ -2731,6 +2739,8 @@ async function resumeRound() {
         activeRoundId = round.id; completedRoundId = null;
         roundDate     = round.date;
         playingHC     = round.playing_handicap ?? playingHC;
+        roundChallengeShots=5;
+        try {const saved=JSON.parse(localStorage.getItem(ROUND_STATE_KEY)||'null');if(saved?.activeRoundId===round.id&&Number.isInteger(saved.challengeShots)&&saved.challengeShots>=0&&saved.challengeShots<=12)roundChallengeShots=saved.challengeShots;}catch(e){}
         if (round.tee_color) { selectedTee = round.tee_color; selectTee(selectedTee); }
 
         // 2. Switch to the right course
@@ -2803,10 +2813,10 @@ function renderHole(idx, fromPrev) {
     const hStat   = holeStats[idx];
     document.getElementById('cb-shots').textContent    = shotsRec;
     document.getElementById('cb-target').textContent   = h.par + shotsRec;
-    const goal=buildCaddieTargets(HOLES,playingHC)?.[idx];
+    const goal=buildCaddieTargets(HOLES,playingHC,roundChallengeShots)?.[idx];
     document.getElementById('cb-goal').textContent=goal?.target ?? '—';
     document.getElementById('cb-goal').title=goal?.shift ? 'One shot below HC Target on this hole' : 'Same as HC Target on this hole';
-    document.getElementById('cb-goal-note').textContent=idx<6 ? 'First 6 holes · challenge starts at hole 7' : goal?.shift ? '−1 here · −5 round goal' : '−5 round goal';
+    document.getElementById('cb-goal-note').textContent=idx<6 ? 'First 6 holes · challenge starts at hole 7' : goal?.shift ? '−1 here · −'+roundChallengeShots+' round goal' : '−'+roundChallengeShots+' round goal';
     document.getElementById('cb-target').title='Par '+h.par+' + '+shotsRec+' handicap strokes';
 
     if (hStat?.avg !== null && hStat?.avg !== undefined) {
@@ -2909,10 +2919,10 @@ function stepPutts(delta) {
 function updatePlayTally() {
     document.getElementById('tb-pts').textContent = getTotalPoints();
     document.getElementById('tb-shots').textContent = getTotalShots();
-    const c=rpChallenge(buildCaddieTargets(HOLES,playingHC),holeData);
+    const c=rpChallenge(buildCaddieTargets(HOLES,playingHC,roundChallengeShots),holeData);
     if(!c.available) {setPlayStatus('Challenge unavailable · check course card','challenge');return;}
     const text=currentHole<6 && !c.afterSix ? 'First 6 holes · challenge starts at hole 7' :
-      c.holes ? rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target · '+c.holes+' holes' : 'Five-shot challenge · enter your first score';
+      c.holes ? rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target · '+c.holes+' holes' : roundChallengeShots+'-shot challenge · enter your first score';
     setPlayStatus(text,'challenge');
     document.getElementById('play-status').title=c.holes+' scored holes only. HC Target '+c.hc+', Target '+c.target+', actual '+c.gross+'. Round goal '+c.roundTarget+' gross. Nothing is projected.';
 }
@@ -3081,7 +3091,7 @@ function showSummary() {
     document.getElementById('sum-name').textContent  = playerName+' · HC '+playingHC;
 
     showSummaryView('summary');
-    rpRender(document.getElementById('summary-quick-review'),rpReflection(buildCaddieTargets(HOLES,playingHC),holeData));
+    rpRender(document.getElementById('summary-quick-review'),rpReflection(buildCaddieTargets(HOLES,playingHC,roundChallengeShots),holeData));
     const list = document.getElementById('hole-summary-list');
     list.innerHTML = '';
     holeData.forEach((d,i) => {
@@ -3252,7 +3262,8 @@ function showHomeEl(id, show) { document.getElementById(id).hidden = !show; }
 
 function renderHome() {
     if (!document.getElementById('home-road')) return;
-    const v = buildHomeView(homeModel, { hi: officialHI, target: toHandicap(targetHC), loadError: homeLoadError });
+    const targetDateLabel=new Date(golfGoals().date+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+    const v = buildHomeView(homeModel, { hi: officialHI, target: toHandicap(targetHC), targetDateLabel, loadError: homeLoadError });
 
     setHomeText('home-road-title', v.road.title);
     setHomeText('home-hi', v.road.hi);
@@ -3320,10 +3331,30 @@ function toHandicap(v) {
     return Number.isFinite(n) ? n : null;
 }
 
+let roundChallengeShots=5;
+function golfGoals(){
+ const m=currentUser?.user_metadata||{};
+ return {date:/^\d{4}-\d{2}-\d{2}$/.test(m.golf_target_date||'')?m.golf_target_date:'2026-12-31',shots:Number.isInteger(m.golf_challenge_shots)&&m.golf_challenge_shots>=0&&m.golf_challenge_shots<=12?m.golf_challenge_shots:5};
+}
+async function saveGolfGoals(){
+ const date=document.getElementById('profile-target-date').value,raw=document.getElementById('profile-challenge-shots').value.trim(),shots=raw===''?NaN:Number(raw);
+ if(!date||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||!Number.isInteger(shots)||shots<0||shots>12){setProfileStatus('profile-goals-status','Choose a date and a whole number from 0 to 12.',true);return;}
+ setProfileStatus('profile-goals-status','Saving…');
+ try{
+  const {data,error}=await sb.auth.updateUser({data:{golf_target_date:date,golf_challenge_shots:shots}});
+  if(error)throw error;if(!data?.user)throw new Error('Save could not be confirmed.');
+  currentUser=data.user;
+  setProfileStatus('profile-goals-status','Saved · applies to new rounds.');
+ }catch(e){setProfileStatus('profile-goals-status','Could not save. Please retry. '+e.message,true);}
+}
+
 function renderProfile() {
     document.getElementById('profile-name').textContent = playerName || '—';
     document.getElementById('profile-hc').value = officialHI !== null ? officialHI.toFixed(1) : '';
     document.getElementById('profile-target-hc').value = targetHC;
+    document.getElementById('profile-target-date').value=golfGoals().date;
+    document.getElementById('profile-challenge-shots').value=golfGoals().shots;
+    setProfileStatus('profile-goals-status','');
     setProfileStatus('profile-hc-status', '');
     setProfileStatus('profile-target-status', '');
     updateThemeIcons(document.body.classList.contains('dark-mode'));
@@ -3848,6 +3879,7 @@ function saveRoundStateToStorage(dirty = true) {
             currentHole,
             roundDate,
             playingHC,
+            challengeShots: roundChallengeShots,
             selectedTee,
             selectedCourseSlug,
             holeData,
@@ -3877,6 +3909,7 @@ function restoreRoundStateIfNeeded() {
         currentHole        = state.currentHole || 0;
         roundDate          = state.roundDate;
         playingHC          = state.playingHC;
+        roundChallengeShots=Number.isInteger(state.challengeShots)&&state.challengeShots>=0&&state.challengeShots<=12?state.challengeShots:5;
         selectedTee        = state.selectedTee || selectedTee;
         holeData           = state.holeData || holeData;
         console.log('[Golf Tracker] Restored round state from storage — hole', currentHole + 1);
@@ -3916,6 +3949,7 @@ async function bootApp() {
                 currentHole       = state.currentHole || 0;
                 roundDate         = state.roundDate;
                 playingHC         = state.playingHC;
+                roundChallengeShots=Number.isInteger(state.challengeShots)&&state.challengeShots>=0&&state.challengeShots<=12?state.challengeShots:5;
                 selectedTee       = state.selectedTee || selectedTee;
                 holeData          = state.holeData || holeData;
                 if (state.selectedCourseSlug && state.selectedCourseSlug !== selectedCourseSlug) {

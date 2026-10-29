@@ -35,9 +35,9 @@ function rpRender(root, model, options={}) {
  if(!options.historical&&c.available&&c.holes){
    add('p','rp-challenge','HC Target: '+c.hc+' · Target: '+c.target+' · Actual: '+c.gross+(c.complete?'':' · scored holes only'));
    add('p','rp-result',rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target');
-   add('p','rp-note',c.complete?'Five-shot goal: '+c.roundTarget+' gross. Holes 1–6 unchanged; five one-shot shifts after hole 6.':'Round goal '+c.roundTarget+' gross · result so far uses only the holes scored.');
+   add('p','rp-note',c.complete?(c.roundHc-c.roundTarget)+'-shot goal: '+c.roundTarget+' gross. Holes 1–6 unchanged; reductions after hole 6.':'Round goal '+c.roundTarget+' gross · result so far uses only the holes scored.');
  }
- if(options.historical) add('p','rp-note','Based on this round’s recorded data. The five-shot challenge is not scored retrospectively.');
+ if(options.historical) add('p','rp-note','Based on this round’s recorded data. The challenge is not scored retrospectively.');
  add('h4','rp-label','Biggest gaps to HC Target');
  add('p','rp-evidence',model.gaps.length?model.gaps.map(h=>'H'+h.hole+': +'+h.over+(h.tags.length?' · tagged '+h.tags.join('/'):' · no error tagged')).join(' · '):'No scored holes above HC Target'+(c.available?'.':' could be assessed: target data unavailable.'));
  add('p','rp-note','Score gaps describe outcomes, not their causes.');

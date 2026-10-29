@@ -469,7 +469,7 @@ const t = async (name, fn) => {
   await t('B2 Road to 15: officialHI/targetHC copy, no playingHC', async () => {
     assert.strictEqual(await T('home-road-title'), 'Road to 15');
     assert.strictEqual(await T('home-hi'), '25.0'); assert.strictEqual(await T('home-target'), '15.0');
-    assert.strictEqual(await T('home-gap'), '10.0 to go · target Dec 2026');
+    assert.strictEqual(await T('home-gap'), '10.0 to go · target 31 Dec 2026');
     assert.strictEqual(await T('home-hi-note'), 'Official Handicap Index');
     await ev(`playingHC = 31; renderHome()`);
     assert.strictEqual(await T('home-hi'), '25.0', 'playingHC never shown');
@@ -576,7 +576,7 @@ const t = async (name, fn) => {
     assert.strictEqual(await T('home-focus-headline'), 'Stop the blow-up hole.', 'last good model kept');
     assert.strictEqual(await shown('home-load-error'), false);
     await ev(`homeModel = null`); await reloadHome('error');
-    assert.ok(await shown('home-load-error')); assert.strictEqual(await T('home-gap'), '10.0 to go · target Dec 2026');
+    assert.ok(await shown('home-load-error')); assert.strictEqual(await T('home-gap'), '10.0 to go · target 31 Dec 2026');
     errors.splice(0, errors.length, ...errors.filter(e => !/history unavailable/.test(e)));   // expected warn path only
     await reloadHome('rich');
   });
@@ -1252,6 +1252,22 @@ const t = async (name, fn) => {
     assert.ok(!/Could not load Stats/.test(await ev(`document.getElementById('stats-scroll').textContent`)));
   });
 
+
+  await t('PROFILE GOALS: defaults, account save, validation and active-round challenge isolation',async()=>{
+    await reloadHome('rich');
+    const result=await ev(`(async()=>{const update=sb.auth.updateUser,original=currentUser;let calls=0;
+      try {currentUser={...currentUser,user_metadata:{name:'Test'}};showScreen('screen-profile');
+        const defaults=[document.getElementById('profile-target-date').value,document.getElementById('profile-challenge-shots').value];
+        sb.auth.updateUser=async({data})=>{calls++;return {data:{user:{...currentUser,user_metadata:{...currentUser.user_metadata,...data}}},error:null};};
+        roundChallengeShots=5;activeRoundId='ongoing';document.getElementById('profile-target-date').value='2027-06-30';document.getElementById('profile-challenge-shots').value='3';await saveGolfGoals();
+        const saved=golfGoals(),active=roundChallengeShots;renderProfile();const restored=document.getElementById('profile-challenge-shots').value;
+        document.getElementById('profile-challenge-shots').value='2.5';await saveGolfGoals();
+        const invalid=document.getElementById('profile-goals-status').classList.contains('error');
+        sb.auth.updateUser=async()=>({data:null,error:new Error('Offline')});document.getElementById('profile-challenge-shots').value='2';await saveGolfGoals();
+        return {defaults,saved,active,restored,invalid,calls,failed:document.getElementById('profile-goals-status').textContent.includes('Could not save')};
+      }finally{sb.auth.updateUser=update;currentUser=original;activeRoundId=null;roundChallengeShots=5;}})()`);
+    assert.deepStrictEqual(result,{defaults:['2026-12-31','5'],saved:{date:'2027-06-30',shots:3},active:5,restored:'3',invalid:true,calls:1,failed:true});
+  });
 
   await t('SETUP: stale completed round releases course selection; unfinished draft stays intact',async()=>{
     await reloadHome('rich');
