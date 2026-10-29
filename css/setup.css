@@ -62,3 +62,14 @@
 .su-save-feedback { font-size:14px; line-height:1.5; color:var(--cl-destructive); }
 .su-save-feedback:empty { display:none; }
 #screen-setup .su-reset { min-height:44px; border:0; background:none; color:var(--cl-accent); font:600 13px var(--cl-font); cursor:pointer; text-align:left; }
+
+#screen-setup #setup-course-plan {padding:18px;border:1px solid var(--cl-border);border-radius:18px;background:var(--cl-surface);}
+#screen-setup #setup-course-plan h3 {margin-top:0;font-size:18px;color:var(--cl-text);}
+#round-manager {overflow-y:auto;}
+#round-manager .profile-section {margin:12px 0;padding:12px;border:1px solid var(--cl-border);border-radius:12px;overflow-wrap:anywhere;}
+#round-manager button {min-height:44px;margin:6px 8px 6px 0;}
+
+.home-manage-btn {background:none;border:0;color:var(--green-bright);font:600 14px var(--cl-font);min-height:44px;text-align:left;}
+
+#round-manager .st-button,#screen-setup .su-scroll > .st-button {min-height:46px;padding:10px 16px;border:1px solid var(--cl-border);border-radius:10px;background:var(--cl-control);color:var(--cl-text);font:600 14px var(--cl-font);cursor:pointer;}
+#round-manager > .st-button:last-child {display:block;width:100%;background:var(--cl-accent);color:var(--cl-on-accent);border-color:var(--cl-accent);margin-top:18px;}

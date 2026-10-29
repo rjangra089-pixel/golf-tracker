@@ -114,7 +114,7 @@ function crBuildReview(input, opts = {}) {
         const par = pars.get(s.hole_number).par;
         const putts = crIsWhole(s.putts, 0) ? s.putts : null;
         const gir = s.gir === true ? 'Y' : s.gir === false ? 'N' : null;
-        const note = typeof s.notes === 'string' && s.notes.trim() ? s.notes.replace(/\s+/g, ' ').trim() : null;
+        const note = typeof s.notes === 'string' && !s.notes.startsWith('GT_CHALLENGE_V1:') && s.notes.trim() ? s.notes.replace(/\s+/g, ' ').trim() : null;
         return { num: s.hole_number, par, score: s.score, fw: crFairway(par, s.fairway), fairway: s.fairway ?? null,
                  gir, putts, tags: errorsCaptured ? crParseTags(s.error_tags) : null, note };
     });

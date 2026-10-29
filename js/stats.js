@@ -119,6 +119,7 @@ function stFilters(root) {
 function statsRenderProgress(root) {
     stFilters(root);
     const p=stProgress(statsRows,statsState.course,statsState.tee,statsState.window);
+    rtChallengeProgress(root,p.played);
     if(!p.full){stCard(root,'Your progress starts here','No complete 18-hole rounds match these filters yet. Nine-hole, partial and in-progress rounds remain available in Rounds.');return;}
     const sample=p.played.length+' complete 18-hole round'+(p.played.length===1?'':'s');
     const period=stDate(p.played[p.played.length-1].date)+' – '+stDate(p.played[0].date);
@@ -211,7 +212,9 @@ function statsRoundCard(root,r) {
     const numbers=stText('div','st-round-numbers');const score=stText('span','rhi-score',summary.gross===null?'—':String(summary.gross));score.setAttribute('aria-label',(summary.gross??'Unknown')+' gross');
     numbers.append(score,stText('span','st-caption','gross'),stText('span','rhi-pts',summary.points===null?'Points unavailable':summary.points+' pts'));
     numbers.append(stText('span','st-caption',summary.putts===null?'Putts incomplete':summary.putts+' putts'));card.append(numbers);
+    const challenge=rtChallengeResult(r);left.append(stText('p','st-caption',challenge?challenge.shots+' below HC goal · '+rpTarget(challenge.gross-challenge.target)+' Challenge Target':'Challenge goal not recorded'));
     const actions=stText('div','st-round-actions');card.append(actions);
+    if(r.round_status==='in_progress'){const resume=stText('button','st-button rhi-resume','Resume');resume.type='button';resume.onclick=()=>rtResume(r).catch(e=>alert(e.message));actions.append(resume);}
     if(r.round_status!=='in_progress' && r.shots?.length) {
         const editBtn=stText('button','rhi-edit','Edit');editBtn.type='button';editBtn.setAttribute('aria-label','Edit round for '+date);
         editBtn.addEventListener('click', () => openRoundEdit(r.id));actions.append(editBtn);

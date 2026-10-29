@@ -1412,6 +1412,56 @@ const t = async (name, fn) => {
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});
   });
 
+  await t('TOOLS: switching rounds preserves exact local scores and goal; manager makes no round/shot writes',async()=>{
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();roundChallengePlan=null;roundChallengeRecorded=false;currentUser.user_metadata.golf_challenge_shots=3`);
+    await reloadHome('rich');await startTestRound();await ev(`selectScore(6);selectPutts(0);autoSaveHole(0)`);
+    const before=state.writes.length;
+    const result=await ev(`(async()=>{const fetchBefore=sbFetch;try{
+      const id=activeRoundId;await rtStartNew();const saved=rtDrafts()[id];
+      const kept={score:saved.holeData[0].score,putts:saved.holeData[0].putts,goal:saved.challengeShots,plan:saved.challengePlan.length};
+      sbFetch=async(path,options)=>path.startsWith('rounds?select=*,courses(name)&')?[{id,date:'2026-10-29',round_status:'in_progress',courses:{name:'Course A'}},{id:'other-draft',date:'2026-10-28',round_status:'in_progress',courses:{name:'Course B'}}]:path.startsWith('rounds?select=id,round_status&')?[{id,round_status:'in_progress'}]:fetchBefore(path,options);
+      await rtResume({id,round_status:'in_progress'});
+      const restored={id:activeRoundId,score:holeData[0].score,putts:holeData[0].putts,goal:roundChallengeShots,cuts:rtLivePlan().filter(h=>h.shift).length};
+      await openRoundManager();const manager=document.getElementById('round-manager').textContent;const resumes=[...document.querySelectorAll('#round-manager button')].filter(b=>b.textContent==='Resume').length;if(!${Boolean(process.env.SHOTS)})document.getElementById('round-manager').close();
+      const user=currentUser;currentUser={id:'another-account'};const isolated=Object.keys(rtDrafts()).length===0;currentUser=user;
+      return {kept,restored,isolated,resumes,manager:manager.includes('Start a new round')};
+    }finally{sbFetch=fetchBefore;}})()`);
+    assert.deepStrictEqual(result,{kept:{score:6,putts:0,goal:3,plan:18},restored:{id:'new-round',score:6,putts:0,goal:3,cuts:3},isolated:true,resumes:2,manager:true});
+    assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
+    if(process.env.SHOTS){await ev(`openRoundManager()`);require('fs').writeFileSync(process.env.SHOTS+'/round-manager.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));await ev(`document.getElementById('round-manager').close()`);}
+  });
+  await t('TOOLS: blocked storage, pending sync and completed resume cannot discard current entries',async()=>{
+    const result=await ev(`(async()=>{const oldFetch=sbFetch,oldSave=saveRoundStateToStorage;let blocked=false,completed=false,pending=false,resumeRollback=false;
+      try{const id=activeRoundId,score=holeData[0].score;
+        saveRoundStateToStorage=()=>{};holeData[0].score++;try{await rtStartNew();}catch(e){blocked=e.message.includes('could not be preserved');}holeData[0].score--;saveRoundStateToStorage=oldSave;
+        sbFetch=async(path,options)=>path.startsWith('rounds?select=id,round_status&')?[{id,round_status:'completed'}]:oldFetch(path,options);
+        try{await rtResume({id});}catch(e){completed=e.message.includes('no longer unfinished');}
+        sbFetch=async(path,options)=>{if(path.startsWith('rounds?select=id,round_status&'))return [{id:'other-unfinished',round_status:'in_progress'}];if(path.startsWith('shots?select=*&round_id=eq.other-unfinished'))throw new Error('Read failed');return oldFetch(path,options);};
+        const oldCourse=courseId;try{await rtResume({id:'other-unfinished',date:'2026-10-01',course_id:'cB',playing_handicap:30,round_status:'in_progress'});}catch(e){resumeRollback=courseId===oldCourse&&activeRoundId===id&&holeData[0].score===score;}
+        queueWrite({path:'rounds?id=eq.test-preserved',method:'PATCH',body:'{}'});sbFetch=async()=>{throw new Error('Offline test');};
+        try{await rtStartNew();}catch(e){pending=e.message.includes('Reconnect and sync');}
+        const intact=activeRoundId===id&&holeData[0].score===score&&roundSyncQueue().length===1;
+        return {blocked,completed,pending,intact,resumeRollback};
+      }finally{sbFetch=oldFetch;saveRoundStateToStorage=oldSave;localStorage.removeItem(WRITE_QUEUE_KEY);}})()`);
+    assert.deepStrictEqual(result,{blocked:true,completed:true,pending:true,intact:true,resumeRollback:true});
+  });
+  await t('TOOLS: final save keeps original challenge across profile changes; Stats uses that goal, legacy rounds excluded',async()=>{
+    const before=state.writes.length;
+    await ev(`currentUser.user_metadata.golf_challenge_shots=5;holeData=rtLivePlan().map(h=>({score:h.target,putts:2,fairway:null,gir:null,tags:[]}));showSummary();saveRound()`);
+    const posts=state.writes.slice(before).filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).map(w=>JSON.parse(w.body));
+    const saved=posts.find(p=>Array.isArray(p)&&p.length===18);assert.ok(saved);assert.ok(saved.every(s=>s.notes.startsWith('GT_CHALLENGE_V1:')));
+    const result=await ev(`(()=>{const round={round_status:'completed',shots:${JSON.stringify(saved)}};const result=rtChallengeResult(round);const root=document.createElement('div');rtChallengeProgress(root,[round,{...round,shots:round.shots.map(s=>({...s,notes:null}))}]);round.shots[0].score+=2;return {goal:result.shots,met:result.met,text:root.textContent,editedMet:rtChallengeResult(round).met};})()`);
+    assert.strictEqual(result.goal,3);assert.strictEqual(result.met,true);assert.strictEqual(result.editedMet,false);assert.match(result.text,/3 below HC/);assert.match(result.text,/1 rounds in this window have no recorded challenge/);
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();roundChallengePlan=null;roundChallengeRecorded=false`);
+  });
+  await t('TOOLS: course plan uses three same-tee rounds, factual hole gaps, repeated tags and no writes',async()=>{
+    const before=state.writes.length;
+    const result=await ev(`(async()=>{const old=fetchStatsHistory;try{showScreen('screen-setup');const rows=Array.from({length:3},()=>({round_status:'completed',course_id:courseId,playing_handicap:25,tee_color:selectedTee,courses:{holes:HOLES.map(h=>({hole_number:h.num,par:h.par,stroke_index:h.si}))},shots:buildCaddieTargets(HOLES,25).map(h=>({hole_number:h.hole,score:h.hole===8?h.hcTarget+3:h.hcTarget,error_tags:h.hole===8?['T']:null}))}));fetchStatsHistory=async()=>rows;await rtRenderCoursePlan();const text=document.getElementById('setup-course-plan').textContent;return {text,width:document.documentElement.scrollWidth<=innerWidth};}finally{fetchStatsHistory=old;}})()`);
+    if(process.env.SHOTS){await ev(`document.getAnimations().forEach(a=>a.finish());document.getElementById('setup-course-plan').scrollIntoView({block:'start'})`);require('fs').writeFileSync(process.env.SHOTS+'/course-plan.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
+    assert.match(result.text,/last 3 complete rounds/);assert.match(result.text,/Hole 8/);assert.match(result.text,/T error tagged in 3 rounds/);assert.match(result.text,/tee club/);assert.strictEqual(result.width,true);
+    assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
+  });
+
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {
     await ev(`showScreen('screen-profile'); document.querySelector('.profile-signout').click()`);
     await waitFor(`document.querySelector('.screen.active').id === 'screen-auth'`);

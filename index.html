@@ -1604,8 +1604,8 @@
 
         <div class="home-load-error" id="home-load-error" hidden>Couldn't load your recent rounds.</div>
 
-        <!-- Resume in-progress round (unchanged — redesigned in Phase C) -->
-        <div class="resume-banner" id="resume-banner" onclick="resumeRound()">
+        <button type="button" class="home-manage-btn" style="margin:12px 16px" onclick="openRoundManager()">Manage rounds · Resume or start new</button>
+        <div class="resume-banner" id="resume-banner" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" onclick="rtResume(window._inProgressRound).catch(e=>alert(e.message))">
             <div class="resume-banner-icon">🔄</div>
             <div class="resume-banner-text">
                 <div class="resume-banner-title">RESUME ROUND</div>
@@ -1794,6 +1794,8 @@
             <label class="su-field">Handicap allowance<select id="setup-allowance"><option value="1">General play · 100%</option><option value="0.95">Singles Stableford / stroke play · 95%</option></select></label><p class="su-hint" id="setup-hc-hint"></p><button type="button" class="su-reset" id="setup-hc-reset" hidden>Use calculated handicap</button>
             <h3>Choose your tees</h3><div id="setup-tees" class="tee-selector"><button type="button" class="tee-btn" id="tee-btn-yellow" onclick="selectTee('yellow')">Yellow</button><button type="button" class="tee-btn" id="tee-btn-white" onclick="selectTee('white')">White</button></div><p class="su-hint" id="setup-tee-meta"></p>
         </section>
+        <button type="button" class="st-button" onclick="openRoundManager()">Manage unfinished rounds / Start new</button>
+        <section class="su-panel" id="setup-course-plan" aria-live="polite"></section>
         <p id="setup-status" role="status" aria-live="polite"></p>
     </div>
     <footer class="su-footer"><span>One mistake doesn’t get a friend.</span><button type="button" class="btn-teeoff" id="setup-start" onclick="startRound()">TEE OFF →</button></footer>
@@ -1975,6 +1977,7 @@
 <script src="js/stats.js?v=1"></script>
 <script src="js/setup.js?v=1"></script>
 <script src="js/round-progress.js?v=1"></script>
+<script src="js/round-tools.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
 //  SUPABASE
@@ -2072,6 +2075,7 @@ async function switchCourse(slug) {
         document.getElementById('setup-course-select').value=slug;
         document.getElementById('setup-course-tag').textContent=course.name;
         cacheCourseData(slug,HOLES);renderStartMeta();setupStatus('');
+        if(document.getElementById('screen-setup').classList.contains('active'))rtRenderCoursePlan();
     } catch(e) {
         if(version!==setupSwitchVersion)return;
         setupStatus(e.message,true);
@@ -2108,6 +2112,7 @@ async function onCourseChange() {
 function selectTee(tee) {
     selectedTee = tee; localStorage.setItem('lastTee',tee);
     setupRefresh(); renderStartMeta();
+    if(document.getElementById('screen-setup').classList.contains('active'))rtRenderCoursePlan();
 }
 
 // Apply saved tee selection on load
@@ -2340,7 +2345,8 @@ async function openRoundReview(roundId) {
             const holes=Array.from({length:18},(_,i)=>{const h=r.courses?.holes?.find(h=>h.hole_number===i+1);return {par:h?.par,si:h?.stroke_index};});
             const shots=Array.from({length:18},(_,i)=>r.shots.find(h=>h.hole_number===i+1));
             const quick=document.createElement('section');quick.className='rp-review';quick.setAttribute('aria-label','Short post-round review');
-            rpRender(quick,rpReflection(buildCaddieTargets(holes,r.playing_handicap),shots),{historical:true});body.prepend(quick);
+            const snapshot=rtRoundSnapshot(r);
+            rpRender(quick,rpReflection(snapshot?.plan||buildCaddieTargets(holes,r.playing_handicap),shots),{historical:!snapshot});body.prepend(quick);
         }
     } catch (e) {
         body.replaceChildren(crEl('p', 'cr-unavailable', "Couldn't load this round. " + (e.message || '')));
@@ -2672,6 +2678,7 @@ function buildHomeView(model, profile = {}) {
 // ═══════════════════════════════════════════════════════════════
 async function startRound() {
     if (setupRoundBusy) return;
+    if(activeRoundId&&localStorage.getItem(ROUND_STATE_KEY)){await openRoundManager();return;}
     if (setupLoading && setupPendingCourse) await setupPendingCourse;
     const requested = document.getElementById('setup-course-select').value;
     if (requested && requested !== selectedCourseSlug) {
@@ -2686,6 +2693,8 @@ async function startRound() {
     playerName = document.getElementById('setup-name').value.trim() || 'Golfer';
     playingHC  = hc;
     roundChallengeShots=golfGoals().shots;
+    roundChallengePlan=buildCaddieTargets(HOLES,hc,roundChallengeShots);
+    roundChallengeRecorded=!!roundChallengePlan;roundShotNotes={};roundDraftId=crypto.randomUUID();
     roundDate  = document.getElementById('setup-date').value;
     holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
     activeRoundId = null; completedRoundId = null;
@@ -2746,12 +2755,17 @@ async function resumeRound() {
         // 2. Switch to the right course
         const courseRows = await sbFetch('courses?select=id,slug,name,par&id=eq.' + round.course_id);
         const roundCourse = courseRows?.[0];
-        if (roundCourse) {
-            await switchCourse(roundCourse.slug);
-        }
+        if (!roundCourse) throw new Error('The round’s course could not be loaded.');
+        await switchCourse(roundCourse.slug);
+        if(selectedCourseSlug!==roundCourse.slug)throw new Error('The course scorecard could not be loaded.');
 
         // 3. Load all saved shots for this round
         const shots = await sbFetch('shots?select=*&round_id=eq.' + round.id + '&order=hole_number');
+
+        const snapshot=rtRoundSnapshot({shots});
+        roundChallengePlan=snapshot?.plan||null;roundChallengeRecorded=!!snapshot;
+        if(snapshot)roundChallengeShots=snapshot.shots;
+        roundShotNotes=Object.fromEntries((shots||[]).map(s=>[s.hole_number-1,s.notes??null]));
 
         // 4. Restore holeData from saved shots
         holeData = Array.from({length: 18}, () => ({score: null, putts: null, fairway: null, gir: null, tags: []}));
@@ -2785,7 +2799,7 @@ async function resumeRound() {
     } catch(e) {
         console.warn('Resume round failed:', e.message);
         banner.style.opacity = '1';
-        alert('Could not resume round: ' + e.message);
+        throw new Error('Could not resume round: ' + e.message);
     }
 }
 function renderHole(idx, fromPrev) {
@@ -2813,7 +2827,7 @@ function renderHole(idx, fromPrev) {
     const hStat   = holeStats[idx];
     document.getElementById('cb-shots').textContent    = shotsRec;
     document.getElementById('cb-target').textContent   = h.par + shotsRec;
-    const goal=buildCaddieTargets(HOLES,playingHC,roundChallengeShots)?.[idx];
+    const goal=rtLivePlan()?.[idx];
     document.getElementById('cb-goal').textContent=goal?.target ?? '—';
     document.getElementById('cb-goal').title=goal?.shift ? 'One shot below HC Target on this hole' : 'Same as HC Target on this hole';
     document.getElementById('cb-goal-note').textContent=idx<6 ? 'First 6 holes · challenge starts at hole 7' : goal?.shift ? '−1 here · −'+roundChallengeShots+' round goal' : '−'+roundChallengeShots+' round goal';
@@ -2919,7 +2933,7 @@ function stepPutts(delta) {
 function updatePlayTally() {
     document.getElementById('tb-pts').textContent = getTotalPoints();
     document.getElementById('tb-shots').textContent = getTotalShots();
-    const c=rpChallenge(buildCaddieTargets(HOLES,playingHC,roundChallengeShots),holeData);
+    const c=rpChallenge(rtLivePlan(),holeData);
     if(!c.available) {setPlayStatus('Challenge unavailable · check course card','challenge');return;}
     const text=currentHole<6 && !c.afterSix ? 'First 6 holes · challenge starts at hole 7' :
       c.holes ? rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target · '+c.holes+' holes' : roundChallengeShots+'-shot challenge · enter your first score';
@@ -2999,7 +3013,7 @@ async function autoSaveHoleNow(holeIdx) {
         await sbFetch('shots?round_id=eq.' + activeRoundId + '&hole_number=eq.' + (holeIdx + 1), { method: 'DELETE', prefer: '' });
         await sbFetch('shots', { method: 'POST', body: JSON.stringify({
             round_id: activeRoundId, hole_id: holeId, hole_number: holeIdx + 1,
-            score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags),
+            score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(holeIdx),
         })});
 
         // Update round totals
@@ -3035,7 +3049,7 @@ async function autoSaveHoleNow(holeIdx) {
             path: 'shots', method: 'POST',
             body: JSON.stringify({
                 round_id: activeRoundId, hole_id: holeId, hole_number: holeIdx + 1,
-                score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags),
+                score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(holeIdx),
             }),
         });
 
@@ -3091,7 +3105,7 @@ function showSummary() {
     document.getElementById('sum-name').textContent  = playerName+' · HC '+playingHC;
 
     showSummaryView('summary');
-    rpRender(document.getElementById('summary-quick-review'),rpReflection(buildCaddieTargets(HOLES,playingHC,roundChallengeShots),holeData));
+    rpRender(document.getElementById('summary-quick-review'),rpReflection(rtLivePlan(),holeData));
     const list = document.getElementById('hole-summary-list');
     list.innerHTML = '';
     holeData.forEach((d,i) => {
@@ -3175,7 +3189,7 @@ async function saveRound() {
             await sbFetch('shots?round_id=eq.' + activeRoundId, { method: 'DELETE', prefer: '' });
             const shots = holeData.map((d,i) => ({
                 round_id: activeRoundId, hole_id: holeIds[i]||null,
-                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags),
+                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(i),
             })).filter(s => s.score);
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
             await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'PATCH', body: JSON.stringify({
@@ -3199,7 +3213,7 @@ async function saveRound() {
 
             const shots = holeData.map((d,i) => ({
                 round_id: activeRoundId, hole_id: holeIds[i]||null,
-                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags),
+                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(i),
             })).filter(s => s.score);
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
         }
@@ -3229,12 +3243,7 @@ async function saveRound() {
 
 function goHome() { showScreen('screen-home'); }
 
-function newRound() {
-    completedRoundId = null;
-    holeData = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
-    activeRoundId = null;
-    showScreen('screen-setup');
-}
+function newRound() {return rtStartNew().catch(e=>alert(e.message));}
 
 // ═══════════════════════════════════════════════════════════════
 //  SCREEN NAVIGATION
@@ -3247,7 +3256,7 @@ function showScreen(id) {
     document.querySelectorAll('.bnav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === id));
     if (id==='screen-stats')   loadStats();
     if (id==='screen-profile') renderProfile();
-    if (id==='screen-setup') setupRefresh();
+    if (id==='screen-setup') {setupRefresh();rtRenderCoursePlan();}
 }
 
 function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
@@ -3880,6 +3889,7 @@ function saveRoundStateToStorage(dirty = true) {
             roundDate,
             playingHC,
             challengeShots: roundChallengeShots,
+            challengePlan: roundChallengePlan, challengeRecorded:roundChallengeRecorded, shotNotes:roundShotNotes, draftId:roundDraftId,
             selectedTee,
             selectedCourseSlug,
             holeData,
@@ -3910,6 +3920,8 @@ function restoreRoundStateIfNeeded() {
         roundDate          = state.roundDate;
         playingHC          = state.playingHC;
         roundChallengeShots=Number.isInteger(state.challengeShots)&&state.challengeShots>=0&&state.challengeShots<=12?state.challengeShots:5;
+                roundChallengePlan=rtValidSnapshot({v:1,shots:roundChallengeShots,plan:state.challengePlan})?state.challengePlan:null;
+                roundChallengeRecorded=!!state.challengeRecorded&&!!roundChallengePlan;roundShotNotes=state.shotNotes||{};roundDraftId=state.draftId||null;
         selectedTee        = state.selectedTee || selectedTee;
         holeData           = state.holeData || holeData;
         console.log('[Golf Tracker] Restored round state from storage — hole', currentHole + 1);
@@ -3950,6 +3962,8 @@ async function bootApp() {
                 roundDate         = state.roundDate;
                 playingHC         = state.playingHC;
                 roundChallengeShots=Number.isInteger(state.challengeShots)&&state.challengeShots>=0&&state.challengeShots<=12?state.challengeShots:5;
+                roundChallengePlan=rtValidSnapshot({v:1,shots:roundChallengeShots,plan:state.challengePlan})?state.challengePlan:null;
+                roundChallengeRecorded=!!state.challengeRecorded&&!!roundChallengePlan;roundShotNotes=state.shotNotes||{};roundDraftId=state.draftId||null;
                 selectedTee       = state.selectedTee || selectedTee;
                 holeData          = state.holeData || holeData;
                 if (state.selectedCourseSlug && state.selectedCourseSlug !== selectedCourseSlug) {
