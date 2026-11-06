@@ -283,3 +283,26 @@
  #screen-play .score-cell,#screen-play .putt-btn {height:44px;}
  #screen-play .caddie-stat-val {font-size:20px;}
 }
+/* SI-based coaching and explicit observational data; never alter gross. */
+#screen-play .zone-cue {font-size:12px;line-height:1.35;margin:2px 0 5px;color:var(--cl-text);font-weight:600;}
+#screen-play .zone-buttons {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}
+#screen-play .zone-buttons button {min-height:44px;border:1px solid var(--cl-border);border-radius:10px;background:var(--cl-control);color:var(--cl-text);font:600 13px var(--cl-font);}
+#screen-play .zone-buttons button[aria-pressed="true"] {background:var(--cl-accent);color:var(--cl-on-accent);}
+#screen-play .zone-counts {display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;}
+#screen-play .zone-counts label {font:500 11px var(--cl-font);color:var(--cl-text-2);}
+#screen-play .zone-counts input {display:block;width:100%;min-height:44px;margin-top:3px;padding:5px 10px;box-sizing:border-box;border:1px solid var(--cl-border);border-radius:10px;background:var(--cl-control);color:var(--cl-text);font:600 18px var(--cl-font);}
+#screen-play .zone-help,#screen-play #zone-entry-status {grid-column:1/-1;font-size:10px;line-height:1.25;color:var(--cl-text-2);margin:0;}
+#screen-play #zone-entry-status {color:var(--cl-destructive);}
+#screen-play #zone-entry-status:empty {display:none;}
+@media(max-height:700px){#screen-play .entry-section,#screen-play .tasp-section {padding-top:3px;padding-bottom:3px;}#screen-play .section-label,#screen-play .entry-label-row .section-label {margin-bottom:2px;}#screen-play .zone-cue {font-size:11px;}}
+@media(min-height:701px) and (max-height:900px){
+ #screen-play .entry-section,#screen-play .tasp-section {padding-top:5px;padding-bottom:5px;}
+ #screen-play .section-label,#screen-play .entry-label-row .section-label {margin-bottom:4px;}
+ #screen-play .score-cell,#screen-play .putt-btn {height:44px;}
+}
+#summary-quick-review .st-card {border-top:1px solid var(--border);margin-top:14px;padding-top:14px;}
+#summary-quick-review .st-section-title {font-size:17px;line-height:1.35;}
+#summary-quick-review .st-caption {font-size:12px;line-height:1.45;color:var(--gray);margin:4px 0 8px;}
+#summary-quick-review .st-pair {display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding:8px 0;}
+#summary-quick-review .st-pair h3 {font-size:14px;}
+#summary-quick-review .st-pair strong {font-size:14px;flex-shrink:0;max-width:40%;text-align:right;}

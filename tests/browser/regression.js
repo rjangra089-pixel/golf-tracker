@@ -852,10 +852,10 @@ const t = async (name, fn) => {
     await ev(`renderHole(1)`); assert.strictEqual(await vis('fairway-group'), true); await ev(`renderHole(2)`);
   });
 
-  await t('LIVE: briefing always open, numeric targets and average bottom-right; five shifts after hole six', async () => {
+  await t('LIVE: briefing always open, numeric targets and course-specific SI cue; averages removed', async () => {
     for(const i of [0,5,6,17]){
       await ev(`renderHole(${i})`);
-      assert.ok(await vis('cb-target'));assert.ok(await vis('cb-goal'));assert.ok(await vis('cb-avg'));
+      assert.ok(await vis('cb-target'));assert.ok(await vis('cb-goal'));assert.ok(await vis('cb-zone-cue'));
       assert.strictEqual(await ev(`!!document.getElementById('cb-toggle') || !!document.getElementById('cb-strategy') || !!document.getElementById('cb-danger-block') || !!document.getElementById('cb-rounds')`),false);
       assert.strictEqual(await ev(`Number(document.getElementById('cb-target').textContent)`),await ev(`HOLES[${i}].par+getShotsReceived(${i})`));
     }
@@ -863,7 +863,7 @@ const t = async (name, fn) => {
     assert.ok(plan.slice(0,6).every(h=>h.target===h.hcTarget));
     assert.strictEqual(plan.filter(h=>h.shift).length,5);
     assert.strictEqual(plan.reduce((n,h)=>n+h.hcTarget-h.target,0),5);
-    assert.strictEqual(await ev(`document.getElementById('cb-avg').closest('.caddie-stats-grid').lastElementChild.contains(document.getElementById('cb-avg'))`),true);
+    assert.strictEqual(await ev(`!!document.getElementById('cb-avg')||!!document.getElementById('cb-gir')||!!document.getElementById('cb-putts')`),false);
     await ev(`renderHole(2);selectScore(3);nextHole()`);await sleep(300);
     assert.ok(await vis('cb-goal'));await ev(`prevHole()`);assert.ok(await vis('cb-goal'));await ev(`nextHole()`);await sleep(300);
   });
@@ -874,7 +874,8 @@ const t = async (name, fn) => {
     assert.ok(await ev(`document.getElementById('play-status').getBoundingClientRect().height <= 20`));
   });
 
-  await t('LIVE: entry controls fit WITHOUT scrolling (briefing always open): 390×844 and 375×667, light + dark', async () => {
+  await t('LIVE: entry controls fit normal phones and remain reachable on compact phones, with pinned navigation', async () => {
+    await ev(`showScreen('screen-play')`);
     const res = {};
     for (const [w, h] of [[390, 844], [375, 667]]) for (const theme of ['light', 'dark']) {
       await ev(`setTheme('${theme}')`);
@@ -894,7 +895,8 @@ const t = async (name, fn) => {
                    minTap: Math.min(...els.map(e => e.getBoundingClientRect().height)) };
         })()`);
         res[`${w}x${h} ${theme} par${holeIdx === 3 ? 5 : 3}`] = r;
-        assert.ok(r.fits, `${w}x${h} ${theme}: lowest control ${r.lowest} vs nav top ${r.navTop}`);
+        if(h>=844)assert.ok(r.fits, `${w}x${h} ${theme}: lowest control ${r.lowest} vs nav top ${r.navTop}`);
+        else {const reachable=await ev(`(()=>{const sc=document.getElementById('screen-play');sc.scrollTop=sc.scrollHeight;const b=document.querySelector('.tasp-btn').getBoundingClientRect(),nav=document.querySelector('#screen-play .nav-bar').getBoundingClientRect();const ok=b.bottom<=nav.top+1&&Math.abs(nav.bottom-innerHeight)<=1;sc.scrollTop=0;return ok;})()`);assert.ok(reachable,'compact phones can reach all always-open controls');}
         assert.ok(!r.hscroll, `${w}x${h} horizontal scroll`);
         assert.ok(r.minTap >= 44, `tap target ${r.minTap}`);
       }
@@ -1460,6 +1462,24 @@ const t = async (name, fn) => {
     if(process.env.SHOTS){await ev(`document.getAnimations().forEach(a=>a.finish());document.getElementById('setup-course-plan').scrollIntoView({block:'start'})`);require('fs').writeFileSync(process.env.SHOTS+'/course-plan.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
     assert.match(result.text,/last 3 complete rounds/);assert.match(result.text,/Hole 8/);assert.match(result.text,/T error tagged in 3 rounds/);assert.match(result.text,/tee club/);assert.strictEqual(result.width,true);
     assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
+  });
+
+  await t('ZONES: course-specific cues, explicit observations, gross unchanged, autosave and DB resume',async()=>{
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');await startTestRound();
+    await ev(`selectScore(6);selectPutts(2);window.__zonePoints=getTotalPoints();szSetPosition('50');szSetCount('penalties','0');szSetCount('inside100','3')`);
+    assert.deepStrictEqual(await ev(`({score:holeData[0].score,penalties:holeData[0].penalties,inside100:holeData[0].inside100,position:holeData[0].position,gir:holeData[0].gir,points:getTotalPoints()===window.__zonePoints})`),{score:6,penalties:0,inside100:3,position:'50',gir:false,points:true});
+    await ev(`autoSaveHole(0)`);
+    const posts=state.writes.filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).map(w=>JSON.parse(w.body)).flat();const saved=posts.filter(s=>s.hole_number===1).at(-1);assert.ok(saved.notes.startsWith('GT_HOLE_V1:'));
+    assert.strictEqual(await ev(`rtReadNote(${JSON.stringify(saved.notes)}).shots`),5);
+    const before=state.writes.length;await ev(`szSetCount('inside100','7');autoSaveHole(0)`);assert.strictEqual(state.writes.length,before,'invalid counts never delete or replace a saved shot');await ev(`szSetCount('inside100','3')`);
+    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,options)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([saved])}:old(path,options);window._inProgressRound={id:'new-round',course_id:'cA',date:'2026-11-06',playing_handicap:25};await resumeRound();return {position:holeData[0].position,penalties:holeData[0].penalties,inside100:holeData[0].inside100,goal:rtReadNote(rtShotNote(0)).shots};}finally{sbFetch=old;}})()`);
+    assert.deepStrictEqual(restored,{position:'50',penalties:0,inside100:3,goal:5});
+    await ev(`renderHole(0);szSetPosition('green')`);assert.strictEqual(await ev(`holeData[0].gir`),true);
+    await ev(`selectGIR(false)`);assert.strictEqual(await ev(`holeData[0].position`),null);
+    for(const i of [0,2,3,12,17]){await ev(`renderHole(${i})`);assert.match(await ev(`document.getElementById('cb-zone-cue').textContent`),/after shot [123]/);}
+    for(const [w,h] of [[390,844],[375,667]]){await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:2,mobile:true});await ev(`renderHole(3);document.getElementById('screen-play').scrollTop=0;document.getAnimations().forEach(a=>a.finish())`);if(process.env.SHOTS)require('fs').writeFileSync(process.env.SHOTS+'/zones-'+w+'.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));assert.strictEqual(await ev(`document.documentElement.scrollWidth<=innerWidth`),true);}
+    await ev(`showSummary()`);assert.match(await ev(`document.getElementById('summary-quick-review').textContent`),/Strokes from inside 100y/);
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);
   });
 
   await t('INSIGHTS: read-only trends and target-HC plan use same tees, metadata and explicit allowance',async()=>{

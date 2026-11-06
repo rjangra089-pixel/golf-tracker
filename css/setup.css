@@ -73,3 +73,5 @@
 
 #round-manager .st-button,#screen-setup .su-scroll > .st-button {min-height:46px;padding:10px 16px;border:1px solid var(--cl-border);border-radius:10px;background:var(--cl-control);color:var(--cl-text);font:600 14px var(--cl-font);cursor:pointer;}
 #round-manager > .st-button:last-child {display:block;width:100%;background:var(--cl-accent);color:var(--cl-on-accent);border-color:var(--cl-accent);margin-top:18px;}
+#screen-setup #setup-zone-plan {padding:18px;border:1px solid var(--cl-border);border-radius:18px;background:var(--cl-surface);}
+#screen-setup #setup-zone-plan h3 {margin-top:0;font-size:18px;color:var(--cl-text);}

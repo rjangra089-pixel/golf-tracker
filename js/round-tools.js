@@ -8,14 +8,14 @@ function rtValidSnapshot(s){
  s.plan.every((h,i)=>h.hole===i+1&&Number.isInteger(h.si)&&h.si>=1&&h.si<=18&&Number.isInteger(h.shots)&&Number.isInteger(h.hcTarget)&&Number.isInteger(h.target)&&h.hcTarget-h.target===(h.shift?1:0)&&(!h.shift||i>=6))&&
  new Set(s.plan.map(h=>h.si)).size===18&&s.plan.filter(h=>h.shift).length===s.shots;
 }
-function rtReadNote(note){try{if(typeof note!=='string'||!note.startsWith(RT_NOTE))return null;const s=JSON.parse(note.slice(RT_NOTE.length));return rtValidSnapshot(s)?s:null;}catch(e){return null;}}
+function rtReadNote(note){try{if(typeof szDecode==='function')note=szDecode(note).note;if(typeof note!=='string'||!note.startsWith(RT_NOTE))return null;const s=JSON.parse(note.slice(RT_NOTE.length));return rtValidSnapshot(s)?s:null;}catch(e){return null;}}
 function rtRoundSnapshot(round){
  const snapshots=(round.shots||[]).map(s=>rtReadNote(s.notes)).filter(Boolean);
  if(!snapshots.length)return null;
  const first=JSON.stringify(snapshots[0]);return snapshots.every(s=>JSON.stringify(s)===first)?snapshots[0]:null;
 }
 function rtLivePlan(){return roundChallengePlan||buildCaddieTargets(HOLES,playingHC,roundChallengeShots);}
-function rtShotNote(index){return roundChallengeRecorded&&roundChallengePlan?RT_NOTE+JSON.stringify(rtSnapshot(roundChallengePlan,roundChallengeShots)):(roundShotNotes[index]??null);}
+function rtShotNote(index,data=holeData[index]){const base=roundChallengeRecorded&&roundChallengePlan?RT_NOTE+JSON.stringify(rtSnapshot(roundChallengePlan,roundChallengeShots)):(roundShotNotes[index]??null);return szEncode(base,data,HOLES[index]);}
 function rtChallengeResult(round){
  const snapshot=rtRoundSnapshot(round);if(!snapshot||round.round_status==='in_progress')return null;
  const seen=new Set(),shots=round.shots||[];
