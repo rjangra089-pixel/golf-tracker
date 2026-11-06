@@ -1808,6 +1808,7 @@
 <div id="screen-play" class="screen">
     <!-- Compact header: hole facts + running tally + one status line (pace / momentum / halfway) -->
     <header class="play-header">
+        <div class="play-course-label" id="play-course-label"></div>
         <div class="play-header-top">
             <div class="play-hole-line">
                 <span class="play-hole" id="tb-hole">H1</span>
@@ -1815,8 +1816,6 @@
             </div>
             <button class="play-cancel" onclick="confirmCancelRound()">Leave</button>
         </div>
-        <div class="play-tally"><span id="tb-shots">0</span> shots · <span id="tb-pts">0</span> pts</div>
-        <div class="play-status" id="play-status" aria-live="polite"></div>
     </header>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
 
@@ -1825,22 +1824,27 @@
         <!-- Always-visible numeric briefing; no generated advice. -->
         <section class="caddie-briefing" id="caddie-briefing" aria-label="Caddie briefing">
             <div class="caddie-briefing-header">
-                <span class="caddie-briefing-title">Caddie briefing</span>
+                <span class="caddie-briefing-title">Your plan</span>
+                <span id="cb-difficulty" class="difficulty-badge"></span>
                 <span class="cb-danger-chip" id="cb-danger-chip" hidden>Danger hole</span>
-                <span class="caddie-goal-note" id="cb-goal-note"></span>
+                <span class="caddie-goal-note" id="cb-goal-note" hidden></span>
             </div>
             <p id="cb-zone-cue" class="zone-cue"></p>
+            <p id="cb-coaching-advice" class="coaching-advice"></p>
             <div class="caddie-briefing-body">
                 <div class="caddie-stats-grid">
                     <div class="caddie-stat"><div class="caddie-stat-val" id="cb-target">—</div><div class="caddie-stat-lbl">HC Target</div></div>
-                    <div class="caddie-stat caddie-goal"><div class="caddie-stat-val" id="cb-goal">—</div><div class="caddie-stat-lbl">Target</div></div>
-                    <div class="caddie-stat"><div class="caddie-stat-val" id="cb-shots">—</div><div class="caddie-stat-lbl">Shots HC</div></div>
+                    <div class="caddie-stat caddie-goal"><div class="caddie-stat-val" id="cb-goal">—</div><div class="caddie-stat-lbl">Your challenge</div></div>
+                    <div class="caddie-stat" hidden><div class="caddie-stat-val" id="cb-shots">—</div><div class="caddie-stat-lbl">Shots HC</div></div>
                 </div>
 
             </div>
         </section>
 
+        <div class="play-status" id="play-status" aria-live="polite"></div>
+
         <div class="scoring-card">
+          <div class="score-entry-panel">
             <section class="entry-section">
                 <div class="entry-label-row">
                     <span class="section-label">Score</span>
@@ -1881,6 +1885,9 @@
                 </div>
             </section>
 
+          </div>
+          <div class="observations-panel">
+            <h2 class="observation-title">How the hole unfolded</h2>
             <section class="entry-section stats-row" id="tee-gir-row">
                 <div id="fairway-group">
                     <div class="section-label">Fairway</div>
@@ -1891,7 +1898,7 @@
                         <button class="toggle-btn" onclick="selectFairway('X')" aria-label="Out of bounds">OB</button>
                     </div>
                 </div>
-                <div id="gir-group">
+                <div id="gir-group" hidden>
                     <div class="section-label">GIR</div>
                     <div class="toggle-group">
                         <button class="toggle-btn" onclick="selectGIR(true)">Yes</button>
@@ -1900,27 +1907,32 @@
                 </div>
             </section>
 
-            <section class="entry-section zone-position"><div class="section-label" id="zone-position-label">Position after regulation shots</div>
+            <section class="entry-section zone-position"><div class="entry-label-row"><div class="section-label" id="zone-position-label">Position after regulation shots</div><span id="zone-gir-status"></span></div>
                 <div class="zone-buttons" role="group" aria-labelledby="zone-position-label"><button type="button" data-zone="green" onclick="szSetPosition('green')">Green</button><button type="button" data-zone="50" onclick="szSetPosition('50')">≤50y</button><button type="button" data-zone="100" onclick="szSetPosition('100')">51–100y</button><button type="button" data-zone="outside" onclick="szSetPosition('outside')">&gt;100y</button></div>
             </section>
-            <section class="entry-section zone-counts"><label>Penalty strokes<input id="entry-penalties" type="number" min="0" max="99" step="1" inputmode="numeric" placeholder="—" onchange="szSetCount('penalties',this.value)"></label><label>Strokes from inside 100y<input id="entry-inside100" type="number" min="0" max="99" step="1" inputmode="numeric" placeholder="—" onchange="szSetCount('inside100',this.value)"></label><p class="zone-help">Both included in gross. Blank = unknown. From first entering 100y to holing out, including later penalties; 0 if holed from outside the zone.</p><p id="zone-entry-status" role="status"></p></section>
+            <section class="entry-section zone-counts"><label>Penalty strokes<input id="entry-penalties" type="number" min="0" max="99" step="1" inputmode="numeric" placeholder="Not entered" onchange="szSetCount('penalties',this.value)"></label><label>Finish from 100y<input id="entry-inside100" type="number" min="0" max="99" step="1" inputmode="numeric" placeholder="Not entered" onchange="szSetCount('inside100',this.value)"></label><p class="zone-help">Finish: all remaining strokes once first within 100y, including putts and later penalties. Both counts are part of gross. Blank means unknown; 0 if holed from outside the zone.</p><p id="zone-entry-status" role="status"></p></section>
+          </div>
             <!-- Optional, player-chosen stroke-costing errors. Never set automatically. -->
             <div class="tasp-section">
-                <div class="section-label" id="tasp-label">Stroke-costing error?</div>
+                <div class="section-label" id="tasp-label">Stroke-costing errors</div>
                 <div class="tasp-buttons" role="group" aria-labelledby="tasp-label">
-                    <button class="tasp-btn" data-tag="T" aria-pressed="false" aria-label="T: tee error" onclick="toggleErrorTag('T')">T</button>
-                    <button class="tasp-btn" data-tag="A" aria-pressed="false" aria-label="A: approach error" onclick="toggleErrorTag('A')">A</button>
-                    <button class="tasp-btn" data-tag="S" aria-pressed="false" aria-label="S: short game error" onclick="toggleErrorTag('S')">S</button>
-                    <button class="tasp-btn" data-tag="B" aria-pressed="false" aria-label="B: bunker error" onclick="toggleErrorTag('B')">B</button>
-                    <button class="tasp-btn" data-tag="P" aria-pressed="false" aria-label="P: putting error" onclick="toggleErrorTag('P')">P</button>
+                    <button class="tasp-btn" data-tag="T" aria-pressed="false" aria-label="T: tee error" onclick="toggleErrorTag('T')">Tee</button>
+                    <button class="tasp-btn" data-tag="A" aria-pressed="false" aria-label="A: approach error" onclick="toggleErrorTag('A')">Approach</button>
+                    <button class="tasp-btn" data-tag="S" aria-pressed="false" aria-label="S: short game error" onclick="toggleErrorTag('S')">Short game</button>
+                    <button class="tasp-btn" data-tag="B" aria-pressed="false" aria-label="B: bunker error" onclick="toggleErrorTag('B')">Bunker</button>
+                    <button class="tasp-btn" data-tag="P" aria-pressed="false" aria-label="P: putting error" onclick="toggleErrorTag('P')">Putting</button>
                 </div>
             </div>
         </div>
+        <div id="play-sync-alert" class="play-sync-alert" role="alert" hidden><strong>Your entries are safe on this device</strong><p>Save hasn’t completed. Reconnect if needed, then retry.</p><button type="button" onclick="roundSyncRetry()">Retry save</button></div>
     </div>
 
     <div class="nav-bar">
+        <div class="play-footer-context"><div class="play-tally"><span id="tb-shots">0</span> shots · <span id="tb-pts">0</span> pts</div><span>PICK → SEE → GO</span></div>
+        <div class="play-nav-actions">
         <button class="btn-nav btn-prev" id="btn-prev" onclick="prevHole()">Back</button>
         <button class="btn-nav btn-next" id="btn-next" onclick="nextHole()">Next hole</button>
+        </div>
     </div>
 </div>
 
@@ -2808,13 +2820,15 @@ async function resumeRound() {
     }
 }
 function renderHole(idx, fromPrev) {
+    const holeChanged=currentHole!==idx;
     currentHole = idx;
+    document.getElementById('play-course-label').textContent=selectedCourseName+' · '+teeLabel(selectedTee)+' tees';
     const h = HOLES[idx];
     const d = holeData[idx];
     const isPar3 = h.par === 3;
 
     // Compact header
-    document.getElementById('tb-hole').textContent  = `H${h.num}`;
+    document.getElementById('tb-hole').textContent  = `Hole ${h.num}`;
     document.getElementById('tb-par').textContent   = h.par;
     document.getElementById('tb-si').textContent    = h.si;
     const hYards = typeof h.yards === 'object' ? (h.yards[selectedTee] ?? '—') : h.yards;
@@ -2862,9 +2876,10 @@ function renderHole(idx, fromPrev) {
     renderErrorTags(idx);
     szRender(idx);
 
-    document.getElementById('btn-prev').style.visibility = idx===0 ? 'hidden' : 'visible';
+    document.getElementById('btn-prev').style.visibility = 'visible';
+    document.getElementById('btn-prev').disabled = idx===0;
     document.getElementById('btn-next').textContent = idx===17 ? 'Finish round' : 'Next hole';
-    document.getElementById('screen-play').scrollTo(0,0);
+    if(holeChanged)document.getElementById('play-scroll').scrollTo(0,0);
 }
 
 // ── Score / putts entry (fixed grids + compact steppers) ──────────
@@ -3255,6 +3270,7 @@ function showScreen(id) {
     roundSyncRender();
     // Update nav active state — matched by data-nav, not button position
     document.querySelectorAll('.bnav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === id));
+    if (id==='screen-play') document.getElementById('play-scroll').scrollTo(0,0);
     if (id==='screen-stats')   loadStats();
     if (id==='screen-profile') renderProfile();
     if (id==='screen-setup') {setupRefresh();szSetupPlan();rtRenderCoursePlan();}
@@ -3807,6 +3823,16 @@ function roundSyncRender() {
         panel.firstChild.textContent=(roundSyncBusy ? 'Syncing…' : state==='saved' && !queued ? '✓ Saved' : state==='attention' ? 'Needs attention — retry sync' : 'Waiting to sync — kept on this device') +
             (roundSyncLast ? ' · Last synced '+new Date(roundSyncLast).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ' · Not yet synced');
         panel.lastChild.hidden=state==='saved' && !queued;
+        if(id==='screen-play'){
+            const protectedLocal=own&&stored.activeRoundId===activeRoundId&&JSON.stringify(stored.holeData)===JSON.stringify(holeData);
+            const time=roundSyncLast?' · '+new Date(roundSyncLast).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'';
+            panel.firstChild.textContent=roundSyncBusy?'Syncing…':state==='saved'&&!queued?'✓ Saved'+time:state==='attention'?(protectedLocal?'Needs attention · kept on this device':'Needs attention · keep this screen open'):holeData.some(h=>h.score)?'Waiting to sync · kept on this device':'Ready · no scores entered';
+            panel.lastChild.hidden=roundSyncBusy>0||!(state==='attention'||queued>0);
+            panel.lastChild.textContent='Review save';
+            panel.lastChild.onclick=()=>{const sc=document.getElementById('play-scroll'),alert=document.getElementById('play-sync-alert');sc.scrollTo({top:sc.scrollTop+alert.getBoundingClientRect().top-sc.getBoundingClientRect().top-12,behavior:'auto'});};
+            const alert=document.getElementById('play-sync-alert');
+            if(alert){alert.hidden=panel.hidden||roundSyncBusy>0||!(state==='attention'||queued>0);alert.querySelector('strong').textContent=protectedLocal?'Your entries are safe on this device':'Save needs attention — keep this screen open';alert.querySelector('p').textContent=protectedLocal?'Save hasn’t completed. Reconnect if needed, then retry.':'The latest entries may not be stored. Retry before leaving this round.';alert.querySelector('button').disabled=roundSyncBusy>0;}
+        }
         panel.lastChild.disabled=roundSyncBusy>0;
     }
 }

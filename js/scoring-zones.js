@@ -19,7 +19,10 @@ function szEncode(base,d,h){
 function szCheck(d){return ['penalties','inside100'].every(k=>d[k]===null||d[k]===undefined||Number.isInteger(d[k])&&d[k]>=0&&d[k]<=99&&(!d.score||d[k]<=d.score));}
 function szRender(idx){
  const h=szPlan(HOLES)?.[idx],d=holeData[idx];
- document.getElementById('cb-zone-cue').textContent=h?h.group+' · '+(h.zone==='green'?'Green':h.zone==='50'?'Within 50y':'Within 100y')+' after shot '+h.shots+(h.group==='Harder'?' · Keep it in play':''):'Check the course scorecard';
+ document.getElementById('cb-difficulty').textContent=h?h.group+' · SI '+h.si:'Scorecard unavailable';
+ document.getElementById('cb-zone-cue').textContent=h?(h.zone==='green'?'On the green':h.zone==='50'?'Within 50 yards':'Within 100 yards')+' after your '+['','first','second','third'][h.shots]+' shot.':'Check the course scorecard';
+ document.getElementById('cb-coaching-advice').textContent=!h?'':h.group==='Easier'?'Use reliable shots and aim for the centre of the green.':h.group==='Medium'?'Play for position. Avoid leaving yourself short-sided.':'Keep it in play. Choose the safe recovery over a hero shot.';
+ document.getElementById('zone-gir-status').textContent='GIR: '+(d.gir===true?'Yes':d.gir===false?'No':'Not recorded');
  document.getElementById('zone-position-label').textContent='Position after shot '+(h?.shots??'—');
  document.querySelectorAll('[data-zone]').forEach(b=>b.setAttribute('aria-pressed',String(d.position===b.dataset.zone)));
  for(const k of ['penalties','inside100'])document.getElementById('entry-'+k).value=d[k]??'';

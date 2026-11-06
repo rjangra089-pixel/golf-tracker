@@ -652,8 +652,8 @@ const t = async (name, fn) => {
     await ev(`showScreen('screen-setup'); document.getElementById('setup-course-select').value='course-a'; onCourseChange(); document.getElementById('setup-hc').value='25'`);
     await waitFor(`courseId === 'cA'`);
     await ev(`startRound()`); await waitFor(`activeRoundId === 'new-round'`); await statsIdle();
-    assert.strictEqual(await ev(`document.getElementById('tasp-label').textContent`), 'Stroke-costing error?');
-    assert.strictEqual(await ev(`[...document.querySelectorAll('.tasp-btn')].map(b => b.textContent).join(' ')`), 'T A S B P');
+    assert.strictEqual(await ev(`document.getElementById('tasp-label').textContent`), 'Stroke-costing errors');
+    assert.strictEqual(await ev(`[...document.querySelectorAll('.tasp-btn')].map(b => b.textContent).join(' ')`), 'Tee Approach Short game Bunker Putting');
     assert.strictEqual(await ev(`document.querySelector('#fairway-group .section-label').textContent`), 'Fairway');
     assert.strictEqual(await ev(`[...document.querySelectorAll('#fairway-group .toggle-btn')].map(b => b.textContent).join(' ')`), '✓ Left Right OB');
     assert.strictEqual(await pressed(), '');
@@ -773,10 +773,10 @@ const t = async (name, fn) => {
     await ev(`startRound()`); await waitFor(`activeRoundId === 'new-round'`); await statsIdle();
   };
 
-  await t('LIVE: compact header "H1 · Par 4 · 350y · SI 1 · +2", tally line, Leave, no hole card / points box / recap', async () => {
+  await t('LIVE: compact header "Hole 1 · Par 4 · 350y · SI 1 · +2", tally line, Leave, no hole card / points box / recap', async () => {
     await reloadHome('rich'); state.writes.length = 0;
     await startTestRound();
-    assert.strictEqual(await ev(`document.querySelector('.play-hole-line').textContent.replace(/\\s+/g, ' ').trim()`), 'H1 · Par 4 · 350y · SI 1 · +2');
+    assert.strictEqual(await ev(`document.querySelector('.play-hole-line').textContent.replace(/\\s+/g, ' ').trim()`), 'Hole 1 · Par 4 · 350y · SI 1 · +2');
     assert.strictEqual(await ev(`document.querySelector('.play-tally').textContent`), '0 shots · 0 pts');
     assert.strictEqual(await ev(`document.querySelector('.play-cancel').textContent`), 'Leave');
     assert.strictEqual(await ev(`!!document.querySelector('#hole-info-card, #points-result, #hole-feedback, #tb-hole-pts')`), false);
@@ -839,17 +839,12 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`currentHole`), 2);
   });
 
-  await t('LIVE: par 3 hides Tee completely; GIR full width and still records', async () => {
-    assert.strictEqual(await ev(`HOLES[currentHole].par`), 3);
-    assert.strictEqual(await vis('fairway-group'), false);
-    assert.ok(await ev(`document.getElementById('tee-gir-row').classList.contains('is-par3')`));
-    // GIR must fill the row's whole content box (row width minus its own horizontal padding)
-    const w = await ev(`(() => { const row = document.getElementById('tee-gir-row'), cs = getComputedStyle(row);
-      return [document.getElementById('gir-group').getBoundingClientRect().width, row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)]; })()`);
-    assert.ok(Math.abs(w[0] - w[1]) <= 1, 'GIR spans the row content width: ' + w);
-    await ev(`document.querySelectorAll('#gir-group .toggle-btn')[1].click()`);
-    assert.strictEqual(await ev(`holeData[2].gir`), false);
-    await ev(`renderHole(1)`); assert.strictEqual(await vis('fairway-group'), true); await ev(`renderHole(2)`);
+  await t('LIVE: par 3 hides fairway; position entry records GIR without duplicate buttons',async()=>{
+    assert.strictEqual(await ev(`HOLES[currentHole].par`),3);assert.strictEqual(await vis('fairway-group'),false);
+    assert.strictEqual(await vis('gir-group'),false);await ev(`szSetPosition('green')`);
+    assert.strictEqual(await ev(`holeData[2].gir`),true);assert.strictEqual(await ev(`document.getElementById('zone-gir-status').textContent`),'GIR: Yes');
+    await ev(`szSetPosition('50')`);assert.strictEqual(await ev(`holeData[2].gir`),false);
+    await ev(`renderHole(1)`);assert.strictEqual(await vis('fairway-group'),true);await ev(`renderHole(2)`);
   });
 
   await t('LIVE: briefing always open, numeric targets and course-specific SI cue; averages removed', async () => {
@@ -874,7 +869,7 @@ const t = async (name, fn) => {
     assert.ok(await ev(`document.getElementById('play-status').getBoundingClientRect().height <= 20`));
   });
 
-  await t('LIVE: entry controls fit normal phones and remain reachable on compact phones, with pinned navigation', async () => {
+  await t('LIVE: always-open entry panels remain reachable across phone sizes, with pinned navigation', async () => {
     await ev(`showScreen('screen-play')`);
     const res = {};
     for (const [w, h] of [[390, 844], [375, 667]]) for (const theme of ['light', 'dark']) {
@@ -895,8 +890,7 @@ const t = async (name, fn) => {
                    minTap: Math.min(...els.map(e => e.getBoundingClientRect().height)) };
         })()`);
         res[`${w}x${h} ${theme} par${holeIdx === 3 ? 5 : 3}`] = r;
-        if(h>=844)assert.ok(r.fits, `${w}x${h} ${theme}: lowest control ${r.lowest} vs nav top ${r.navTop}`);
-        else {const reachable=await ev(`(()=>{const sc=document.getElementById('screen-play');sc.scrollTop=sc.scrollHeight;const b=document.querySelector('.tasp-btn').getBoundingClientRect(),nav=document.querySelector('#screen-play .nav-bar').getBoundingClientRect();const ok=b.bottom<=nav.top+1&&Math.abs(nav.bottom-innerHeight)<=1;sc.scrollTop=0;return ok;})()`);assert.ok(reachable,'compact phones can reach all always-open controls');}
+        const reachable=await ev(`(()=>{const sc=document.getElementById('play-scroll');sc.scrollTop=sc.scrollHeight;const b=[...document.querySelectorAll('.tasp-btn')].at(-1).getBoundingClientRect(),nav=document.querySelector('#screen-play .nav-bar').getBoundingClientRect();const ok=b.bottom<=nav.top+1&&Math.abs(nav.bottom-innerHeight)<=1;sc.scrollTop=0;return ok;})()`);assert.ok(reachable,'all open controls can be reached without overlapping navigation');
         assert.ok(!r.hscroll, `${w}x${h} horizontal scroll`);
         assert.ok(r.minTap >= 44, `tap target ${r.minTap}`);
       }
@@ -1341,7 +1335,7 @@ const t = async (name, fn) => {
     await ev(`selectScore(5)`);
     assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Waiting to sync/);
     await ev(`autoSaveHole(0)`);
-    assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Saved.*Last synced/);
+    assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Saved.*[0-9]{2}:[0-9]{2}/);
     await ev(`holeData[1].score=4;saveRoundStateToStorage();autoSaveHole(0)`);
     assert.match(await ev(`document.querySelector('#screen-play .round-sync').textContent`),/Waiting to sync/,'another unsynced hole prevents Saved');
     state.offline=true;
@@ -1464,6 +1458,25 @@ const t = async (name, fn) => {
     assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
   });
 
+  await t('UX: approved coaching hierarchy, visible controls, stable entry scroll and honest save-error states',async()=>{
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');await startTestRound();
+    await ev(`renderHole(3);selectScore(12);selectPutts(4)`);
+    assert.match(await ev(`document.getElementById('cb-coaching-advice').textContent`),/Keep it in play/);
+    assert.match(await ev(`document.getElementById('cb-difficulty').textContent`),/Harder · SI/);
+    assert.strictEqual(await ev(`document.getElementById('cb-goal-note').hidden`),true);assert.strictEqual(await ev(`document.getElementById('gir-group').hidden`),true);
+    assert.strictEqual(await ev(`document.querySelector('.caddie-goal .caddie-stat-lbl').textContent`),'Your challenge');
+    for(const [w,h] of [[320,667],[375,667],[390,844]])for(const theme of ['light','dark']){
+      await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:2,mobile:true});await ev(`setTheme('${theme}');document.getAnimations().forEach(a=>a.finish())`);
+      const fit=await ev(`(()=>{const sc=document.getElementById('play-scroll'),nav=document.querySelector('#screen-play .nav-bar').getBoundingClientRect();return {noOverflow:document.documentElement.scrollWidth<=innerWidth&&sc.scrollWidth<=sc.clientWidth+1,pinned:Math.abs(nav.bottom-innerHeight)<=1,taps:[...document.querySelectorAll('#screen-play button,#screen-play input')].filter(e=>e.getClientRects().length&&!e.disabled).every(e=>e.getBoundingClientRect().height>=44)};})()`);
+      assert.deepStrictEqual(fit,{noOverflow:true,pinned:true,taps:true});
+    }
+    const stable=await ev(`(()=>{const sc=document.getElementById('play-scroll');document.getElementById('zone-position-label').scrollIntoView({block:'center'});const before=sc.scrollTop;szSetPosition('50');return Math.abs(sc.scrollTop-before)<=1;})()`);assert.strictEqual(stable,true,'recording position must not jump back to the top');
+    const errors=await ev(`(()=>{const raw=localStorage.getItem(ROUND_STATE_KEY);roundSyncSet('attention');const safe=!document.getElementById('play-sync-alert').hidden&&document.getElementById('play-sync-alert').textContent.includes('safe on this device');localStorage.removeItem(ROUND_STATE_KEY);roundSyncSet('attention');const warning=document.getElementById('play-sync-alert').textContent.includes('may not be stored');localStorage.setItem(ROUND_STATE_KEY,raw);roundSyncSet('attention');return {safe,warning};})()`);assert.deepStrictEqual(errors,{safe:true,warning:true});
+    await ev(`document.querySelector('#screen-play .round-sync button').click()`);assert.strictEqual(await ev(`Math.abs(document.querySelector('#screen-play .nav-bar').getBoundingClientRect().bottom-innerHeight)<=1`),true,'Review save must keep navigation pinned');
+    if(process.env.SHOTS){require('fs').writeFileSync(process.env.SHOTS+'/approved-ux-save-error.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
+    await ev(`roundSyncSet('waiting');activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();setTheme('light')`);
+  });
+
   await t('ZONES: course-specific cues, explicit observations, gross unchanged, autosave and DB resume',async()=>{
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');await startTestRound();
     await ev(`selectScore(6);selectPutts(2);window.__zonePoints=getTotalPoints();szSetPosition('50');szSetCount('penalties','0');szSetCount('inside100','3')`);
@@ -1476,7 +1489,7 @@ const t = async (name, fn) => {
     assert.deepStrictEqual(restored,{position:'50',penalties:0,inside100:3,goal:5});
     await ev(`renderHole(0);szSetPosition('green')`);assert.strictEqual(await ev(`holeData[0].gir`),true);
     await ev(`selectGIR(false)`);assert.strictEqual(await ev(`holeData[0].position`),null);
-    for(const i of [0,2,3,12,17]){await ev(`renderHole(${i})`);assert.match(await ev(`document.getElementById('cb-zone-cue').textContent`),/after shot [123]/);}
+    for(const i of [0,2,3,12,17]){await ev(`renderHole(${i})`);assert.match(await ev(`document.getElementById('cb-zone-cue').textContent`),/after your (first|second|third) shot/);}
     for(const [w,h] of [[390,844],[375,667]]){await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:2,mobile:true});await ev(`renderHole(3);document.getElementById('screen-play').scrollTop=0;document.getAnimations().forEach(a=>a.finish())`);if(process.env.SHOTS)require('fs').writeFileSync(process.env.SHOTS+'/zones-'+w+'.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));assert.strictEqual(await ev(`document.documentElement.scrollWidth<=innerWidth`),true);}
     await ev(`showSummary()`);assert.match(await ev(`document.getElementById('summary-quick-review').textContent`),/Strokes from inside 100y/);
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);
