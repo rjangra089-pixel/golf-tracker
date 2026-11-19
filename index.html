@@ -1797,6 +1797,7 @@
         <button type="button" class="st-button" onclick="openRoundManager()">Manage unfinished rounds / Start new</button>
         <section class="su-panel" id="setup-zone-plan"></section>
         <section class="su-panel" id="setup-course-plan" aria-live="polite"></section>
+        <div id="portugal-setup" hidden><button type="button" class="st-button" id="portugal-add" onclick="setupAddPortugal()">Add Portugal scorecards</button><p class="su-hint" id="portugal-status" role="status"></p></div>
         <p id="setup-status" role="status" aria-live="polite"></p>
     </div>
     <footer class="su-footer"><span>One mistake doesn’t get a friend.</span><button type="button" class="btn-teeoff" id="setup-start" onclick="startRound()">TEE OFF →</button></footer>
@@ -2046,6 +2047,7 @@ document.getElementById('setup-date').value = new Date().toISOString().split('T'
 async function init() {
     // init() is now called by bootApp() after auth check
     await loadCourseData();
+    if(profile.is_admin===true&&PORTUGAL_SLUGS.some(slug=>!setupCourses.some(c=>c.slug===slug)))await setupAddPortugal();
     await loadHomeData();
 }
 
@@ -2079,11 +2081,12 @@ async function switchCourse(slug) {
         const course = rows?.[0]; if (!course) throw new Error('Course not found. Please choose another course.');
         const holes = await sbFetch('holes?select=id,hole_number,par,stroke_index,yardage,tee_options,is_danger_hole,verified_tip,ai_tip,tip_source&course_id=eq.' + course.id + '&order=hole_number');
         if (version !== setupSwitchVersion) return;
-        if (!stCourseMap({courses:{holes}})) throw new Error('This course needs a complete 18-hole scorecard before you can play.');
+        if (!stCourseMap({courses:{holes}})) throw new Error('This course needs a complete 9- or 18-hole scorecard before you can play.');
         const tees = Object.fromEntries(Object.entries(course.tee_options || {}).filter(([k,v]) => !k.startsWith('_') && v && typeof v === 'object'));
         if (!Object.keys(tees).length) Object.assign(tees,{yellow:{name:'Yellow',rating:course.course_rating??null,slope:course.slope_rating??null},white:{name:'White'}});
-        const nextHoles = holes.map(h => ({num:h.hole_number,par:h.par,si:h.stroke_index,
-            yards:Object.keys(h.tee_options || {}).length ? Object.fromEntries(Object.entries(h.tee_options).map(([k,v])=>[k,v?.yardage??null])) : {yellow:h.yardage,white:h.yardage},
+        const nextHoles = holes.map(h => ({num:h.hole_number,par:h.par,si:h.stroke_index,siScale:holes.length,
+            physical:h.tee_options?._layout?.physical_hole??h.hole_number,cardSI:h.tee_options?._layout?.printed_si??h.stroke_index,
+            yards:Object.keys(h.tee_options || {}).filter(k=>!k.startsWith('_')).length ? Object.fromEntries(Object.entries(h.tee_options).filter(([k])=>!k.startsWith('_')).map(([k,v])=>[k,v?.yardage??null])) : {yellow:h.yardage,white:h.yardage},
             danger:h.is_danger_hole||false,tip:h.verified_tip||h.ai_tip||'Play to the fat of the fairway. Take your medicine.',tipSource:h.tip_source||'none',tipVerified:!!h.verified_tip}));
         courseId=course.id; selectedCourseSlug=slug; selectedCourseName=course.name; COURSE_PAR=course.par;
         COURSE_RATING=tees; setupTees=tees; HOLES=nextHoles;holeIds=holes.map(h=>h.id);holeStats=[];
@@ -2226,10 +2229,12 @@ async function loadHomeData() {
 // This is a score plan only: official Playing HC and Stableford stay unchanged.
 function buildCaddieTargets(holes, handicap, shotsBelow = 5) {
     if (!Number.isInteger(shotsBelow) || shotsBelow<0 || shotsBelow>12) return null;
-    if (!Array.isArray(holes) || holes.length!==18 || !Number.isInteger(handicap)) return null;
-    if (holes.some(h=>![3,4,5].includes(h.par)||!Number.isInteger(h.si)||h.si<1||h.si>18)
-        || new Set(holes.map(h=>h.si)).size!==18) return null;
-    const strokes=si=>Math.floor(handicap/18)+(si<=((handicap%18+18)%18)?1:0);
+    if (!Array.isArray(holes) || ![9,18].includes(holes.length) || !Number.isInteger(handicap)) return null;
+    if (holes.some(h=>![3,4,5].includes(h.par)||!Number.isInteger(h.si)||h.si<1||h.si>holes.length)
+        || new Set(holes.map(h=>h.si)).size!==holes.length) return null;
+    const n=holes.length;
+    if(n===9&&shotsBelow!==0)return null; // The full-round challenge is not silently rescaled.
+    const strokes=si=>Math.floor(handicap/n)+(si<=((handicap%n+n)%n)?1:0);
     const plan=holes.map((h,i)=>({hole:i+1,si:h.si,shots:strokes(h.si),hcTarget:h.par+strokes(h.si),target:h.par+strokes(h.si),shift:false}));
     const challenge=[...plan.slice(6)].sort((a,b)=>b.shots-a.shots || b.si-a.si || a.hole-b.hole).slice(0,shotsBelow);
     for (const h of challenge) { h.target--;h.shift=true; }
@@ -2238,7 +2243,8 @@ function buildCaddieTargets(holes, handicap, shotsBelow = 5) {
 
 function getShotsReceived(idx) {
     const si = HOLES[idx].si;
-    return Math.floor(playingHC/18) + (si <= ((playingHC%18+18)%18) ? 1 : 0);
+    const n=HOLES.length;
+    return Math.floor(playingHC/n) + (si <= ((playingHC%n+n)%n) ? 1 : 0);
 }
 
 function calcPoints(idx, score) {
@@ -2326,7 +2332,7 @@ function liveRoundReview() {
         courseName: selectedCourseName, tee: teeLabel(selectedTee), date: roundDate,
         createdAt: new Date().toISOString(), playingHandicap: playingHC, stableford: getTotalPoints(),
         playedOnThisVersion: true,   // played on this app version, so all five error tags were available
-        holes: HOLES.map(h => ({ hole_number: h.num, par: h.par, stroke_index: h.si })),
+        holes: HOLES.map(h => ({ hole_number: h.num, par: h.par, stroke_index: h.si, tee_options:{_layout:{physical_hole:h.physical??h.num}} })),
         shots: holeData.map((d, i) => ({ hole_number: i + 1, score: d.score, putts: d.putts, fairway: d.fairway,
                                          gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes: null })),
     });
@@ -2348,7 +2354,7 @@ async function openRoundReview(roundId) {
     showScreen('screen-review');
     try {
         const rows = await sbFetch('rounds?select=id,date,created_at,round_status,tee_color,playing_handicap,stableford_points,'
-            + 'shots(hole_number,score,putts,fairway,gir,error_tags,notes),courses(name,holes(hole_number,par,stroke_index))'
+            + 'shots(hole_number,score,putts,fairway,gir,error_tags,notes),courses(name,holes(hole_number,par,stroke_index,tee_options))'
             + '&id=eq.' + encodeURIComponent(roundId));
         const r = rows?.[0];
         if (!r) throw new Error('Round not found');
@@ -2703,16 +2709,16 @@ async function startRound() {
     const hcRaw = document.getElementById('setup-hc').value.trim(), hc = hcRaw === '' ? NaN : Number(hcRaw);
     if (!Number.isInteger(hc) || hc < -10 || hc > 99) { setupStatus('Enter a whole-number playing handicap from -10 to 99.',true); return; }
     if (!document.getElementById('setup-date').value) {setupStatus('Choose the round date.',true);return;}
-    if (setupLoading || !requested || requested !== selectedCourseSlug || HOLES.length !== 18) {setupStatus('Wait for a complete course scorecard to load before teeing off.',true);return;}
+    if (setupLoading || !requested || requested !== selectedCourseSlug || ![9,18].includes(HOLES.length)) {setupStatus('Wait for a complete course scorecard to load before teeing off.',true);return;}
     setupRoundBusy = true; setupRefresh();
     try {
     playerName = document.getElementById('setup-name').value.trim() || 'Golfer';
     playingHC  = hc;
-    roundChallengeShots=golfGoals().shots;
+    roundChallengeShots=HOLES.length===9?0:golfGoals().shots;
     roundChallengePlan=buildCaddieTargets(HOLES,hc,roundChallengeShots);
     roundChallengeRecorded=!!roundChallengePlan;roundShotNotes={};roundDraftId=crypto.randomUUID();
     roundDate  = document.getElementById('setup-date').value;
-    holeData   = Array.from({length:18}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
+    holeData   = Array.from({length:HOLES.length}, () => ({score:null,putts:null,fairway:null,gir:null,tags:[]}));
     activeRoundId = null; completedRoundId = null;
     roundSyncLast = null; roundSyncHoles={}; roundSyncSet('waiting');
 
@@ -2774,6 +2780,7 @@ async function resumeRound() {
         if (!roundCourse) throw new Error('The round’s course could not be loaded.');
         await switchCourse(roundCourse.slug);
         if(selectedCourseSlug!==roundCourse.slug)throw new Error('The course scorecard could not be loaded.');
+        if(HOLES.length===9)roundChallengeShots=0;
 
         // 3. Load all saved shots for this round
         const shots = await sbFetch('shots?select=*&round_id=eq.' + round.id + '&order=hole_number');
@@ -2784,10 +2791,10 @@ async function resumeRound() {
         roundShotNotes=Object.fromEntries((shots||[]).map(s=>[s.hole_number-1,s.notes??null]));
 
         // 4. Restore holeData from saved shots
-        holeData = Array.from({length: 18}, () => ({score: null, putts: null, fairway: null, gir: null, tags: []}));
+        holeData = Array.from({length: HOLES.length}, () => ({score: null, putts: null, fairway: null, gir: null, tags: []}));
         (shots || []).forEach(s => {
             const idx = s.hole_number - 1;
-            if (idx >= 0 && idx < 18) {
+            if (idx >= 0 && idx < HOLES.length) {
                 holeData[idx] = {
                     score:   s.score   || null,
                     putts:   s.putts   ?? null,
@@ -2804,7 +2811,7 @@ async function resumeRound() {
 
         // 6. Jump to the hole they were on — last scored hole + 1
         const lastScoredHole = shots?.length ? Math.max(...shots.map(s => s.hole_number)) : 0;
-        const resumeHole = Math.min(lastScoredHole, 17); // 0-indexed, max hole 17
+        const resumeHole = Math.min(lastScoredHole, HOLES.length-1); // 0-indexed, final hole of this layout
 
         roundSyncHoles=Object.fromEntries(holeData.map((h,i)=>[i,JSON.stringify(h)]));
         roundSyncConfirm(roundSyncRevision); saveRoundStateToStorage(false);
@@ -2828,9 +2835,10 @@ function renderHole(idx, fromPrev) {
     const isPar3 = h.par === 3;
 
     // Compact header
-    document.getElementById('tb-hole').textContent  = `Hole ${h.num}`;
+    document.getElementById('tb-hole').textContent  = `Hole ${h.num}`+(h.physical&&h.physical!==h.num?` · club ${h.physical}`:'');
     document.getElementById('tb-par').textContent   = h.par;
     document.getElementById('tb-si').textContent    = h.si;
+    document.getElementById('tb-si').title=HOLES.length===9?'Nine-hole SI '+h.si+' · printed club SI '+(h.cardSI??h.si):'Stroke index';
     const hYards = typeof h.yards === 'object' ? (h.yards[selectedTee] ?? '—') : h.yards;
     document.getElementById('tb-yards').textContent = hYards;
     const totalPts   = getTotalPoints();
@@ -2840,7 +2848,7 @@ function renderHole(idx, fromPrev) {
     document.getElementById('tb-shots-rec-wrap').hidden = shotsRec <= 0;
     updatePlayTally();
 
-    document.getElementById('progress-fill').style.width = `${(idx/18)*100}%`;
+    document.getElementById('progress-fill').style.width = `${(idx/HOLES.length)*100}%`;
 
     // Caddie briefing
     const hStat   = holeStats[idx];
@@ -2848,6 +2856,7 @@ function renderHole(idx, fromPrev) {
     document.getElementById('cb-target').textContent   = h.par + shotsRec;
     const goal=rtLivePlan()?.[idx];
     document.getElementById('cb-goal').textContent=goal?.target ?? '—';
+    document.getElementById('cb-goal').parentElement.hidden=HOLES.length===9;
     document.getElementById('cb-goal').title=goal?.shift ? 'One shot below HC Target on this hole' : 'Same as HC Target on this hole';
     document.getElementById('cb-goal-note').textContent=idx<6 ? 'First 6 holes · challenge starts at hole 7' : goal?.shift ? '−1 here · −'+roundChallengeShots+' round goal' : '−'+roundChallengeShots+' round goal';
     document.getElementById('cb-target').title='Par '+h.par+' + '+shotsRec+' handicap strokes';
@@ -2878,7 +2887,7 @@ function renderHole(idx, fromPrev) {
 
     document.getElementById('btn-prev').style.visibility = 'visible';
     document.getElementById('btn-prev').disabled = idx===0;
-    document.getElementById('btn-next').textContent = idx===17 ? 'Finish round' : 'Next hole';
+    document.getElementById('btn-next').textContent = idx===HOLES.length-1 ? 'Finish round' : 'Next hole';
     if(holeChanged)document.getElementById('play-scroll').scrollTo(0,0);
 }
 
@@ -2945,7 +2954,7 @@ function updatePlayTally() {
     document.getElementById('tb-shots').textContent = getTotalShots();
     const c=rpChallenge(rtLivePlan(),holeData);
     if(!c.available) {setPlayStatus('Challenge unavailable · check course card','challenge');return;}
-    const text=currentHole<6 && !c.afterSix ? 'First 6 holes · challenge starts at hole 7' :
+    const text=HOLES.length===9?(c.holes?rpSaved(c.saved)+' HC Target · '+c.holes+'/9 holes':'9-hole round · play to HC Target'):currentHole<6 && !c.afterSix ? 'First 6 holes · challenge starts at hole 7' :
       c.holes ? rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target · '+c.holes+' holes' : roundChallengeShots+'-shot challenge · enter your first score';
     setPlayStatus(text,'challenge');
     document.getElementById('play-status').title=c.holes+' scored holes only. HC Target '+c.hc+', Target '+c.target+', actual '+c.gross+'. Round goal '+c.roundTarget+' gross. Nothing is projected.';
@@ -3086,7 +3095,7 @@ async function autoSaveHoleNow(holeIdx) {
 
 function nextHole() {
     const prev = currentHole;
-    if (currentHole < 17) {
+    if (currentHole < HOLES.length-1) {
         const next = currentHole + 1;
         renderHole(next);
 
@@ -3116,7 +3125,7 @@ function showSummary() {
     document.getElementById('sum-girs').textContent  = totalGIR;
     document.getElementById('sum-firs').textContent  = totalFIR;
     document.getElementById('sum-date').textContent  = new Date(roundDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    document.getElementById('sum-name').textContent  = playerName+' · HC '+playingHC;
+    document.getElementById('sum-name').textContent  = playerName+' · '+HOLES.length+' holes · Playing HC '+playingHC;
 
     showSummaryView('summary');
     rpRender(document.getElementById('summary-quick-review'),rpReflection(rtLivePlan(),holeData));
@@ -3242,7 +3251,7 @@ async function saveRound() {
         activeRoundId = null; // a completed round is never an active scoring/cancellation target
         clearRoundStateFromStorage(); // round is done — clean up persisted state
         statusEl.className = 'save-status success';
-        statusEl.textContent = '✓ Round saved!';
+        statusEl.textContent = '✓ Round saved!'+(HOLES.length===9?' · '+holeData.filter(h=>h.score).length+'/9 holes recorded':'');
         btn.textContent = 'SAVED ✓';
         recentRounds = [];
         holeStats = [];
@@ -3960,7 +3969,7 @@ function restoreRoundStateIfNeeded() {
 
 async function bootApp() {
     // Check if user has a profile (i.e. completed onboarding)
-    const rows = await sbFetch('profiles?select=name,current_handicap,target_handicap&id=eq.' + currentUser.id);
+    const rows = await sbFetch('profiles?select=name,current_handicap,target_handicap,is_admin&id=eq.' + currentUser.id);
     const profile = rows?.[0] || null;
 
     if (!profile || !profile.name) {
@@ -3973,6 +3982,7 @@ async function bootApp() {
 
     // User is fully set up — load the app
     await loadCourseData();
+    if(profile.is_admin===true&&PORTUGAL_SLUGS.some(slug=>!setupCourses.some(c=>c.slug===slug)))await setupAddPortugal();
     await loadHomeData();
     selectTee(selectedTee); // apply saved tee to UI buttons
 

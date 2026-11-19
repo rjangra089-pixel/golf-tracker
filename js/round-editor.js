@@ -20,10 +20,11 @@ function roundEditValidate(round) {
     if (!round || round.round_status === 'in_progress') throw new Error('Only saved rounds can be edited.');
     const holes = round.courses?.holes || [];
     const map = new Map(holes.map(h => [h.hole_number, h]));
-    if (map.size !== 18 || holes.length !== 18 || Array.from({length:18}, (_,i) => i+1).some(n => {
+    if (![9,18].includes(holes.length) || map.size !== holes.length || Array.from({length:holes.length}, (_,i) => i+1).some(n => {
         const h = map.get(n);
-        return !h || !Number.isInteger(h.par) || h.par < 1 || !Number.isInteger(h.stroke_index) || h.stroke_index < 1 || h.stroke_index > 18;
+        return !h || !Number.isInteger(h.par) || h.par < 1 || !Number.isInteger(h.stroke_index) || h.stroke_index < 1 || h.stroke_index > holes.length;
     })) throw new Error('The course hole data is unavailable. Please try again later.');
+    if(holes.length===9&&new Set(holes.map(h=>h.stroke_index)).size!==9)throw new Error('The course stroke indexes are invalid.');
     if (!Number.isFinite(round.playing_handicap) || round.playing_handicap < -10) throw new Error('The saved playing handicap is missing.');
     const shots = round.shots || [];
     if (!shots.length || new Set(shots.map(s => s.hole_number)).size !== shots.length || shots.some(s => !s.id || !map.has(s.hole_number))) {
@@ -42,12 +43,13 @@ function roundEditNumber(raw, optional, label) {
 
 function roundEditTotals(round) {
     const holes = roundEditValidate(round);
+    const n=holes.size;
     return round.shots.reduce((totals, s) => {
         const h = holes.get(s.hole_number);
         totals.total_score += s.score || 0;
         totals.total_putts += s.putts ?? 0;
         totals.gir_count += s.gir === true ? 1 : 0;
-        if (s.score) totals.stableford_points += Math.max(0, h.par - s.score + Math.floor(round.playing_handicap / 18) + (h.stroke_index <= (round.playing_handicap % 18+18)%18 ? 1 : 0) + 2);
+        if (s.score) totals.stableford_points += Math.max(0, h.par - s.score + Math.floor(round.playing_handicap / n) + (h.stroke_index <= (round.playing_handicap % n+n)%n ? 1 : 0) + 2);
         return totals;
     }, {total_score:0, total_putts:0, gir_count:0, stableford_points:0});
 }

@@ -9,7 +9,7 @@ const APP = process.env.APP || 'http://localhost:3000/';
 // ── fixtures ─────────────────────────────────────────────────────
 const PARS = [4,4,3,5,4,4,3,4,5, 4,4,3,5,4,4,3,4,5];
 const PARS_B = [3,5,4,4,4,3,4,5,4, 4,3,5,4,4,4,3,5,4];
-const holesFor = (cid) => (cid === 'cB' ? PARS_B : PARS).map((par, i) => ({ id: `${cid}-h${i+1}`, course_id: cid, hole_number: i+1, par, stroke_index: i+1, yardage: 350, is_danger_hole: false, verified_tip: null, ai_tip: null, tip_source: null }));
+const holesFor = (cid) => state.portugalCards?.find(c=>c.course.id===cid)?.holes || (cid === 'cB' ? PARS_B : PARS).map((par, i) => ({ id: `${cid}-h${i+1}`, course_id: cid, hole_number: i+1, par, stroke_index: i+1, yardage: 350, is_danger_hole: false, verified_tip: null, ai_tip: null, tip_source: null }));
 const COURSES = [
   { id: 'cA', name: 'Course A', slug: 'course-a', par: 72, slope_rating: 120, course_rating: 70, tee_options: {} },
   { id: 'cB', name: 'Course <img src=x onerror="window.__xss=1"> B', slug: 'course-b', par: 72, slope_rating: 118, course_rating: 69, tee_options: {} },
@@ -93,7 +93,7 @@ function restResponse(method, url) {
     if (q.includes('id=eq.')) return COURSES.filter(c => q.includes('id=eq.' + c.id));
     return COURSES.map(c => ({...c}));
   }
-  if (path === 'holes') { const m = q.match(/course_id=eq\.(\w+)/); return m ? holesFor(m[1]).map(h=>m[1]==='cNew'?{...h,tee_options:{'blue-men':{yardage:360}}}:h) : []; }
+  if (path === 'holes') { const m = q.match(/course_id=eq\.([^&]+)/); return m ? holesFor(m[1]).map(h=>m[1]==='cNew'?{...h,tee_options:{'blue-men':{yardage:360}}}:h) : []; }
   if (path === 'shots' && state.resumeB) return shots18('r-live').slice(0, 4).map((x, i) => ({ ...x, error_tags: ['TB', 'B', null, 'SBP'][i] }));
   if (path === 'shots' && state.resumeZeroPutt) return shots18('r-live').slice(0, 4).map((x, i) => i === 1 ? { ...x, putts: 0 } : i === 2 ? { ...x, score: 13 } : x);
   if (path === 'shots') return shots18('r-live').slice(0, 4).map((x, i) =>
@@ -193,6 +193,11 @@ async function onMessage(raw) {
       let payload; try { payload = restResponse(request.method, url); } catch (e) { return fulfill(500, JSON.stringify({ message: e.message })); }
       return fulfill(200, JSON.stringify(payload));
     }
+    if (url.includes('/api/portugal-courses')) {
+      if(!state.portugalCards)return fulfill(403,JSON.stringify({error:'No mock admin permission'}));
+      for(const c of state.portugalCards)if(!COURSES.some(x=>x.id===c.course.id))COURSES.push(c.course);
+      return fulfill(200,JSON.stringify({slugs:state.portugalCards.map(c=>c.course.slug)}));
+    }
     if (url.includes('/api/courses')) {
       const u=new URL(url);
       if(request.method==='POST') {
@@ -213,7 +218,7 @@ let passed = 0; const failed = [];
 const t = async (name, fn) => {
   if (process.env.ONLY && !new RegExp(process.env.ONLY).test(name)) return;   // smoke-test subset
   try { await fn(); passed++; console.log('PASS', name); }
-  catch (e) { failed.push(name); console.log('FAIL', name, '—', e.message.split('\n')[0]); }
+  catch (e) { failed.push(name); console.log('FAIL', name, '—', e.stack); }
 };
 
 (async () => {
@@ -1516,6 +1521,57 @@ const t = async (name, fn) => {
     if(process.env.SHOTS){await ev(`document.getAnimations().forEach(a=>a.finish());document.getElementById('stats-scroll').scrollTop=0`);require('fs').writeFileSync(process.env.SHOTS+'/target-hc-plan.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));await ev(`statsTab('progress');document.getAnimations().forEach(a=>a.finish())`);require('fs').writeFileSync(process.env.SHOTS+'/stats-insights.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
     await ev(`setupCourses.find(c=>c.id==='cA').tee_options=window.__oldInsightTees;setTheme('light')`);
     assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
+  });
+
+  await t('PORTUGAL: add verified cards, play/save nine, resume observations, edit and separate history',async()=>{
+    await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');
+    state.portugalCards=(await import(require('url').pathToFileURL(require('path').resolve(__dirname,'../../lib/portugal-scorecards.mjs')))).PORTUGAL_CARDS;
+    const before=state.writes.length;await ev(`setupAddPortugal()`);
+    assert.strictEqual(await ev(`PORTUGAL_SLUGS.every(slug=>setupCourses.some(c=>c.slug===slug))`),true);
+    assert.strictEqual(state.writes.length,before,'adding scorecards does not touch round data');
+    for(const card of state.portugalCards){
+      await ev(`showScreen('screen-setup');setupChooseCourse(${JSON.stringify(card.course.slug)})`);
+      assert.strictEqual(await ev(`HOLES.length`),card.holes.length);
+      for(const tee of ['white','yellow']){
+        await ev(`selectTee('${tee}')`);assert.strictEqual(await ev(`HOLES[0].yards[selectedTee]`),card.holes[0].tee_options[tee].yardage);
+        assert.strictEqual(await ev(`document.getElementById('setup-start').disabled`),false);
+      }
+    }
+    await ev(`setupChooseCourse('pt-vila-sol-challenge-9')`);
+    assert.match(await ev(`document.getElementById('setup-hc-hint').textContent`),/for these 9 holes/);
+    assert.strictEqual(await ev(`document.getElementById('setup-hc').value`),'','do not reuse 18-hole HC');
+    await ev(`document.getElementById('setup-hc').value='13';document.getElementById('setup-date').value='2026-11-19';startRound()`);
+    assert.strictEqual(await ev(`holeData.length`),9);assert.match(await ev(`document.getElementById('tb-hole').textContent`),/club 10/);
+    assert.strictEqual(await ev(`HOLES.reduce((s,h,i)=>s+getShotsReceived(i),0)`),13);assert.strictEqual(await ev(`roundChallengeShots`),0);
+    assert.strictEqual(await ev(`document.getElementById('cb-goal').parentElement.hidden`),true);
+    await ev(`selectScore(6);selectPutts(0);szSetPosition('50');szSetCount('penalties','0');szSetCount('inside100','3');autoSaveHole(0)`);
+    const first=state.writes.filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).map(w=>JSON.parse(w.body)).flat().filter(s=>s.hole_number===1).at(-1);
+    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,opts)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([first])}:old(path,opts);window._inProgressRound={id:'new-round',course_id:${JSON.stringify(state.portugalCards[2].course.id)},date:'2026-11-19',playing_handicap:13,tee_color:'yellow'};await resumeRound();return {n:holeData.length,zero:holeData[0].putts,penalties:holeData[0].penalties,inside100:holeData[0].inside100,goal:roundChallengePlan.length};}finally{sbFetch=old;}})()`);
+    assert.deepStrictEqual(restored,{n:9,zero:0,penalties:0,inside100:3,goal:9});
+    await ev(`for(let i=0;i<9;i++){renderHole(i);selectScore(HOLES[i].par+getShotsReceived(i));selectPutts(i===0?0:2);}renderHole(8)`);
+    assert.strictEqual(await ev(`document.getElementById('btn-next').textContent`),'Finish round');
+    for(const theme of ['light','dark']){
+      await send('Emulation.setDeviceMetricsOverride',{width:375,height:667,deviceScaleFactor:2,mobile:true});await ev(`setTheme('${theme}');document.getAnimations().forEach(a=>a.finish())`);
+      assert.strictEqual(await ev(`document.documentElement.scrollWidth<=innerWidth&&Math.abs(document.querySelector('#screen-play .nav-bar').getBoundingClientRect().bottom-innerHeight)<=1`),true);
+      if(process.env.SHOTS)require('fs').writeFileSync(process.env.SHOTS+'/portugal-nine-'+theme+'.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    }
+    await ev(`nextHole()`);assert.strictEqual(await ev(`document.querySelector('.screen.active').id`),'screen-summary');
+    assert.strictEqual(await ev(`document.querySelectorAll('.hole-summary-row').length`),9);assert.strictEqual(await ev(`getTotalPoints()`),18);
+    assert.strictEqual(await ev(`liveRoundReview().holeCount`),9);assert.match(await ev(`document.getElementById('summary-quick-review').textContent`),/9-hole HC Target/);
+    const saved=await ev(`({playing_handicap:playingHC,shots:holeData.map((d,i)=>({...d,id:'nine-'+i,hole_number:i+1,notes:rtShotNote(i,d)}))})`);
+    const saveStart=state.writes.length;await ev(`saveRound()`);
+    assert.strictEqual(await ev(`activeRoundId===null&&completedRoundId==='new-round'`),true);
+    const shots=state.writes.slice(saveStart).filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).flatMap(w=>JSON.parse(w.body));assert.strictEqual(shots.length,9);assert.ok(shots.every(s=>s.hole_number<=9));
+    assert.ok(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)\?/.test(w.url)).every(w=>w.url.includes('new-round')),'only this mock new round is mutated');
+    state.editRound={id:'nine-saved',user_id:'u-test',round_status:'completed',date:'2026-11-19',course_id:state.portugalCards[2].course.id,tee_color:'yellow',...saved,courses:{name:state.portugalCards[2].course.name,holes:state.portugalCards[2].holes}};
+    const summary=await ev(`stSummary(${JSON.stringify(state.editRound)})`);assert.strictEqual(summary.points,18);assert.strictEqual(summary.complete,false);
+    assert.strictEqual(await ev(`stProgress([${JSON.stringify(state.editRound)}]).full`),0);
+    await ev(`statsRows=[${JSON.stringify(state.editRound)}];statsState.tab='rounds';statsState.course='all';statsState.tee='all';statsState.search='';statsRender()`);
+    assert.match(await ev(`document.getElementById('stats-scroll').textContent`),/9 holes.*9 scored holes/);
+    await ev(`openRoundEdit('nine-saved')`);assert.strictEqual(await ev(`roundEdit.round.shots.length`),9);
+    const edit=await ev(`roundEditPersist(roundEdit,[{id:'nine-0',score:4,putts:0}])`);assert.strictEqual(edit.stableford_points,19);
+    await ev(`document.getElementById('round-edit-dialog')?.close();document.querySelector('dialog[open]')?.close();activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();setTheme('light')`);
+    state.editRound=null;state.portugalCards=null;COURSES.splice(0,COURSES.length,...COURSES.filter(c=>!c.slug.startsWith('pt-')));
   });
 
   await t('Sign out from Profile → auth screen, session cleared, officialHI reset', async () => {

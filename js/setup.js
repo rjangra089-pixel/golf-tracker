@@ -3,6 +3,22 @@ let setupCourses=[],setupTees={},setupLoading=false,setupRoundBusy=false,setupSw
 const suEl=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
 const teeLabel=(key,options=setupTees)=>options?.[key]?.name || String(key||'yellow').replace(/-/g,' ').replace(/^./,c=>c.toUpperCase());
 function setupStatus(text,error=false){const e=document.getElementById('setup-status');if(e){e.textContent=text;e.classList.toggle('is-error',error);} }
+const PORTUGAL_SLUGS=['pt-gramacho','pt-vila-sol-prime-9','pt-vila-sol-challenge-9','pt-vila-sol-prestige-9'];
+let portugalSetupBusy=false;
+async function setupAddPortugal(){
+ if(portugalSetupBusy)return;portugalSetupBusy=true;
+ const button=document.getElementById('portugal-add'),status=document.getElementById('portugal-status');
+ button.disabled=true;status.textContent='Adding verified scorecards… Existing rounds stay untouched.';
+ try{
+  const {data:{session}}=await sb.auth.getSession();if(!session?.access_token)throw new Error('Please sign in again.');
+  const response=await fetch('/api/portugal-courses',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:'{}'});
+  const result=await response.json();if(!response.ok)throw new Error(result.error||'Course setup failed. Please retry.');
+  await loadCourseData(false);
+  if(PORTUGAL_SLUGS.some(slug=>!setupCourses.some(c=>c.slug===slug)))throw new Error('Scorecards are still loading. Please retry.');
+  status.textContent='Gramacho and all three Vila Sol nines are ready in the course library.';
+ }catch(e){status.textContent=e.message;document.getElementById('portugal-setup').hidden=false;}
+ finally{portugalSetupBusy=false;button.disabled=false;}
+}
 let setupHcContext=null,setupHcManual=false,setupHcSuggestion=null;
 function calculatePlayingHandicap(index,slope,rating,par,allowance=1){
  if([index,slope,rating,par,allowance].some(v=>typeof v!=='number'||!Number.isFinite(v))||index< -10||index>54||slope<55||slope>155||rating<=0||par<=0||![1,.95].includes(allowance))return null;
@@ -12,12 +28,12 @@ function calculatePlayingHandicap(index,slope,rating,par,allowance=1){
 function setupUpdateHandicap(force=false){
  const field=document.getElementById('setup-hc'),hint=document.getElementById('setup-hc-hint');if(!field||!hint)return;
  const meta=setupTees[selectedTee]||{}, allowance=Number(document.getElementById('setup-allowance').value);
- const par=HOLES.length===18?HOLES.reduce((n,h)=>n+h.par,0):null;
+ const par=[9,18].includes(HOLES.length)?HOLES.reduce((n,h)=>n+h.par,0):null;
  const context=JSON.stringify([currentUser?.id,officialHI,selectedCourseSlug,selectedTee,meta.rating,meta.slope,par,allowance]);
  const changed=context!==setupHcContext;
- setupHcSuggestion=calculatePlayingHandicap(officialHI,meta.slope,meta.rating,par,allowance);
+ setupHcSuggestion=HOLES.length===9?null:calculatePlayingHandicap(officialHI,meta.slope,meta.rating,par,allowance);
  if(changed||force){setupHcContext=context;setupHcManual=false;field.value=setupHcSuggestion===null?'':String(setupHcSuggestion);}
- hint.textContent=setupHcSuggestion===null?'Rating, slope or Handicap Index missing. Enter the club’s whole-number playing handicap.':
+ hint.textContent=setupHcSuggestion===null?(HOLES.length===9?'Enter your playing handicap for these 9 holes, not your full 18-hole allowance. Individual nine-hole ratings are not published on this club card.':'Rating, slope or Handicap Index missing. Enter the club’s whole-number playing handicap.'):
   (setupHcManual?'Your override for this round. Calculated suggestion: '+setupHcSuggestion+'.':'Calculated '+setupHcSuggestion+' from Handicap Index '+officialHI.toFixed(1)+' · '+Math.round(allowance*100)+'% allowance. You can adjust it.');
  document.getElementById('setup-hc-reset').hidden=!setupHcManual||setupHcSuggestion===null;
  field.oninput=()=>{setupHcManual=true;setupUpdateHandicap();};
@@ -27,16 +43,17 @@ function setupUpdateHandicap(force=false){
 }
 function setupRefresh(){
  setupUpdateHandicap();
+ const portugal=document.getElementById('portugal-setup');if(portugal)portugal.hidden=PORTUGAL_SLUGS.every(slug=>setupCourses.some(c=>c.slug===slug));
  const hero=document.getElementById('setup-course-meta');if(!hero)return;
  const c=setupCourses.find(c=>c.slug===selectedCourseSlug);
- hero.textContent=[c?.location,HOLES.length===18?'18 holes · Par '+HOLES.reduce((n,h)=>n+h.par,0)+' · '+teeLabel(selectedTee)+' tees':'Choose a complete scorecard'].filter(Boolean).join(' · ');
+ hero.textContent=[c?.location,[9,18].includes(HOLES.length)?HOLES.length+' holes · Par '+HOLES.reduce((n,h)=>n+h.par,0)+' · '+teeLabel(selectedTee)+' tees':'Choose a complete scorecard'].filter(Boolean).join(' · ');
  document.getElementById('setup-player').textContent=playerName||'Your round';
  const buttons=document.getElementById('setup-tees');buttons.replaceChildren();
  const keys=Object.keys(setupTees).filter(k=>!k.startsWith('_'));
  (keys.length?keys:['yellow','white']).forEach(key=>{const b=suEl('button','tee-btn',teeLabel(key));b.type='button';b.id='tee-btn-'+key;b.setAttribute('aria-pressed',String(selectedTee===key));if(selectedTee===key)b.classList.add('is-selected');b.onclick=()=>selectTee(key);buttons.append(b);});
  const selected=setupTees[selectedTee];
- document.getElementById('setup-tee-meta').textContent=selected ? [selected.rating?'Rating '+selected.rating:null,selected.slope?'Slope '+selected.slope:null].filter(Boolean).join(' · ')||'Check your playing handicap against the club scorecard.':'Check your playing handicap against the club scorecard.';
- document.getElementById('setup-start').disabled=setupLoading||setupRoundBusy||HOLES.length!==18;
+ document.getElementById('setup-tee-meta').textContent=HOLES.length===9?'9-hole SI 1–9 ranked from the printed club card. Distances shown in yards. Enter the club’s nine-hole Playing HC.':selected ? [selected.rating?'Rating '+selected.rating:null,selected.slope?'Slope '+selected.slope:null].filter(Boolean).join(' · ')||'Check your playing handicap against the club scorecard.':'Check your playing handicap against the club scorecard.';
+ document.getElementById('setup-start').disabled=setupLoading||setupRoundBusy||![9,18].includes(HOLES.length);
  const recent=document.getElementById('setup-recent');recent.replaceChildren();
  const ids=[...new Set((recentRounds||[]).map(r=>r.course_id))];
  const found=ids.map(id=>setupCourses.find(c=>c.id===id)).filter(Boolean).slice(0,3);
@@ -61,7 +78,7 @@ async function setupChooseCourse(slug){
  }
  document.getElementById('setup-course-select').value=slug;
  setupPendingCourse=switchCourse(slug); await setupPendingCourse;
- if(selectedCourseSlug!==slug||HOLES.length!==18)return false;
+ if(selectedCourseSlug!==slug||![9,18].includes(HOLES.length))return false;
  localStorage.setItem('lastCourseSlug',slug);
  if(currentUser?.id)sbFetch('user_preferences?user_id=eq.'+currentUser.id,{method:'PATCH',body:JSON.stringify({last_course_slug:slug})}).catch(()=>{});
  setupRefresh();return true;

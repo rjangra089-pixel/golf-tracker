@@ -116,7 +116,7 @@ function crBuildReview(input, opts = {}) {
         const gir = s.gir === true ? 'Y' : s.gir === false ? 'N' : null;
         const sourceNote = typeof szDecode==='function'?szDecode(s.notes).note:s.notes;
         const note = typeof sourceNote === 'string' && !sourceNote.startsWith('GT_CHALLENGE_V1:') && !sourceNote.startsWith('GT_HOLE_V1:') && sourceNote.trim() ? sourceNote.replace(/\s+/g, ' ').trim() : null;
-        return { num: s.hole_number, par, score: s.score, fw: crFairway(par, s.fairway), fairway: s.fairway ?? null,
+        return { num: s.hole_number, physical:pars.get(s.hole_number).tee_options?._layout?.physical_hole??s.hole_number, par, score: s.score, fw: crFairway(par, s.fairway), fairway: s.fairway ?? null,
                  gir, putts, tags: errorsCaptured ? crParseTags(s.error_tags) : null, note };
     });
 
@@ -138,6 +138,7 @@ function crBuildReview(input, opts = {}) {
     return {
         reviewable: true,
         shape,
+        standaloneNine:input.holes?.length===9,
         holeCount: holes.length,
         meta: {
             course: input.courseName || null,
@@ -180,7 +181,7 @@ function crRatioText(hit, known, of) {
 function crTotalsRows(review) {
     const t = review.totals, rows = [];
     const add = (label, value) => rows.push({ label, value: value === null || value === undefined ? 'not recorded' : String(value) });
-    rows.push({ label: 'Score', value: review.shape === 'full' ? String(t.gross) : `${t.gross} (${review.shape} 9 only)` });
+    rows.push({ label: 'Score', value: review.shape === 'full' ? String(t.gross) : `${t.gross} (${review.standaloneNine?'9 holes':review.shape+' 9 only'})` });
     if (review.meta.stableford !== null) rows.push({ label: 'Stableford', value: `${review.meta.stableford} pts` });
     if (t.front !== null) rows.push({ label: 'Front', value: String(t.front) });
     if (t.back !== null) rows.push({ label: 'Back', value: String(t.back) });
@@ -199,7 +200,7 @@ function crTotalsRows(review) {
 }
 
 function crHoleLine(h, errorsCaptured) {
-    const parts = [`H${h.num}`, `Par ${h.par}`, `Score ${h.score}`, `FW ${h.fw}`,
+    const parts = [`H${h.num}`+(h.physical&&h.physical!==h.num?` (club ${h.physical})`:''), `Par ${h.par}`, `Score ${h.score}`, `FW ${h.fw}`,
                    `GIR ${h.gir ?? '—'}`, `Putts ${h.putts ?? '—'}`];
     if (errorsCaptured) parts.push(`Errors ${h.tags.length ? h.tags.join(',') : '-'}`);
     if (h.note) parts.push(`Note ${h.note}`);
@@ -271,7 +272,7 @@ function crRenderReview(container, review) {
         const hs = review.holes.filter(h => h.num >= a && h.num <= b);
         if (!hs.length) continue;
         const sec = crEl('section', 'cr-nine');
-        sec.appendChild(crEl('h3', 'cr-nine-title', `${title} · ${hs.reduce((s, h) => s + h.score, 0)}`));
+        sec.appendChild(crEl('h3', 'cr-nine-title', `${review.standaloneNine?'9 holes':title} · ${hs.reduce((s, h) => s + h.score, 0)}`));
         const table = crEl('table', 'cr-table');
         const thead = crEl('thead'); const hr = crEl('tr');
         for (const c of ['H', 'Par', 'Score', 'FW', 'GIR', 'Putts', 'Errors']) hr.appendChild(crEl('th', null, c));
@@ -279,7 +280,7 @@ function crRenderReview(container, review) {
         const tbody = crEl('tbody');
         for (const h of hs) {
             const tr = crEl('tr', h.score >= h.par + 2 ? 'is-dbl' : null);
-            tr.appendChild(crEl('td', 'cr-h', String(h.num)));
+            tr.appendChild(crEl('td', 'cr-h', String(h.num)+(h.physical&&h.physical!==h.num?' ('+h.physical+')':'')));
             tr.appendChild(crEl('td', null, String(h.par)));
             tr.appendChild(crEl('td', 'cr-score', String(h.score)));
             tr.appendChild(crEl('td', h.fw === '—' ? 'is-unknown' : null, h.fw));

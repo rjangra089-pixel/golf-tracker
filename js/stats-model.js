@@ -13,13 +13,14 @@ const stOrder = rows => [...rows].sort((a,b) => String(b.date || '').localeCompa
 
 function stCourseMap(r) {
     const holes = r.courses?.holes;
-    if (!Array.isArray(holes) || holes.length !== 18) return null;
+    if (!Array.isArray(holes) || ![9,18].includes(holes.length)) return null;
     const map = new Map();
     for (const h of holes) {
-        if (!stWhole(h.hole_number, 1) || h.hole_number > 18 || map.has(h.hole_number) || !stWhole(h.par, 1)
-            || !stWhole(h.stroke_index, 1) || h.stroke_index > 18) return null;
+        if (!stWhole(h.hole_number, 1) || h.hole_number > holes.length || map.has(h.hole_number) || !stWhole(h.par, 1)
+            || !stWhole(h.stroke_index, 1) || h.stroke_index > holes.length) return null;
         map.set(h.hole_number, {par:h.par, si:h.stroke_index});
     }
+    if(holes.length===9&&new Set(holes.map(h=>h.stroke_index)).size!==9)return null;
     return map;
 }
 
@@ -40,15 +41,15 @@ function stShape(r) {
     if (shots.length === 9 && has(10,18)) return 'back';
     return 'partial';
 }
-const stComplete = r => r.round_status !== 'in_progress' && r.shots?.length === 18 && stShape(r) === 'full' && !!stCourseMap(r);
-const stPoints = (r, s, h) => Math.max(0, h.par - s.score + Math.floor(r.playing_handicap / 18) + (h.si <= (r.playing_handicap % 18+18)%18 ? 1 : 0) + 2);
+const stComplete = r => r.round_status !== 'in_progress' && r.shots?.length === 18 && stShape(r) === 'full' && stCourseMap(r)?.size === 18;
+const stPoints = (r, s, h) => {const n=r.courses?.holes?.length===9?9:18;return Math.max(0,h.par-s.score+Math.floor(r.playing_handicap/n)+(h.si<=(r.playing_handicap%n+n)%n?1:0)+2);};
 
 function stSummary(r) {
     const shots = stScoredShots(r), map = stCourseMap(r);
     return {
         holes:shots.length, shape:stShape(r), complete:stComplete(r),
         gross:shots.length ? shots.reduce((n,s) => n+s.score, 0) : null,
-        points:shots.length && map && stHandicap(r) ? shots.reduce((n,s) => n+stPoints(r,s,map.get(s.hole_number)),0) : null,
+        points:shots.length && map && shots.every(s=>map.has(s.hole_number)) && stHandicap(r) ? shots.reduce((n,s) => n+stPoints(r,s,map.get(s.hole_number)),0) : null,
         putts:shots.length && shots.every(stPuttsKnown) ? shots.reduce((n,s) => n+s.putts,0) : null,
     };
 }

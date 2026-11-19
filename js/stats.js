@@ -210,13 +210,14 @@ function statsRenderRounds(root) {
 function statsRoundCard(root,r) {
     const summary=stSummary(r),date=stDate(r.date),card=stText('article','round-history-item st-round');
     const left=stText('div','rhi-left');left.append(stText('h3','rhi-date',date),stText('p','rhi-sub',stCourseName(r)+' · '+stTeeName(stTeeKey(r))));
-    const kind=r.round_status==='in_progress'?'In progress':summary.shape==='full'?'18 holes':summary.shape==='front'?'Front 9':summary.shape==='back'?'Back 9':'Partial';
+    const kind=r.round_status==='in_progress'?'In progress':r.courses?.holes?.length===9&&summary.shape==='front'?'9 holes':summary.shape==='full'?'18 holes':summary.shape==='front'?'Front 9':summary.shape==='back'?'Back 9':'Partial';
     left.append(stText('p','st-caption',kind+' · '+summary.holes+' scored holes · Playing handicap '+(stHandicap(r)?r.playing_handicap:'not recorded')));card.append(left);
+    if(r.courses?.holes?.length===9)left.append(stText('p','st-caption','Nine-hole result · kept separate from 18-hole Progress averages.'));
     if(!stCourseMap(r)) left.append(stText('p','st-caption','Course data unavailable · excluded from Progress'));
     const numbers=stText('div','st-round-numbers');const score=stText('span','rhi-score',summary.gross===null?'—':String(summary.gross));score.setAttribute('aria-label',(summary.gross??'Unknown')+' gross');
     numbers.append(score,stText('span','st-caption','gross'),stText('span','rhi-pts',summary.points===null?'Points unavailable':summary.points+' pts'));
     numbers.append(stText('span','st-caption',summary.putts===null?'Putts incomplete':summary.putts+' putts'));card.append(numbers);
-    const challenge=rtChallengeResult(r);left.append(stText('p','st-caption',challenge?challenge.shots+' below HC goal · '+rpTarget(challenge.gross-challenge.target)+' Challenge Target':'Challenge goal not recorded'));
+    const challenge=rtChallengeResult(r);left.append(stText('p','st-caption',r.courses?.holes?.length===9?'18-hole challenge not applied':challenge?challenge.shots+' below HC goal · '+rpTarget(challenge.gross-challenge.target)+' Challenge Target':'Challenge goal not recorded'));
     const actions=stText('div','st-round-actions');card.append(actions);
     if(r.round_status==='in_progress'){const resume=stText('button','st-button rhi-resume','Resume');resume.type='button';resume.onclick=()=>rtResume(r).catch(e=>alert(e.message));actions.append(resume);}
     if(r.round_status!=='in_progress' && r.shots?.length) {

@@ -4,9 +4,9 @@ let rtSwitchBusy=false;
 const RT_NOTE='GT_CHALLENGE_V1:';
 function rtSnapshot(plan,shots){return {v:1,shots,plan:plan.map(h=>({...h}))};}
 function rtValidSnapshot(s){
- return s?.v===1&&Number.isInteger(s.shots)&&s.shots>=0&&s.shots<=12&&Array.isArray(s.plan)&&s.plan.length===18&&
- s.plan.every((h,i)=>h.hole===i+1&&Number.isInteger(h.si)&&h.si>=1&&h.si<=18&&Number.isInteger(h.shots)&&Number.isInteger(h.hcTarget)&&Number.isInteger(h.target)&&h.hcTarget-h.target===(h.shift?1:0)&&(!h.shift||i>=6))&&
- new Set(s.plan.map(h=>h.si)).size===18&&s.plan.filter(h=>h.shift).length===s.shots;
+ return s?.v===1&&Number.isInteger(s.shots)&&s.shots>=0&&s.shots<=12&&Array.isArray(s.plan)&&[9,18].includes(s.plan.length)&&(s.plan.length!==9||s.shots===0)&&
+ s.plan.every((h,i)=>h.hole===i+1&&Number.isInteger(h.si)&&h.si>=1&&h.si<=s.plan.length&&Number.isInteger(h.shots)&&Number.isInteger(h.hcTarget)&&Number.isInteger(h.target)&&h.hcTarget-h.target===(h.shift?1:0)&&(!h.shift||i>=6))&&
+ new Set(s.plan.map(h=>h.si)).size===s.plan.length&&s.plan.filter(h=>h.shift).length===s.shots;
 }
 function rtReadNote(note){try{if(typeof szDecode==='function')note=szDecode(note).note;if(typeof note!=='string'||!note.startsWith(RT_NOTE))return null;const s=JSON.parse(note.slice(RT_NOTE.length));return rtValidSnapshot(s)?s:null;}catch(e){return null;}}
 function rtRoundSnapshot(round){
@@ -17,7 +17,7 @@ function rtRoundSnapshot(round){
 function rtLivePlan(){return roundChallengePlan||buildCaddieTargets(HOLES,playingHC,roundChallengeShots);}
 function rtShotNote(index,data=holeData[index]){const base=roundChallengeRecorded&&roundChallengePlan?RT_NOTE+JSON.stringify(rtSnapshot(roundChallengePlan,roundChallengeShots)):(roundShotNotes[index]??null);return szEncode(base,data,HOLES[index]);}
 function rtChallengeResult(round){
- const snapshot=rtRoundSnapshot(round);if(!snapshot||round.round_status==='in_progress')return null;
+ const snapshot=rtRoundSnapshot(round);if(!snapshot||snapshot.plan.length!==18||round.round_status==='in_progress')return null;
  const seen=new Set(),shots=round.shots||[];
  if(shots.length!==18||shots.some(s=>!Number.isInteger(s.hole_number)||s.hole_number<1||s.hole_number>18||seen.has(s.hole_number)||(seen.add(s.hole_number),false)||!Number.isInteger(s.score)||s.score<1))return null;
  const gross=shots.reduce((n,s)=>n+s.score,0),hc=snapshot.plan.reduce((n,h)=>n+h.hcTarget,0),target=snapshot.plan.reduce((n,h)=>n+h.target,0);
@@ -93,7 +93,7 @@ async function rtStartNew(){
  // Existing queued operations retain their round IDs; do not replay into a new round.
  await flushWriteQueue();if(roundSyncQueue().length)throw new Error('Your pending changes are safe. Reconnect and sync before starting another round.');
  activeRoundId=null;completedRoundId=null;roundDraftId=null;roundChallengePlan=null;roundChallengeRecorded=false;roundShotNotes={};
- holeData=Array.from({length:18},()=>({score:null,putts:null,fairway:null,gir:null,tags:[]}));
+ holeData=Array.from({length:HOLES.length},()=>({score:null,putts:null,fairway:null,gir:null,tags:[]}));
  clearRoundStateFromStorage();showScreen('screen-setup');setupStatus('Previous rounds kept. Choose your course and tee off.');
  }finally{rtSwitchBusy=false;}
 }

@@ -1,9 +1,9 @@
 // Read-only challenge and one-round reflection. No persistence or inferred tags.
 function rpChallenge(plan, shots) {
- if (!plan || plan.length!==18) return {available:false};
+ if (!plan || ![9,18].includes(plan.length)) return {available:false};
  const played=plan.map((p,i)=>({...p,score:shots[i]?.score})).filter(h=>Number.isInteger(h.score)&&h.score>0);
  const hc=played.reduce((n,h)=>n+h.hcTarget,0), target=played.reduce((n,h)=>n+h.target,0),gross=played.reduce((n,h)=>n+h.score,0);
- return {available:true,holes:played.length,complete:played.length===18,gross,hc,target,saved:hc-gross,overTarget:gross-target,cuts:hc-target,
+ return {available:true,holes:played.length,of:plan.length,complete:played.length===plan.length,gross,hc,target,saved:hc-gross,overTarget:gross-target,cuts:hc-target,
    afterSix:played.filter(h=>h.hole>6).length,roundHc:plan.reduce((n,h)=>n+h.hcTarget,0),roundTarget:plan.reduce((n,h)=>n+h.target,0)};
 }
 function rpSaved(n) {return n>0?n+' under':n<0?Math.abs(n)+' over':'level with';}
@@ -31,11 +31,11 @@ function rpReflection(plan, shots) {
 function rpRender(root, model, options={}) {
  root.replaceChildren();const add=(tag,cls,text,parent=root)=>{const e=document.createElement(tag);e.className=cls;e.textContent=text;parent.append(e);return e;};
  const c=model.challenge;
- add('h3','rp-title',c.complete?'Your round in brief':'Round check-in · '+model.played+'/18 holes');
+ add('h3','rp-title',c.complete?'Your round in brief':'Round check-in · '+model.played+'/'+(c.of??18)+' holes');
  if(!options.historical&&c.available&&c.holes){
-   add('p','rp-challenge','HC Target: '+c.hc+' · Target: '+c.target+' · Actual: '+c.gross+(c.complete?'':' · scored holes only'));
-   add('p','rp-result',rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target');
-   add('p','rp-note',c.complete?(c.roundHc-c.roundTarget)+'-shot goal: '+c.roundTarget+' gross. Holes 1–6 unchanged; reductions after hole 6.':'Round goal '+c.roundTarget+' gross · result so far uses only the holes scored.');
+   add('p','rp-challenge','HC Target: '+c.hc+(c.of===9?'':' · Target: '+c.target)+' · Actual: '+c.gross+(c.complete?'':' · scored holes only'));
+   add('p','rp-result',rpSaved(c.saved)+' HC Target'+(c.of===9?'':' · '+rpTarget(c.overTarget)+' Challenge Target'));
+   add('p','rp-note',c.of===9?'9-hole HC Target. Your 18-hole challenge is not applied to this round.':c.complete?(c.roundHc-c.roundTarget)+'-shot goal: '+c.roundTarget+' gross. Holes 1–6 unchanged; reductions after hole 6.':'Round goal '+c.roundTarget+' gross · result so far uses only the holes scored.');
  }
  if(options.historical) add('p','rp-note','Based on this round’s recorded data. The challenge is not scored retrospectively.');
  add('h4','rp-label','Biggest gaps to HC Target');
