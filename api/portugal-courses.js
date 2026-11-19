@@ -1,4 +1,3 @@
-import {addPortugalCards} from '../lib/portugal-scorecards.mjs';
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
@@ -12,6 +11,8 @@ export default async function handler(req,res){
   const db=async(path,options={})=>{const {prefer,...opts}=options;const r=await fetch(base+'/rest/v1/'+path,{...opts,headers:{...headers,Prefer:prefer||'return=representation'},signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error(r.status===403?'Your course-admin permission is required to add these cards.':'Could not add Portugal scorecards. Retry when connected.');return r.status===204?[]:r.json();};
   const profiles=await db('profiles?select=is_admin&id=eq.'+encodeURIComponent(user.id));
   if(profiles[0]?.is_admin!==true)return res.status(403).json({error:'Your course-admin permission is required to add these cards.'});
+  // Vercel emits this handler as CommonJS; load the ESM catalog dynamically.
+  const {addPortugalCards}=await import('../lib/portugal-scorecards.mjs');
   return res.status(200).json({slugs:await addPortugalCards(db)});
  }catch(e){return res.status(400).json({error:e.message||'Could not add Portugal scorecards.'});}
 }

@@ -48,7 +48,7 @@ const text=f=>fs.readFileSync(path.join(R,f),'utf8');
   assert.strictEqual(zones.szRows([{shots:[{score:5,notes:note}]}]).groups[0].met,0,'SI 7 on a nine is Easier, not Medium');
  }
  // Endpoint checks the real signed-in user and admin before any catalog writes.
- let count=0;const handler=new Function('addPortugalCards',text('api/portugal-courses.js').replace(/^import[^\n]+\n/,'').replace('export default async function handler','return async function handler'))(async()=>{count++;return [];});
+ let count=0;const handler=new Function('addPortugalCards',text('api/portugal-courses.js').replace("const {addPortugalCards}=await import('../lib/portugal-scorecards.mjs');",'').replace('export default async function handler','return async function handler'))(async()=>{count++;return [];});
  process.env.NEXT_PUBLIC_SUPABASE_URL='https://mock.invalid';process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY='TEST';let admin=false;
  global.fetch=async(url)=>({ok:true,status:200,json:async()=>url.includes('/auth/')?{id:'owner'}:[{is_admin:admin}]});
  const run=async(req)=>{let code=200,result;await handler(req,{setHeader(){},status(n){code=n;return this;},json(v){result=v;}});return {code,result};};
