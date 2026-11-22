@@ -1415,7 +1415,7 @@
     </style>
     <!-- Clubhouse design system (live scoring first; other screens migrate later) -->
     <link rel="stylesheet" href="css/tokens.css?v=1">
-    <link rel="stylesheet" href="css/play.css?v=3">
+    <link rel="stylesheet" href="css/play.css?v=4">
     <link rel="stylesheet" href="css/coach-review.css?v=1">
     <link rel="stylesheet" href="css/round-editor.css?v=1">
     <link rel="stylesheet" href="css/stats.css?v=1">
@@ -1834,7 +1834,10 @@
             </div>
         </details>
 
-        <div class="play-status" id="play-status" aria-live="polite"></div>
+        <div class="play-challenges">
+            <div class="play-hole-targets" id="play-hole-targets"></div>
+            <div class="play-status" id="play-status" aria-live="polite"></div>
+        </div>
 
         <div class="scoring-card">
           <div class="score-entry-panel">
@@ -2939,12 +2942,18 @@ function updatePlayTally() {
     document.getElementById('tb-shots').textContent = getTotalShots();
     const plan = rtLivePlan();
     const c=rpChallenge(plan,holeData);
-    if(!c.available) {setPlayStatus('Challenge unavailable · check course card','challenge');return;}
+    const targets = document.getElementById('play-hole-targets');
+    if (!c.available) {
+        targets.textContent = '';
+        setPlayStatus('Challenge unavailable · check course card','challenge');
+        return;
+    }
     const nineHoles = HOLES.length === 9;
     const hole = plan[currentHole];
+    targets.textContent = 'HC Target ' + hole.hcTarget + (nineHoles ? '' : ' · Challenge Target ' + hole.target);
     const text = c.holes
         ? rpSaved(c.saved) + ' HC Target' + (nineHoles ? ' · ' + c.holes + '/9 holes' : ' · ' + rpTarget(c.overTarget) + ' Challenge Target')
-        : 'HC Target ' + hole.hcTarget + (nineHoles ? '' : ' · Challenge Target ' + hole.target);
+        : 'No scores yet';
     setPlayStatus(text,'challenge');
     document.getElementById('play-status').title =
         c.holes + ' scored holes. HC Target ' + c.hc + ', Challenge Target ' + c.target + ', actual ' + c.gross + '. ' +

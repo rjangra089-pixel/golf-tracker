@@ -602,11 +602,14 @@ const t = async (name, fn) => {
     await ev(`startRound()`); await waitFor(`activeRoundId === 'new-round'`); await statsIdle();
     // Measure settled layout: finish the screen's entry fade/slide (headless Chrome advances it irregularly).
     const cardTop = () => ev(`(document.getAnimations().forEach(a => a.finish()), document.querySelector('#screen-play .scoring-card').getBoundingClientRect().top)`);
-    assert.strictEqual(await ev(`document.getElementById('play-status').textContent`),'HC Target 6 · Challenge Target 6');
+    assert.strictEqual(await ev(`document.getElementById('play-hole-targets').textContent`),'HC Target 6 · Challenge Target 6');
     assert.deepStrictEqual(await ev(`rtLivePlan().map(h=>h.hcTarget-h.target)`),
       await ev(`buildCaddieTargets(HOLES,playingHC,golfGoals().shots).map(h=>h.hcTarget-h.target)`));
     const tops = [], statuses = [];
-    for (let h = 0; h < 9; h++) { await ev(`selectScore(5); nextHole()`); tops.push(await cardTop()); statuses.push(await ev(`document.getElementById('play-status').className + '|' + document.getElementById('play-status').textContent`)); }
+    for (let h = 0; h < 9; h++) { await ev(`selectScore(5); nextHole()`); if (h===5) {
+      assert.strictEqual(await ev(`document.getElementById('play-hole-targets').textContent`),'HC Target 5 · Challenge Target 4');
+      assert.strictEqual(await ev(`document.getElementById('caddie-briefing').open`),false);
+    } tops.push(await cardTop()); statuses.push(await ev(`document.getElementById('play-status').className + '|' + document.getElementById('play-status').textContent`)); }
     await sleep(500);
     assert.strictEqual(await ev(`currentHole`), 9);
     assert.match(statuses[0],/1 under HC Target · 1 under Challenge Target/);

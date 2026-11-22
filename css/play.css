@@ -366,7 +366,10 @@ body.dark-mode #screen-play {
 #screen-play .btn-next {flex:2.4;background:var(--cl-accent);color:var(--cl-on-accent);}
 @media(max-width:360px){#screen-play .play-header,#screen-play .nav-bar {padding-left:12px;padding-right:12px;}#screen-play .play-scroll {padding-left:12px;padding-right:12px;}#screen-play .score-entry-panel,#screen-play .observations-panel {padding:12px;}#screen-play .play-hole-meta {font-size:13px;}}
 #screen-play .btn-prev:disabled {opacity:.55;cursor:default;}
-#screen-play .play-scroll>.play-status {margin:-8px 0 0;color:var(--cl-text-2);font-size:12px;}
+#screen-play .play-challenges {margin-top:-5px;}
+#screen-play .play-hole-targets {font-size:13px;font-weight:600;line-height:1.25;color:var(--cl-text);}
+#screen-play .play-hole-targets:empty {display:none;}
+#screen-play .play-challenges .play-status {margin:1px 0 0;color:var(--cl-text-2);}
 #screen-play .nav-bar {flex-direction:column;gap:10px;}
 #screen-play .play-footer-context {display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;line-height:1.4;color:var(--cl-text-2);}
 #screen-play .play-footer-context .play-tally {font-size:12px;margin:0;}
@@ -378,12 +381,12 @@ body.dark-mode #screen-play {
     #screen-play .play-header-top {align-items:center;}
     #screen-play .play-hole {font-size:23px;}
     #screen-play .play-hole-meta {display:inline;margin:0;font-size:12px;}
-    #screen-play .play-scroll {padding-top:6px;padding-bottom:6px;gap:6px;}
-    #screen-play .score-entry-panel,#screen-play .observations-panel {padding:8px 12px;}
+    #screen-play .play-scroll {padding-top:6px;padding-bottom:6px;gap:4px;}
+    #screen-play .score-entry-panel,#screen-play .observations-panel {padding:6px 12px;}
     #screen-play .entry-section+.entry-section {margin-top:8px;}
     #screen-play .section-label,#screen-play .entry-label-row .section-label {margin-bottom:4px;}
     #screen-play .score-cell,#screen-play .putt-btn {height:44px;}
-    #screen-play .play-scroll>.play-status {margin-top:0;}
+    #screen-play .play-challenges {margin-top:0;}
     #screen-play .nav-bar {padding-top:8px;gap:6px;}
     #screen-play .btn-nav {height:44px;}
 }
