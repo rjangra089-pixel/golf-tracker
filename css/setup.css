@@ -75,3 +75,7 @@
 #round-manager > .st-button:last-child {display:block;width:100%;background:var(--cl-accent);color:var(--cl-on-accent);border-color:var(--cl-accent);margin-top:18px;}
 #screen-setup #setup-zone-plan {padding:18px;border:1px solid var(--cl-border);border-radius:18px;background:var(--cl-surface);}
 #screen-setup #setup-zone-plan h3 {margin-top:0;font-size:18px;color:var(--cl-text);}
+
+#round-manager .round-manager-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+#round-manager .round-manager-actions button { min-height:44px; margin:0; }
+#round-manager .round-manager-delete { color:var(--cl-destructive); }

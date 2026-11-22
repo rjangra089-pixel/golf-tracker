@@ -1470,6 +1470,60 @@ const t = async (name, fn) => {
     assert.strictEqual(result.goal,3);assert.strictEqual(result.met,true);assert.strictEqual(result.editedMet,false);assert.match(result.text,/3 below HC/);assert.match(result.text,/1 rounds in this window have no recorded challenge/);
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();roundChallengePlan=null;roundChallengeRecorded=false`);
   });
+  await t('TOOLS: delete from Your rounds confirms, removes only selected drafts and protects finished rounds',async()=>{
+    const result=await ev(`(async()=>{
+      const oldFetch=sbFetch,oldConfirm=window.confirm;
+      const remote={id:'delete-me',date:'2026-11-22',round_status:'in_progress',courses:{name:'Course A'}};
+      const finished={...remote,id:'finished',courses:{name:'Course B'}};
+      const local={syncUser:currentUser.id,draftId:'device',roundDate:'2026-11-21',selectedCourseSlug:'local-course'};
+      const calls=[];
+      let answer=false,result='finished',failure=true,confirmation='';
+      try{
+        activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();
+        localStorage.setItem(rtDraftKey(),JSON.stringify({'local-device':local,'delete-me':{...local,activeRoundId:'delete-me'}}));
+        localStorage.removeItem(WRITE_QUEUE_KEY);
+        queueWrite({path:'shots',method:'POST',body:JSON.stringify({round_id:'delete-me',score:6})});
+        queueWrite({path:'rounds?id=eq.keep-me',method:'PATCH',body:'{}'});
+        sbFetch=async(path,opts)=>{
+          if(path.startsWith('rounds?select=*,courses(name)&'))return [remote,finished];
+          if(path==='rpc/delete_unfinished_round'){
+            calls.push(JSON.parse(opts.body).p_round_id);
+            if(failure)throw new Error('Connection lost');
+            return result;
+          }
+          return oldFetch(path,opts);
+        };
+        window.confirm=text=>{confirmation=text;return answer;};
+        await openRoundManager();
+        const dialog=document.getElementById('round-manager');
+        const removes=[...dialog.querySelectorAll('.round-manager-delete')];
+        const click=button=>button.onclick();
+        await click(removes[0]);
+        const cancelled=calls.length===0&&removes[0].isConnected&&confirmation.includes('Course A');
+        answer=true;
+        await click(removes[2]);
+        const localOnly=calls.length===0&&!removes[2].isConnected&&!rtDrafts()['local-device'];
+        activeRoundId='delete-me';roundDraftId='device';saveRoundStateToStorage(false);
+        await click(removes[0]);
+        const retained=removes[0].isConnected&&activeRoundId==='delete-me'&&roundSyncQueue().length===2&&dialog.textContent.includes('Connection lost');
+        failure=false;
+        await click(removes[1]);
+        const protectedFinished=removes[1].isConnected&&dialog.textContent.includes('no longer unfinished');
+        result='deleted';
+        await click(removes[0]);
+        const cleared=!removes[0].isConnected&&activeRoundId===null&&!rtDrafts()['delete-me']&&!localStorage.getItem(ROUND_STATE_KEY);
+        const queue=roundSyncQueue().map(op=>op.path);
+        return {cancelled,localOnly,retained,protectedFinished,cleared,queue,calls};
+      }finally{
+        sbFetch=oldFetch;window.confirm=oldConfirm;
+        document.getElementById('round-manager')?.close();
+        localStorage.removeItem(WRITE_QUEUE_KEY);localStorage.removeItem(rtDraftKey());clearRoundStateFromStorage();
+      }
+    })()`);
+    assert.deepStrictEqual(result,{cancelled:true,localOnly:true,retained:true,protectedFinished:true,cleared:true,
+      queue:['rounds?id=eq.keep-me'],calls:['delete-me','finished','delete-me']});
+  });
+
   await t('TOOLS: course plan uses three same-tee rounds, factual hole gaps, repeated tags and no writes',async()=>{
     const before=state.writes.length;
     const result=await ev(`(async()=>{const old=fetchStatsHistory;try{showScreen('screen-setup');const rows=Array.from({length:3},()=>({round_status:'completed',course_id:courseId,playing_handicap:25,tee_color:selectedTee,courses:{holes:HOLES.map(h=>({hole_number:h.num,par:h.par,stroke_index:h.si}))},shots:buildCaddieTargets(HOLES,25).map(h=>({hole_number:h.hole,score:h.hole===8?h.hcTarget+3:h.hcTarget,error_tags:h.hole===8?['T']:null}))}));fetchStatsHistory=async()=>rows;await rtRenderCoursePlan();const text=document.getElementById('setup-course-plan').textContent;return {text,width:document.documentElement.scrollWidth<=innerWidth};}finally{fetchStatsHistory=old;}})()`);

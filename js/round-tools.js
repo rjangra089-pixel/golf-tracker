@@ -131,12 +131,69 @@ async function rtResume(round){
  }catch(e){rollback();throw e;}
  }finally{rtSwitchBusy=false;}
 }
+async function rtDeleteUnfinished(round, uid){
+ if(currentUser?.id!==uid)throw new Error('Sign in as the owner of this round.');
+ if(rtSwitchBusy)throw new Error('Wait for the current round action to finish.');
+ rtSwitchBusy=true;
+ try{
+  await roundSyncHoleChain;
+  if(currentUser?.id!==uid)throw new Error('Sign in as the owner of this round.');
+  if(roundSyncBusy||setupRoundBusy)throw new Error('Wait for the current save to finish, then try again.');
+  const drafts=rtDrafts();
+  const draft=Object.hasOwn(drafts,round.id)?drafts[round.id]:null;
+  if(round.local&&draft?.syncUser!==uid)throw new Error('This draft is no longer available.');
+  const id=round.local?draft.activeRoundId:round.id;
+  if(id){
+   const result=await sbFetch('rpc/delete_unfinished_round',{method:'POST',body:JSON.stringify({p_round_id:id})});
+   if(result==='finished')throw new Error('This round is no longer unfinished. Open it in Stats.');
+   if(result!=='deleted'&&result!=='missing')throw new Error('Deletion could not be confirmed. Please retry.');
+  }
+  if(currentUser?.id!==uid)throw new Error('Sign in as the owner of this round.');
+
+  // A queued save for the discarded round must never replay after deletion.
+  if(id){
+   const queue=roundSyncQueue();
+   const remaining=queue.filter(op=>{
+    if(op.userId&&op.userId!==uid)return true;
+    const [table,query]=op.path.split('?');
+    const params=new URLSearchParams(query);
+    if(table==='rounds')return params.get('id')!=='eq.'+id;
+    if(table!=='shots')return true;
+    if(params.get('round_id')==='eq.'+id)return false;
+    if(op.method!=='POST')return true;
+    try{return JSON.parse(op.body)?.round_id!==id;}catch(e){return true;}
+   });
+   if(remaining.length!==queue.length){
+    if(remaining.length)localStorage.setItem(WRITE_QUEUE_KEY,JSON.stringify(remaining));
+    else localStorage.removeItem(WRITE_QUEUE_KEY);
+   }
+  }
+
+  const isDiscarded=(serverId,draftId)=>id?serverId===id:!serverId&&draftId===draft?.draftId;
+  if(isDiscarded(activeRoundId,roundDraftId)&&!completedRoundId){
+   activeRoundId=null;roundDraftId=null;roundChallengePlan=null;roundChallengeRecorded=false;roundShotNotes={};
+   holeData=Array.from({length:HOLES.length},()=>({score:null,putts:null,fairway:null,gir:null,tags:[]}));
+   roundSyncHoles={};roundSyncLast=null;roundSyncSet('waiting');
+  }
+  const stored=JSON.parse(localStorage.getItem(ROUND_STATE_KEY)||'null');
+  if(stored?.syncUser===uid&&isDiscarded(stored.activeRoundId,stored.draftId))clearRoundStateFromStorage();
+  delete drafts[round.id];
+  localStorage.setItem(rtDraftKey(),JSON.stringify(drafts));
+  if(id&&window._inProgressRound?.id===id){
+   window._inProgressRound=null;
+   document.getElementById('resume-banner').style.display='none';
+  }
+  roundSyncRender();
+ }finally{rtSwitchBusy=false;}
+}
+
 async function openRoundManager(){
  const previous=document.getElementById('round-manager');if(previous?.open)return;previous?.remove();
  const uid=currentUser?.id;if(!uid)return;
  const d=suEl('dialog','su-finder');d.id='round-manager';d.setAttribute('aria-label','Manage your rounds');
  const close=suEl('button','st-button','Close');close.onclick=()=>{d.close();d.remove();};
  const title=suEl('h2','','Your rounds'),message=suEl('p','su-hint','Loading unfinished rounds…'),list=suEl('div','');
+ message.setAttribute('role','status');
  const fresh=suEl('button','st-button','Start a new round');fresh.onclick=async()=>{fresh.disabled=true;try{await rtStartNew();d.close();d.remove();}catch(e){message.textContent=e.message;}finally{fresh.disabled=false;}};
  d.append(close,title,message,list,fresh);document.body.append(d);d.showModal();d.addEventListener('close',()=>d.remove());
  try{
@@ -150,6 +207,24 @@ async function openRoundManager(){
   }
   message.textContent=rounds.length?'Resume an unfinished round, or start another. Starting a new round keeps the others.':'No unfinished rounds. Ready for your next round.';
   for(const round of rounds){const item=suEl('section','profile-section'),label=suEl('p','',stDate(round.date)+' · '+(round.courses?.name||'Course not recorded')+(round.local?' · kept on this device':' · saved unfinished'));
-   const resume=suEl('button','st-button','Resume');resume.onclick=async()=>{resume.disabled=true;try{await rtResume(round);d.close();d.remove();}catch(e){message.textContent=e.message;}finally{resume.disabled=false;}};item.append(label,resume);list.append(item);}
+   const resume=suEl('button','st-button','Resume');resume.onclick=async()=>{resume.disabled=true;try{await rtResume(round);d.close();d.remove();}catch(e){message.textContent=e.message;}finally{resume.disabled=false;}};const actions=suEl('div','round-manager-actions');
+   const remove=suEl('button','st-button round-manager-delete','Delete');
+   remove.type='button';
+   remove.setAttribute('aria-label','Delete '+label.textContent);
+   remove.onclick=async()=>{
+    if(rtSwitchBusy||!window.confirm('Delete this unfinished round?\n\n'+label.textContent+'\n\nIts scores will be permanently removed.'))return;
+    resume.disabled=remove.disabled=fresh.disabled=true;
+    message.textContent='Deleting unfinished round…';
+    try{
+     await rtDeleteUnfinished(round,uid);
+     item.remove();
+     message.textContent=list.childElementCount?'Unfinished round deleted.':'Unfinished round deleted. Ready for your next round.';
+     fresh.disabled=false;
+     (list.querySelector('button')||fresh).focus();
+    }catch(e){message.textContent='Could not delete this round. '+e.message;}
+    finally{resume.disabled=remove.disabled=fresh.disabled=false;}
+   };
+   actions.append(resume,remove);item.append(label,actions);list.append(item);
+  }
  }catch(e){message.textContent='Could not load all rounds. '+e.message;}
 }

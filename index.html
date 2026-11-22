@@ -1419,7 +1419,7 @@
     <link rel="stylesheet" href="css/coach-review.css?v=1">
     <link rel="stylesheet" href="css/round-editor.css?v=1">
     <link rel="stylesheet" href="css/stats.css?v=1">
-    <link rel="stylesheet" href="css/setup.css?v=1">
+    <link rel="stylesheet" href="css/setup.css?v=2">
 <style>
 .round-sync { margin:6px 16px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; font:12px var(--font-body); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 #screen-play .round-sync{margin:0;padding:2px 0;border:0;font-size:11px;gap:4px}
@@ -1983,7 +1983,7 @@
 <script src="js/setup.js?v=1"></script>
 <script src="js/round-progress.js?v=1"></script>
 <script src="js/scoring-zones.js?v=2"></script>
-<script src="js/round-tools.js?v=2"></script>
+<script src="js/round-tools.js?v=3"></script>
 <script src="js/stats-insights.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
@@ -3654,7 +3654,7 @@ function confirmCancelRound() {
 
 async function cancelRound() {
     // Leaving NEVER deletes or updates a database row, regardless of the round's
-    // status or a stale ID. Explicit deletion remains a separate Stats action.
+    // status or a stale ID. Explicit deletion is a separate action.
     if (roundSyncBusy || setupRoundBusy) {
         const message=document.querySelector('#cancel-round-overlay .delete-confirm-sub');
         if (message) message.textContent='Please wait for the current save to finish, then leave. Your round will not be deleted.';
@@ -3843,7 +3843,7 @@ function roundSyncRender() {
     }
 }
 async function roundSyncRetry() {
-    if (roundSyncBusy) return;
+    if (roundSyncBusy || rtSwitchBusy) return;
     await flushWriteQueue();
     if (roundSyncQueue().length) return;
     if (document.getElementById('screen-summary').classList.contains('active')) { await saveRound(); return; }
