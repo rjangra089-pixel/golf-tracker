@@ -33,16 +33,16 @@ function rpRender(root, model, options={}) {
  const c=model.challenge;
  add('h3','rp-title',c.complete?'Your round in brief':'Round check-in · '+model.played+'/'+(c.of??18)+' holes');
  if(!options.historical&&c.available&&c.holes){
-   add('p','rp-challenge','HC Target: '+c.hc+(c.of===9?'':' · Target: '+c.target)+' · Actual: '+c.gross+(c.complete?'':' · scored holes only'));
-   add('p','rp-result',rpSaved(c.saved)+' HC Target'+(c.of===9?'':' · '+rpTarget(c.overTarget)+' Challenge Target'));
-   add('p','rp-note',c.of===9?'9-hole HC Target. Your 18-hole challenge is not applied to this round.':c.complete?(c.roundHc-c.roundTarget)+'-shot goal: '+c.roundTarget+' gross. Holes 1–6 unchanged; reductions after hole 6.':'Round goal '+c.roundTarget+' gross · result so far uses only the holes scored.');
+   add('p','rp-challenge','HC Target: '+c.hc+(options.hcOnly?'':' · Target: '+c.target)+' · Actual: '+c.gross+(c.complete?'':' · scored holes only'));
+   add('p','rp-result',rpSaved(c.saved)+' HC Target'+(options.hcOnly?'':' · '+rpTarget(c.overTarget)+' Challenge Target'));
+   add('p','rp-note',options.hcOnly?'Nine-hole round recorded against HC Target.':c.complete?(c.roundHc-c.roundTarget)+'-shot goal: '+c.roundTarget+' gross. Holes 1–6 unchanged; reductions after hole 6.':'Round goal '+c.roundTarget+' gross · result so far uses only the holes scored.');
  }
  if(options.historical) add('p','rp-note','Based on this round’s recorded data. The challenge is not scored retrospectively.');
  add('h4','rp-label','Biggest gaps to HC Target');
  add('p','rp-evidence',model.gaps.length?model.gaps.map(h=>'H'+h.hole+': +'+h.over+(h.tags.length?' · tagged '+h.tags.join('/'):' · no error tagged')).join(' · '):'No scored holes above HC Target'+(c.available?'.':' could be assessed: target data unavailable.'));
  add('p','rp-note','Score gaps describe outcomes, not their causes.');
  add('p','rp-evidence',model.stacked.length?'Error stacking: multiple types tagged on H'+model.stacked.join(', H')+'.':'No multiple error types tagged on a hole. Blank tags do not prove an error-free round.');
- add('p','rp-note','Putting recorded on '+model.puttingKnown+'/'+model.played+' scored holes · penalties and forced recoveries are not captured.');
+ add('p','rp-note','Putting recorded on '+model.puttingKnown+'/'+model.played+' scored holes · forced recoveries are not captured.');
  add('h4','rp-label','One focus for next round: '+model.focus.title);
  add('p','rp-evidence',model.focus.evidence);add('p','rp-action',model.focus.action);
 }

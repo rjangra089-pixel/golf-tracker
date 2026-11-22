@@ -18,6 +18,9 @@ function szUnwrapNote(note){
  return data?(typeof data.note==='string'?data.note:null):note;
 }
 
+function szPenaltyCount(value,score){
+ return Number.isInteger(value)&&value>=0&&value<=99&&value<=score?value:null;
+}
 function szRows(rows){
  let penalties=0,penaltyHoles=0,inside=0,insideHoles=0,scored=0;
  for(const round of rows){
@@ -27,7 +30,7 @@ function szRows(rows){
    scored++;
    const data=szReadNote(shot.notes);
    if(!data)continue;
-   if(Number.isInteger(data.penalties)&&data.penalties>=0&&data.penalties<=99&&data.penalties<=shot.score){penalties+=data.penalties;penaltyHoles++;}
+   if(szPenaltyCount(data.penalties,shot.score)!==null){penalties+=data.penalties;penaltyHoles++;}
    if(Number.isInteger(data.inside100)&&data.inside100>=0&&data.inside100<=99&&data.inside100<=shot.score){inside+=data.inside100;insideHoles++;}
   }
  }
@@ -36,13 +39,13 @@ function szRows(rows){
 function szResults(root,rows){
  const m=szRows(rows);
  if(!m.penaltyHoles&&!m.insideHoles)return;
- const card=stCard(root,'Historical finishing stats','');
+ const card=stCard(root,'Penalty and finishing stats','');
  stPair(card,'Penalty strokes',m.penaltyHoles?String(m.penalties):'Not recorded',m.penaltyHoles+'/'+m.scored+' scored holes recorded · included in gross.');
  stPair(card,'Strokes from inside 100y',m.insideHoles?(m.inside/m.insideHoles).toFixed(1)+' / hole':'Not recorded',m.insideHoles+'/'+m.scored+' scored holes recorded. Includes subsequent penalties.');
 }
 function szSetupPlan(){
  const root=document.getElementById('setup-zone-plan');if(!root)return;root.replaceChildren(suEl('h3','',HOLES.length===9?'Your 3×3×3 nine-hole plan':'Your 6×6×6 plan'));const plan=szPlan(HOLES);if(!plan){root.append(suEl('p','su-hint','Choose a complete course scorecard.'));return;}
- if(HOLES.length===9)root.append(suEl('p','su-hint','Nine-hole round: play to HC Target. Your 18-hole personal challenge is not applied.'));
+ if(HOLES.length===9)root.append(suEl('p','su-hint','Nine-hole challenge: half your Profile goal, rounded up and capped at 3. Reductions start at hole 7.'));
  for(const [group,goal] of [['Easier','Green'],['Medium','Within 50y'],['Harder','Within 100y · keep it in play']])root.append(suEl('p','su-hint',group+' — holes '+plan.filter(h=>h.group===group).map(h=>h.hole).join(', ')+' · '+goal));
  root.append(suEl('p','su-hint','Aim to reach each target within par minus two strokes. Groups follow this course’s SI, not the order you play the holes.'));
 }

@@ -1535,7 +1535,7 @@ const t = async (name, fn) => {
   await t('UX: simplified scoring, visible controls and honest save-error states',async()=>{
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');await startTestRound();
     await ev(`renderHole(3);selectScore(12);selectPutts(4)`);
-    assert.strictEqual(await ev(`document.querySelector('#screen-play [data-zone], #cb-zone-cue, #cb-coaching-advice, #entry-penalties, #entry-inside100')===null`),true);
+    assert.strictEqual(await ev(`document.querySelector('#screen-play [data-zone], #cb-zone-cue, #cb-coaching-advice, #entry-inside100')===null`),true);
     assert.ok(await vis('gir-group'));
     for(const [w,h] of [[320,667],[375,667],[390,844]])for(const theme of ['light','dark']){
       await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:2,mobile:true});await ev(`setTheme('${theme}');document.getAnimations().forEach(a=>a.finish())`);
@@ -1556,7 +1556,7 @@ const t = async (name, fn) => {
     const legacyNote='GT_HOLE_V1:'+JSON.stringify({v:1,note:saved.notes,position:'50',penalties:0,inside100:3,par:4,si:8,siScale:18});
     const legacy={...saved,notes:legacyNote};
     const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,options)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([legacy])}:old(path,options);window._inProgressRound={id:'new-round',course_id:'cA',date:'2026-11-06',playing_handicap:25};await resumeRound();return holeData[0];}finally{sbFetch=old;}})()`);
-    assert.deepStrictEqual(restored,{score:6,putts:2,fairway:null,gir:false,tags:[]});
+    assert.deepStrictEqual(restored,{score:6,putts:2,fairway:null,gir:false,tags:[],penalties:0});
     assert.strictEqual(await ev(`roundChallengeShots`),5);
     const exported=await ev(`(()=>{
       const shot={...(${JSON.stringify(legacy)}),notes:'GT_HOLE_V1:'+JSON.stringify({v:1,note:'Kept a free-text note',position:'50'})};
@@ -1614,14 +1614,16 @@ const t = async (name, fn) => {
     await ev(`setupChooseCourse('pt-vila-sol-challenge-9')`);
     assert.match(await ev(`document.getElementById('setup-hc-hint').textContent`),/for these 9 holes/);
     assert.strictEqual(await ev(`document.getElementById('setup-hc').value`),'','do not reuse 18-hole HC');
-    await ev(`document.getElementById('setup-hc').value='13';document.getElementById('setup-date').value='2026-11-19';startRound()`);
+    await ev(`currentUser.user_metadata.golf_challenge_shots=5;document.getElementById('setup-hc').value='13';document.getElementById('setup-date').value='2026-11-19';startRound()`);
     assert.strictEqual(await ev(`holeData.length`),9);assert.match(await ev(`document.getElementById('tb-hole').textContent`),/club 10/);
-    assert.strictEqual(await ev(`HOLES.reduce((s,h,i)=>s+getShotsReceived(i),0)`),13);assert.strictEqual(await ev(`roundChallengeShots`),0);
-    assert.strictEqual(await ev(`document.getElementById('cb-goal').parentElement.hidden`),true);
-    await ev(`selectScore(6);selectPutts(0);selectGIR(false);autoSaveHole(0)`);
+    assert.strictEqual(await ev(`HOLES.reduce((s,h,i)=>s+getShotsReceived(i),0)`),13);assert.strictEqual(await ev(`roundChallengeShots`),3);
+    assert.strictEqual(await ev(`document.getElementById('cb-goal').parentElement.hidden`),false);
+    assert.match(await ev(`document.getElementById('play-hole-targets').textContent`),/HC Target .*Challenge Target/);
+    assert.deepStrictEqual(await ev(`rtLivePlan().map(h=>h.hcTarget-h.target)`),[0,0,0,0,0,0,1,1,1]);
+    await ev(`selectScore(6);selectPutts(0);selectGIR(false);const input=document.getElementById('entry-penalties');input.value='2';selectPenalties(input);autoSaveHole(0)`);
     const first=state.writes.filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).map(w=>JSON.parse(w.body)).flat().filter(s=>s.hole_number===1).at(-1);
-    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,opts)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([first])}:old(path,opts);window._inProgressRound={id:'new-round',course_id:${JSON.stringify(state.portugalCards[2].course.id)},date:'2026-11-19',playing_handicap:13,tee_color:'yellow'};await resumeRound();return {n:holeData.length,zero:holeData[0].putts,gir:holeData[0].gir,goal:roundChallengePlan.length};}finally{sbFetch=old;}})()`);
-    assert.deepStrictEqual(restored,{n:9,zero:0,gir:false,goal:9});
+    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,opts)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([first])}:old(path,opts);window._inProgressRound={id:'new-round',course_id:${JSON.stringify(state.portugalCards[2].course.id)},date:'2026-11-19',playing_handicap:13,tee_color:'yellow'};await resumeRound();return {n:holeData.length,zero:holeData[0].putts,gir:holeData[0].gir,penalties:holeData[0].penalties,goal:roundChallengePlan.length};}finally{sbFetch=old;}})()`);
+    assert.deepStrictEqual(restored,{n:9,zero:0,gir:false,penalties:2,goal:9});
     await ev(`for(let i=0;i<9;i++){renderHole(i);selectScore(HOLES[i].par+getShotsReceived(i));selectPutts(i===0?0:2);}renderHole(8)`);
     assert.strictEqual(await ev(`document.getElementById('btn-next').textContent`),'Finish round');
     for(const theme of ['light','dark']){
@@ -1631,7 +1633,8 @@ const t = async (name, fn) => {
     }
     await ev(`nextHole()`);assert.strictEqual(await ev(`document.querySelector('.screen.active').id`),'screen-summary');
     assert.strictEqual(await ev(`document.querySelectorAll('.hole-summary-row').length`),9);assert.strictEqual(await ev(`getTotalPoints()`),18);
-    assert.strictEqual(await ev(`liveRoundReview().holeCount`),9);assert.match(await ev(`document.getElementById('summary-quick-review').textContent`),/9-hole HC Target/);
+    assert.strictEqual(await ev(`liveRoundReview().holeCount`),9);assert.match(await ev(`document.getElementById('summary-quick-review').textContent`),/3-shot goal/);
+    assert.match(await ev(`crFormatRoundText(liveRoundReview())`),/Penalties: 2 \(1\/9 holes recorded\)/);
     const saved=await ev(`({playing_handicap:playingHC,shots:holeData.map((d,i)=>({...d,id:'nine-'+i,hole_number:i+1,notes:rtShotNote(i)}))})`);
     const saveStart=state.writes.length;await ev(`saveRound()`);
     assert.strictEqual(await ev(`activeRoundId===null&&completedRoundId==='new-round'`),true);

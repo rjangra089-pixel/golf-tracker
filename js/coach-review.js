@@ -12,7 +12,7 @@
 //  - T/A/S/B/P are only the golfer's own manual tags. Nothing is inferred from
 //    fairway, GIR, putts, OB, score or a bunker visit. B is an error category,
 //    not a count of bunker shots (bunker shots are not captured).
-//  - Penalties are not captured. Tee-shot OB (fairway 'X') is shown under its
+//  - Recorded penalties are included in gross. Tee-shot OB (fairway 'X') is shown under its
 //    own name and never presented as a penalty total.
 // ════════════════════════════════════════════════════════════════
 
@@ -117,7 +117,7 @@ function crBuildReview(input, opts = {}) {
         const sourceNote = typeof szUnwrapNote === 'function' ? szUnwrapNote(s.notes) : s.notes;
         const note = typeof sourceNote === 'string' && !sourceNote.startsWith('GT_CHALLENGE_V1:') && !sourceNote.startsWith('GT_HOLE_V1:') && sourceNote.trim() ? sourceNote.replace(/\s+/g, ' ').trim() : null;
         return { num: s.hole_number, physical:pars.get(s.hole_number).tee_options?._layout?.physical_hole??s.hole_number, par, score: s.score, fw: crFairway(par, s.fairway), fairway: s.fairway ?? null,
-                 gir, putts, tags: errorsCaptured ? crParseTags(s.error_tags) : null, note };
+                 gir, putts, penalties: typeof szPenaltyCount==='function' ? szPenaltyCount(szReadNote(s.notes)?.penalties,s.score) : null, tags: errorsCaptured ? crParseTags(s.error_tags) : null, note };
     });
 
     const sum = arr => arr.reduce((a, b) => a + b, 0);
@@ -128,6 +128,7 @@ function crBuildReview(input, opts = {}) {
     // Tee OB is only knowable where the current C/L/R/X scheme was used; the legacy
     // Y/N scheme had no OB option, so those holes are "not recorded", never 0.
     const obRecorded = fwRecorded.filter(h => ['C', 'L', 'R', 'X'].includes(h.fairway));
+    const penaltiesKnown = holes.filter(h => h.penalties !== null);
     const puttsKnown = holes.filter(h => h.putts !== null);
     const girKnown = holes.filter(h => h.gir !== null);
     const errors = {};
@@ -151,6 +152,7 @@ function crBuildReview(input, opts = {}) {
             gross: sum(holes.map(h => h.score)),
             front: front.length === 9 ? sum(front.map(h => h.score)) : null,
             back: back.length === 9 ? sum(back.map(h => h.score)) : null,
+            penalties: { total: sum(penaltiesKnown.map(h => h.penalties)), known: penaltiesKnown.length, of: holes.length },
             putts: { total: sum(puttsKnown.map(h => h.putts)), known: puttsKnown.length, of: holes.length },
             fairways: { hit: fwRecorded.filter(h => h.fairway === 'C' || h.fairway === 'Y').length, recorded: fwRecorded.length, of: fwHoles.length },
             gir: { hit: girKnown.filter(h => h.gir === 'Y').length, known: girKnown.length, of: holes.length },
@@ -189,7 +191,7 @@ function crTotalsRows(review) {
     if (t.fairways.of) add('Fairways', crRatioText(t.fairways.hit, t.fairways.recorded, t.fairways.of));
     add('GIR', crRatioText(t.gir.hit, t.gir.known, t.gir.of));
     if (t.teeOB.of) add('Tee shots OB', t.teeOB.recorded ? crCountText(t.teeOB.count, t.teeOB.recorded, t.teeOB.of) : null);
-    rows.push({ label: 'Penalties', value: 'not captured' });
+    rows.push({ label: 'Penalties', value: t.penalties?.known ? crCountText(t.penalties.total,t.penalties.known,t.penalties.of) : 'not captured' });
     rows.push({ label: 'Errors', value: t.errorsCaptured
         ? CR_TAG_ORDER.map(k => `${k} ${t.errors[k] === null ? 'not captured' : t.errors[k]}`).join(' | ')
         : 'not captured' });
@@ -203,6 +205,7 @@ function crHoleLine(h, errorsCaptured) {
     const parts = [`H${h.num}`+(h.physical&&h.physical!==h.num?` (club ${h.physical})`:''), `Par ${h.par}`, `Score ${h.score}`, `FW ${h.fw}`,
                    `GIR ${h.gir ?? '—'}`, `Putts ${h.putts ?? '—'}`];
     if (errorsCaptured) parts.push(`Errors ${h.tags.length ? h.tags.join(',') : '-'}`);
+    if (h.penalties != null) parts.push(`Penalties ${h.penalties}`);
     if (h.note) parts.push(`Note ${h.note}`);
     return parts.join(' | ');
 }
@@ -296,7 +299,7 @@ function crRenderReview(container, review) {
         table.appendChild(tbody); sec.appendChild(table); container.appendChild(sec);
     }
     container.appendChild(crEl('p', 'cr-footnote',
-        'FW: ✓ fairway · ← / → missed left / right · miss (direction not recorded) · OB · N/A on par 3s. Underlined score = double bogey or worse. Errors: only the T/A/S/B/P you tagged — nothing is inferred; · none tagged, — not captured. Penalties and bunker shots are not captured.'));
+        'FW: ✓ fairway · ← / → missed left / right · miss (direction not recorded) · OB · N/A on par 3s. Underlined score = double bogey or worse. Errors: only the T/A/S/B/P you tagged — nothing is inferred; · none tagged, — not captured. Penalty strokes are included in gross. Bunker shot counts are not captured.'));
 }
 
 async function crCopyRoundData(review, statusEl, fallbackEl) {

@@ -2,25 +2,45 @@
 let roundChallengePlan=null, roundChallengeRecorded=false, roundShotNotes={}, roundDraftId=null;
 let rtSwitchBusy=false;
 const RT_NOTE='GT_CHALLENGE_V1:';
-function rtSnapshot(plan,shots){return {v:1,shots,plan:plan.map(h=>({...h}))};}
+function rtSnapshot(plan,shots){return {v:plan.length===9?2:1,shots,plan:plan.map(h=>({...h}))};}
 function rtValidSnapshot(s){
- return s?.v===1&&Number.isInteger(s.shots)&&s.shots>=0&&s.shots<=12&&Array.isArray(s.plan)&&[9,18].includes(s.plan.length)&&(s.plan.length!==9||s.shots===0)&&
+ return [1,2].includes(s?.v)&&Number.isInteger(s.shots)&&s.shots>=0&&s.shots<=12&&Array.isArray(s.plan)&&[9,18].includes(s.plan.length)&&(s.plan.length===9?(s.v===1?s.shots===0:s.shots<=3):s.v===1)&&
  s.plan.every((h,i)=>h.hole===i+1&&Number.isInteger(h.si)&&h.si>=1&&h.si<=s.plan.length&&Number.isInteger(h.shots)&&Number.isInteger(h.hcTarget)&&Number.isInteger(h.target)&&h.hcTarget-h.target===(h.shift?1:0)&&(!h.shift||i>=6))&&
  new Set(s.plan.map(h=>h.si)).size===s.plan.length&&s.plan.filter(h=>h.shift).length===s.shots;
 }
-function rtReadNote(note){try{if(typeof szUnwrapNote==='function')note=szUnwrapNote(note);if(typeof note!=='string'||!note.startsWith(RT_NOTE))return null;const s=JSON.parse(note.slice(RT_NOTE.length));return rtValidSnapshot(s)?s:null;}catch(e){return null;}}
+function rtReadNote(note){try{if(typeof szReadNote==='function')note=szReadNote(note)?.challenge??szUnwrapNote(note);if(typeof note!=='string'||!note.startsWith(RT_NOTE))return null;const s=JSON.parse(note.slice(RT_NOTE.length));return rtValidSnapshot(s)?s:null;}catch(e){return null;}}
 function rtRoundSnapshot(round){
- const snapshots=(round.shots||[]).map(s=>rtReadNote(s.notes)).filter(Boolean);
+ let snapshots=(round.shots||[]).map(s=>rtReadNote(s.notes)).filter(Boolean);
+ // An upgraded nine-hole draft can still have holes saved with the old HC-only snapshot.
+ if(snapshots.some(s=>s.v===2)&&snapshots.every(s=>s.plan.length===9))snapshots=snapshots.filter(s=>s.v===2);
  if(!snapshots.length)return null;
  const first=JSON.stringify(snapshots[0]);return snapshots.every(s=>JSON.stringify(s)===first)?snapshots[0]:null;
 }
 function rtLivePlan(){return roundChallengePlan||buildCaddieTargets(HOLES,playingHC,roundChallengeShots);}
-function rtShotNote(index){
- const existing=roundShotNotes[index];
- if(typeof existing==='string'&&existing.startsWith(SZ_NOTE))return existing;
- return roundChallengeRecorded&&roundChallengePlan
-  ? RT_NOTE+JSON.stringify(rtSnapshot(roundChallengePlan,roundChallengeShots))
-  : existing??null;
+function rtProfileGoal(){
+ const shots=golfGoals().shots;
+ return HOLES.length===9?Math.min(3,Math.ceil(shots/2)):shots;
+}
+function rtUpgradeNineChallenge(version){
+ if(HOLES.length!==9||(version===2&&roundChallengePlan))return;
+ roundChallengeShots=rtProfileGoal();
+ roundChallengePlan=buildCaddieTargets(HOLES,playingHC,roundChallengeShots);
+ roundChallengeRecorded=!!roundChallengePlan;
+}
+function rtShotNote(index,hole=holeData[index]){
+ const existing=roundShotNotes[index]??null;
+ const wrapped=szReadNote(existing);
+ let note=wrapped?szUnwrapNote(existing):existing;
+ if(roundChallengeRecorded&&roundChallengePlan&&(!wrapped||roundChallengePlan.length===9)){
+  const challenge=RT_NOTE+JSON.stringify(rtSnapshot(roundChallengePlan,roundChallengeShots));
+  if(roundChallengePlan.length===9&&note&&!note.startsWith(RT_NOTE)){
+   return SZ_NOTE+JSON.stringify({...wrapped,v:1,note,challenge,penalties:hole?.penalties===undefined?wrapped?.penalties:hole.penalties});
+  }
+  note=challenge;
+ }
+ if(hole?.penalties===undefined&&note===szUnwrapNote(existing)&&wrapped)return existing;
+ if(!wrapped&&hole?.penalties==null)return note;
+ return SZ_NOTE+JSON.stringify({...wrapped,v:1,note,penalties:hole?.penalties===undefined?wrapped?.penalties:hole.penalties});
 }
 function rtChallengeResult(round){
  const snapshot=rtRoundSnapshot(round);if(!snapshot||snapshot.plan.length!==18||round.round_status==='in_progress')return null;

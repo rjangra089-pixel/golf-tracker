@@ -390,3 +390,7 @@ body.dark-mode #screen-play {
     #screen-play .nav-bar {padding-top:8px;gap:6px;}
     #screen-play .btn-nav {height:44px;}
 }
+
+#screen-play .putts-and-penalties {display:grid;grid-template-columns:minmax(0,1fr) 4.25rem;gap:8px;}
+#screen-play .penalties-field input {box-sizing:border-box;width:100%;height:48px;padding:0 4px;text-align:center;border:1px solid var(--cl-border);border-radius:10px;background:var(--cl-control);color:var(--cl-text);font:600 20px var(--cl-font);}
+@media(max-height:700px){#screen-play .penalties-field input {height:44px;}}
