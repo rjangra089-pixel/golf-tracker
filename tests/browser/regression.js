@@ -596,18 +596,23 @@ const t = async (name, fn) => {
     assert.strictEqual(await T('home-start-tee'), 'Yellow tees');
   });
 
-  await t('B2 play screen intact: settling-in then challenge status, autosave writes shots', async () => {
+  await t('B2 play: both challenges start on Hole 1 and autosave writes shots', async () => {
     state.writes.length = 0;
     await ev(`showScreen('screen-setup'); document.getElementById('setup-hc').value='25'`);
     await ev(`startRound()`); await waitFor(`activeRoundId === 'new-round'`); await statsIdle();
     // Measure settled layout: finish the screen's entry fade/slide (headless Chrome advances it irregularly).
     const cardTop = () => ev(`(document.getAnimations().forEach(a => a.finish()), document.querySelector('#screen-play .scoring-card').getBoundingClientRect().top)`);
+    assert.strictEqual(await ev(`document.getElementById('play-status').textContent`),'HC Target 6 · Challenge Target 6');
+    assert.deepStrictEqual(await ev(`rtLivePlan().map(h=>h.hcTarget-h.target)`),
+      await ev(`buildCaddieTargets(HOLES,playingHC,golfGoals().shots).map(h=>h.hcTarget-h.target)`));
     const tops = [], statuses = [];
     for (let h = 0; h < 9; h++) { await ev(`selectScore(5); nextHole()`); tops.push(await cardTop()); statuses.push(await ev(`document.getElementById('play-status').className + '|' + document.getElementById('play-status').textContent`)); }
     await sleep(500);
     assert.strictEqual(await ev(`currentHole`), 9);
-    assert.match(statuses[2],/First 6 holes · challenge starts at hole 7/,'first six holes retain settling-in copy');
-    assert.ok(statuses.slice(5).every(x=>/HC Target.*Challenge Target/.test(x)),'challenge replaces projections from H7');
+    assert.match(statuses[0],/1 under HC Target · 1 under Challenge Target/);
+    assert.ok(statuses.every(x=>/HC Target.*Challenge Target/.test(x)));
+    assert.strictEqual(await ev(`rtLivePlan().slice(0,6).every(h=>h.hcTarget===h.target)`),true);
+    assert.strictEqual(await ev(`rtLivePlan().slice(6).reduce((n,h)=>n+h.hcTarget-h.target,0)`),5);
     assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(statuses.join(' ')), 'no emoji in status');
     assert.strictEqual(new Set(tops).size, 1, 'status/momentum/halfway never move the entry area: ' + tops);
     assert.strictEqual(await ev(`!!document.querySelector('#screen-play .momentum-badge, #screen-play .milestone-banner, #screen-play #hole-feedback')`), false);

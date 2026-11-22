@@ -2937,12 +2937,18 @@ function stepPutts(delta) {
 function updatePlayTally() {
     document.getElementById('tb-pts').textContent = getTotalPoints();
     document.getElementById('tb-shots').textContent = getTotalShots();
-    const c=rpChallenge(rtLivePlan(),holeData);
+    const plan = rtLivePlan();
+    const c=rpChallenge(plan,holeData);
     if(!c.available) {setPlayStatus('Challenge unavailable · check course card','challenge');return;}
-    const text=HOLES.length===9?(c.holes?rpSaved(c.saved)+' HC Target · '+c.holes+'/9 holes':'9-hole round · play to HC Target'):currentHole<6 && !c.afterSix ? 'First 6 holes · challenge starts at hole 7' :
-      c.holes ? rpSaved(c.saved)+' HC Target · '+rpTarget(c.overTarget)+' Challenge Target · '+c.holes+' holes' : roundChallengeShots+'-shot challenge · enter your first score';
+    const nineHoles = HOLES.length === 9;
+    const hole = plan[currentHole];
+    const text = c.holes
+        ? rpSaved(c.saved) + ' HC Target' + (nineHoles ? ' · ' + c.holes + '/9 holes' : ' · ' + rpTarget(c.overTarget) + ' Challenge Target')
+        : 'HC Target ' + hole.hcTarget + (nineHoles ? '' : ' · Challenge Target ' + hole.target);
     setPlayStatus(text,'challenge');
-    document.getElementById('play-status').title=c.holes+' scored holes only. HC Target '+c.hc+', Target '+c.target+', actual '+c.gross+'. Round goal '+c.roundTarget+' gross. Nothing is projected.';
+    document.getElementById('play-status').title =
+        c.holes + ' scored holes. HC Target ' + c.hc + ', Challenge Target ' + c.target + ', actual ' + c.gross + '. ' +
+        (nineHoles ? '' : 'Round targets: HC ' + c.roundHc + ', challenge ' + c.roundTarget + ' gross. Both use the HC target for holes 1–6.');
 }
 
 // Single status line in the header — never adds height to the entry area.
