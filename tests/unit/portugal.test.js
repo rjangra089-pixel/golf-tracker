@@ -30,7 +30,7 @@ const text=f=>fs.readFileSync(path.join(R,f),'utf8');
  const inline=text('index.html');const fn=name=>inline.match(new RegExp('function '+name+'\\([\\s\\S]*?\\n\\}'))[0];
  const build=new Function(fn('buildCaddieTargets')+';return buildCaddieTargets;')();
  const model=new Function(text('js/coach-review.js')+'\n'+text('js/stats-model.js')+';return {stSummary,stComplete,stProgress,crBuildReview,crTotalsRows};')();
- const zones=new Function(text('js/scoring-zones.js')+';return {szPlan,szEncode,szRows};')();
+ const zones=new Function(text('js/scoring-zones.js')+';return {szPlan};')();
  const tools=new Function(text('js/round-tools.js')+';return {rtValidSnapshot};')();
  const editor=new Function(text('js/round-editor.js')+';return {roundEditTotals};')();
  for(const card of cards.slice(1)){
@@ -44,8 +44,6 @@ const text=f=>fs.readFileSync(path.join(R,f),'utf8');
    const review=model.crBuildReview({status:'completed',holes:card.holes,shots:round.shots});assert.strictEqual(review.holeCount,9);assert.strictEqual(review.standaloneNine,true);assert.match(model.crTotalsRows(review)[0].value,/9 holes/);
   }
   assert.strictEqual(build(holes,13,5),null);
-  const easier=holes.find(h=>h.si===7),note=zones.szEncode(null,{position:'50',penalties:0,inside100:3},easier);
-  assert.strictEqual(zones.szRows([{shots:[{score:5,notes:note}]}]).groups[0].met,0,'SI 7 on a nine is Easier, not Medium');
  }
  // Endpoint checks the real signed-in user and admin before any catalog writes.
  let count=0;const handler=new Function('addPortugalCards',text('api/portugal-courses.js').replace("const {addPortugalCards}=await import('../lib/portugal-scorecards.mjs');",'').replace('export default async function handler','return async function handler'))(async()=>{count++;return [];});

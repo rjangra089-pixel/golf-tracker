@@ -21,7 +21,9 @@ const ANON = 'ANON_KEY';
 let session = null;          // what sb.auth.getSession() returns
 let calls = [];              // captured fetch calls
 const store = {};
+const roundShotNotes = {};
 const ctx = {
+  activeRoundId: 'round-1', roundShotNotes, SZ_NOTE: 'GT_HOLE_V1:',
   URLSearchParams,
   currentUser: {id:'u1'},
   navigator:{onLine:true}, roundSyncRender:()=>{}, roundSyncSet:()=>{},
@@ -110,5 +112,11 @@ const apikey = () => calls.at(-1).init.headers.apikey;
   assert.strictEqual(calls.length,2,'single flight prevents duplicate replay');
   assert.ok(!store.gt_write_queue);
   console.log('PASS 7  old writes retained, ordered retry and concurrent flush deduplication');
+  const notes = 'GT_HOLE_V1:{"v":1,"position":"50"}';
+  for (const [round_id, hole_number] of [['round-1', 1], ['other-round', 2]]) {
+    queueWrite({path:'shots', method:'POST', body:JSON.stringify({round_id, hole_number, notes})});
+  }
+  await flushWriteQueue();
+  assert.deepStrictEqual(roundShotNotes, {0: notes});
   console.log('\nAll sbFetch auth tests passed.');
 })().catch(e => { console.error('FAIL', e.message); process.exit(1); });

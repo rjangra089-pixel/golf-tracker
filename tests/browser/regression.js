@@ -844,28 +844,35 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`currentHole`), 2);
   });
 
-  await t('LIVE: par 3 hides fairway; position entry records GIR without duplicate buttons',async()=>{
-    assert.strictEqual(await ev(`HOLES[currentHole].par`),3);assert.strictEqual(await vis('fairway-group'),false);
-    assert.strictEqual(await vis('gir-group'),false);await ev(`szSetPosition('green')`);
-    assert.strictEqual(await ev(`holeData[2].gir`),true);assert.strictEqual(await ev(`document.getElementById('zone-gir-status').textContent`),'GIR: Yes');
-    await ev(`szSetPosition('50')`);assert.strictEqual(await ev(`holeData[2].gir`),false);
-    await ev(`renderHole(1)`);assert.strictEqual(await vis('fairway-group'),true);await ev(`renderHole(2)`);
+  await t('LIVE: par 3 hides fairway and keeps direct GIR entry',async()=>{
+    assert.strictEqual(await ev(`HOLES[currentHole].par`),3);
+    assert.strictEqual(await vis('fairway-group'),false);
+    assert.strictEqual(await vis('gir-group'),true);
+    await ev(`document.querySelector('#gir-group button').click()`);
+    assert.strictEqual(await ev(`holeData[2].gir`),true);
+    await ev(`document.querySelector('#gir-group button:last-child').click()`);
+    assert.strictEqual(await ev(`holeData[2].gir`),false);
+    await ev(`renderHole(1)`);
+    assert.strictEqual(await vis('fairway-group'),true);
+    assert.strictEqual(await vis('gir-group'),true);
+    await ev(`renderHole(2)`);
   });
 
-  await t('LIVE: briefing always open, numeric targets and course-specific SI cue; averages removed', async () => {
+  await t('LIVE: Caddie Briefing starts collapsed and expands to show targets', async () => {
     for(const i of [0,5,6,17]){
       await ev(`renderHole(${i})`);
-      assert.ok(await vis('cb-target'));assert.ok(await vis('cb-goal'));assert.ok(await vis('cb-zone-cue'));
-      assert.strictEqual(await ev(`!!document.getElementById('cb-toggle') || !!document.getElementById('cb-strategy') || !!document.getElementById('cb-danger-block') || !!document.getElementById('cb-rounds')`),false);
+      assert.strictEqual(await ev(`document.getElementById('caddie-briefing').open`),false);
+      await ev(`document.querySelector('#caddie-briefing summary').click()`);
+      assert.ok(await vis('cb-target'));
+      assert.ok(await vis('cb-goal'));
       assert.strictEqual(await ev(`Number(document.getElementById('cb-target').textContent)`),await ev(`HOLES[${i}].par+getShotsReceived(${i})`));
     }
     const plan=await ev(`buildCaddieTargets(HOLES,playingHC)`);
     assert.ok(plan.slice(0,6).every(h=>h.target===h.hcTarget));
     assert.strictEqual(plan.filter(h=>h.shift).length,5);
     assert.strictEqual(plan.reduce((n,h)=>n+h.hcTarget-h.target,0),5);
-    assert.strictEqual(await ev(`!!document.getElementById('cb-avg')||!!document.getElementById('cb-gir')||!!document.getElementById('cb-putts')`),false);
     await ev(`renderHole(2);selectScore(3);nextHole()`);await sleep(300);
-    assert.ok(await vis('cb-goal'));await ev(`prevHole()`);assert.ok(await vis('cb-goal'));await ev(`nextHole()`);await sleep(300);
+    assert.strictEqual(await ev(`document.getElementById('caddie-briefing').open`),false);
   });
 
   await t('LIVE: no last-hole recap after Next; challenge stays in the one-line status', async () => {
@@ -883,9 +890,8 @@ const t = async (name, fn) => {
       for (const holeIdx of [3, 2]) {                 // par 5 (Tee shown) and par 3
         await ev(`renderHole(${holeIdx})`); await sleep(150);
         const r = await ev(`(() => {
-          const sc = document.getElementById('screen-play'); sc.scrollTo(0, 0);
+          const sc = document.getElementById('play-scroll'); sc.scrollTo(0, 0);
           const navTop = document.querySelector('#screen-play .nav-bar').getBoundingClientRect().top;
-          const ids = ['score-grid', 'putts-4plus', 'gir-group', 'fairway-group', 'tasp-label'];
           const els = [...document.querySelectorAll('#score-grid .score-cell, .putt-btn, #gir-group .toggle-btn, #fairway-group .toggle-btn, .tasp-btn')].filter(e => e.offsetParent !== null);
           const lowest = Math.max(...els.map(e => e.getBoundingClientRect().bottom));
           const navBottom = document.querySelector('#screen-play .nav-bar').getBoundingClientRect().bottom;
@@ -896,6 +902,7 @@ const t = async (name, fn) => {
         })()`);
         res[`${w}x${h} ${theme} par${holeIdx === 3 ? 5 : 3}`] = r;
         const reachable=await ev(`(()=>{const sc=document.getElementById('play-scroll');sc.scrollTop=sc.scrollHeight;const b=[...document.querySelectorAll('.tasp-btn')].at(-1).getBoundingClientRect(),nav=document.querySelector('#screen-play .nav-bar').getBoundingClientRect();const ok=b.bottom<=nav.top+1&&Math.abs(nav.bottom-innerHeight)<=1;sc.scrollTop=0;return ok;})()`);assert.ok(reachable,'all open controls can be reached without overlapping navigation');
+        assert.ok(r.fits, `controls fit at ${w}x${h} ${theme}: ${JSON.stringify(r)}`);
         assert.ok(!r.hscroll, `${w}x${h} horizontal scroll`);
         assert.ok(r.minTap >= 44, `tap target ${r.minTap}`);
       }
@@ -904,9 +911,9 @@ const t = async (name, fn) => {
         require('fs').writeFileSync(`${process.env.SHOTS}/play-${w}x${h}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
         await ev(`toggleErrorTag('T')`);
       }
-      if (process.env.SHOTS && theme === 'dark' && w === 390) {
+      if (process.env.SHOTS && theme === 'dark') {
         await ev(`renderHole(3)`); await sleep(300);
-        require('fs').writeFileSync(`${process.env.SHOTS}/play-390x844-dark.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+        require('fs').writeFileSync(`${process.env.SHOTS}/play-${w}x${h}-dark.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
       }
     }
     if (process.env.SHOTS) {   // state screenshots: steppers, multiple T/A/S/P, par 3 + briefing open (light + dark)
@@ -915,7 +922,7 @@ const t = async (name, fn) => {
         await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
         await ev(`renderHole(3); selectScore(12); selectPutts(5); holeData[3].tags = []; toggleErrorTag('T'); toggleErrorTag('A'); toggleErrorTag('P')`); await sleep(400);
         require('fs').writeFileSync(`${process.env.SHOTS}/play-steppers-tasp-${theme}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
-        await ev(`renderHole(2)`); await sleep(500);
+        await ev(`renderHole(2);document.querySelector('#caddie-briefing summary').click()`); await sleep(500);
         require('fs').writeFileSync(`${process.env.SHOTS}/play-par3-briefing-${theme}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
         await ev(`holeData[3].tags = []; selectScore(5); renderHole(3)`);
       }
@@ -1463,40 +1470,45 @@ const t = async (name, fn) => {
     assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
   });
 
-  await t('UX: approved coaching hierarchy, visible controls, stable entry scroll and honest save-error states',async()=>{
+  await t('UX: simplified scoring, visible controls and honest save-error states',async()=>{
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');await startTestRound();
     await ev(`renderHole(3);selectScore(12);selectPutts(4)`);
-    assert.match(await ev(`document.getElementById('cb-coaching-advice').textContent`),/Keep it in play/);
-    assert.match(await ev(`document.getElementById('cb-difficulty').textContent`),/Harder · SI/);
-    assert.strictEqual(await ev(`document.getElementById('cb-goal-note').hidden`),true);assert.strictEqual(await ev(`document.getElementById('gir-group').hidden`),true);
-    assert.strictEqual(await ev(`document.querySelector('.caddie-goal .caddie-stat-lbl').textContent`),'Your challenge');
+    assert.strictEqual(await ev(`document.querySelector('#screen-play [data-zone], #cb-zone-cue, #cb-coaching-advice, #entry-penalties, #entry-inside100')===null`),true);
+    assert.ok(await vis('gir-group'));
     for(const [w,h] of [[320,667],[375,667],[390,844]])for(const theme of ['light','dark']){
       await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:2,mobile:true});await ev(`setTheme('${theme}');document.getAnimations().forEach(a=>a.finish())`);
       const fit=await ev(`(()=>{const sc=document.getElementById('play-scroll'),nav=document.querySelector('#screen-play .nav-bar').getBoundingClientRect();return {noOverflow:document.documentElement.scrollWidth<=innerWidth&&sc.scrollWidth<=sc.clientWidth+1,pinned:Math.abs(nav.bottom-innerHeight)<=1,taps:[...document.querySelectorAll('#screen-play button,#screen-play input')].filter(e=>e.getClientRects().length&&!e.disabled).every(e=>e.getBoundingClientRect().height>=44)};})()`);
       assert.deepStrictEqual(fit,{noOverflow:true,pinned:true,taps:true});
     }
-    const stable=await ev(`(()=>{const sc=document.getElementById('play-scroll');document.getElementById('zone-position-label').scrollIntoView({block:'center'});const before=sc.scrollTop;szSetPosition('50');return Math.abs(sc.scrollTop-before)<=1;})()`);assert.strictEqual(stable,true,'recording position must not jump back to the top');
     const errors=await ev(`(()=>{const raw=localStorage.getItem(ROUND_STATE_KEY);roundSyncSet('attention');const safe=!document.getElementById('play-sync-alert').hidden&&document.getElementById('play-sync-alert').textContent.includes('safe on this device');localStorage.removeItem(ROUND_STATE_KEY);roundSyncSet('attention');const warning=document.getElementById('play-sync-alert').textContent.includes('may not be stored');localStorage.setItem(ROUND_STATE_KEY,raw);roundSyncSet('attention');return {safe,warning};})()`);assert.deepStrictEqual(errors,{safe:true,warning:true});
     await ev(`document.querySelector('#screen-play .round-sync button').click()`);assert.strictEqual(await ev(`Math.abs(document.querySelector('#screen-play .nav-bar').getBoundingClientRect().bottom-innerHeight)<=1`),true,'Review save must keep navigation pinned');
     if(process.env.SHOTS){require('fs').writeFileSync(process.env.SHOTS+'/approved-ux-save-error.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));}
     await ev(`roundSyncSet('waiting');activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage();setTheme('light')`);
   });
 
-  await t('ZONES: course-specific cues, explicit observations, gross unchanged, autosave and DB resume',async()=>{
+  await t('LIVE: scoring and saving preserve historical shot notes without restoring retired inputs',async()=>{
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');await startTestRound();
-    await ev(`selectScore(6);selectPutts(2);window.__zonePoints=getTotalPoints();szSetPosition('50');szSetCount('penalties','0');szSetCount('inside100','3')`);
-    assert.deepStrictEqual(await ev(`({score:holeData[0].score,penalties:holeData[0].penalties,inside100:holeData[0].inside100,position:holeData[0].position,gir:holeData[0].gir,points:getTotalPoints()===window.__zonePoints})`),{score:6,penalties:0,inside100:3,position:'50',gir:false,points:true});
-    await ev(`autoSaveHole(0)`);
-    const posts=state.writes.filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).map(w=>JSON.parse(w.body)).flat();const saved=posts.filter(s=>s.hole_number===1).at(-1);assert.ok(saved.notes.startsWith('GT_HOLE_V1:'));
-    assert.strictEqual(await ev(`rtReadNote(${JSON.stringify(saved.notes)}).shots`),5);
-    const before=state.writes.length;await ev(`szSetCount('inside100','7');autoSaveHole(0)`);assert.strictEqual(state.writes.length,before,'invalid counts never delete or replace a saved shot');await ev(`szSetCount('inside100','3')`);
-    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,options)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([saved])}:old(path,options);window._inProgressRound={id:'new-round',course_id:'cA',date:'2026-11-06',playing_handicap:25};await resumeRound();return {position:holeData[0].position,penalties:holeData[0].penalties,inside100:holeData[0].inside100,goal:rtReadNote(rtShotNote(0)).shots};}finally{sbFetch=old;}})()`);
-    assert.deepStrictEqual(restored,{position:'50',penalties:0,inside100:3,goal:5});
-    await ev(`renderHole(0);szSetPosition('green')`);assert.strictEqual(await ev(`holeData[0].gir`),true);
-    await ev(`selectGIR(false)`);assert.strictEqual(await ev(`holeData[0].position`),null);
-    for(const i of [0,2,3,12,17]){await ev(`renderHole(${i})`);assert.match(await ev(`document.getElementById('cb-zone-cue').textContent`),/after your (first|second|third) shot/);}
-    for(const [w,h] of [[390,844],[375,667]]){await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:2,mobile:true});await ev(`renderHole(3);document.getElementById('screen-play').scrollTop=0;document.getAnimations().forEach(a=>a.finish())`);if(process.env.SHOTS)require('fs').writeFileSync(process.env.SHOTS+'/zones-'+w+'.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));assert.strictEqual(await ev(`document.documentElement.scrollWidth<=innerWidth`),true);}
-    await ev(`showSummary()`);assert.match(await ev(`document.getElementById('summary-quick-review').textContent`),/Strokes from inside 100y/);
+    await ev(`selectScore(6);selectPutts(2);selectGIR(false);autoSaveHole(0)`);
+    const saved=lastShotFor(1);
+    assert.ok(saved.notes.startsWith('GT_CHALLENGE_V1:'));
+    const legacyNote='GT_HOLE_V1:'+JSON.stringify({v:1,note:saved.notes,position:'50',penalties:0,inside100:3,par:4,si:8,siScale:18});
+    const legacy={...saved,notes:legacyNote};
+    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,options)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([legacy])}:old(path,options);window._inProgressRound={id:'new-round',course_id:'cA',date:'2026-11-06',playing_handicap:25};await resumeRound();return holeData[0];}finally{sbFetch=old;}})()`);
+    assert.deepStrictEqual(restored,{score:6,putts:2,fairway:null,gir:false,tags:[]});
+    assert.strictEqual(await ev(`roundChallengeShots`),5);
+    const exported=await ev(`(()=>{
+      const shot={...(${JSON.stringify(legacy)}),notes:'GT_HOLE_V1:'+JSON.stringify({v:1,note:'Kept a free-text note',position:'50'})};
+      const holes=HOLES.map(h=>({hole_number:h.num,par:h.par}));
+      const shots=holes.map(h=>({...shot,hole_number:h.hole_number,notes:h.hole_number===1?shot.notes:null}));
+      return crFormatRoundText(crBuildReview({status:'completed',holes,shots}));
+    })()`);
+    assert.match(exported,/Kept a free-text note/);
+    assert.doesNotMatch(exported,/GT_HOLE_V1|position/);
+    await ev(`renderHole(0);selectGIR(true);autoSaveHole(0)`);
+    assert.strictEqual(lastShotFor(1).notes,legacyNote);
+    assert.strictEqual(lastShotFor(1).gir,true);
+    await ev(`showSummary();saveRound()`);
+    assert.strictEqual(lastShotFor(1).notes,legacyNote);
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);
   });
 
@@ -1523,7 +1535,7 @@ const t = async (name, fn) => {
     assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
   });
 
-  await t('PORTUGAL: add verified cards, play/save nine, resume observations, edit and separate history',async()=>{
+  await t('PORTUGAL: add verified cards, play/save nine, resume scoring, edit and separate history',async()=>{
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');
     state.portugalCards=(await import(require('url').pathToFileURL(require('path').resolve(__dirname,'../../lib/portugal-scorecards.mjs')))).PORTUGAL_CARDS;
     const before=state.writes.length;await ev(`setupAddPortugal()`);
@@ -1544,10 +1556,10 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`holeData.length`),9);assert.match(await ev(`document.getElementById('tb-hole').textContent`),/club 10/);
     assert.strictEqual(await ev(`HOLES.reduce((s,h,i)=>s+getShotsReceived(i),0)`),13);assert.strictEqual(await ev(`roundChallengeShots`),0);
     assert.strictEqual(await ev(`document.getElementById('cb-goal').parentElement.hidden`),true);
-    await ev(`selectScore(6);selectPutts(0);szSetPosition('50');szSetCount('penalties','0');szSetCount('inside100','3');autoSaveHole(0)`);
+    await ev(`selectScore(6);selectPutts(0);selectGIR(false);autoSaveHole(0)`);
     const first=state.writes.filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).map(w=>JSON.parse(w.body)).flat().filter(s=>s.hole_number===1).at(-1);
-    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,opts)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([first])}:old(path,opts);window._inProgressRound={id:'new-round',course_id:${JSON.stringify(state.portugalCards[2].course.id)},date:'2026-11-19',playing_handicap:13,tee_color:'yellow'};await resumeRound();return {n:holeData.length,zero:holeData[0].putts,penalties:holeData[0].penalties,inside100:holeData[0].inside100,goal:roundChallengePlan.length};}finally{sbFetch=old;}})()`);
-    assert.deepStrictEqual(restored,{n:9,zero:0,penalties:0,inside100:3,goal:9});
+    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,opts)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([first])}:old(path,opts);window._inProgressRound={id:'new-round',course_id:${JSON.stringify(state.portugalCards[2].course.id)},date:'2026-11-19',playing_handicap:13,tee_color:'yellow'};await resumeRound();return {n:holeData.length,zero:holeData[0].putts,gir:holeData[0].gir,goal:roundChallengePlan.length};}finally{sbFetch=old;}})()`);
+    assert.deepStrictEqual(restored,{n:9,zero:0,gir:false,goal:9});
     await ev(`for(let i=0;i<9;i++){renderHole(i);selectScore(HOLES[i].par+getShotsReceived(i));selectPutts(i===0?0:2);}renderHole(8)`);
     assert.strictEqual(await ev(`document.getElementById('btn-next').textContent`),'Finish round');
     for(const theme of ['light','dark']){
@@ -1558,7 +1570,7 @@ const t = async (name, fn) => {
     await ev(`nextHole()`);assert.strictEqual(await ev(`document.querySelector('.screen.active').id`),'screen-summary');
     assert.strictEqual(await ev(`document.querySelectorAll('.hole-summary-row').length`),9);assert.strictEqual(await ev(`getTotalPoints()`),18);
     assert.strictEqual(await ev(`liveRoundReview().holeCount`),9);assert.match(await ev(`document.getElementById('summary-quick-review').textContent`),/9-hole HC Target/);
-    const saved=await ev(`({playing_handicap:playingHC,shots:holeData.map((d,i)=>({...d,id:'nine-'+i,hole_number:i+1,notes:rtShotNote(i,d)}))})`);
+    const saved=await ev(`({playing_handicap:playingHC,shots:holeData.map((d,i)=>({...d,id:'nine-'+i,hole_number:i+1,notes:rtShotNote(i)}))})`);
     const saveStart=state.writes.length;await ev(`saveRound()`);
     assert.strictEqual(await ev(`activeRoundId===null&&completedRoundId==='new-round'`),true);
     const shots=state.writes.slice(saveStart).filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).flatMap(w=>JSON.parse(w.body));assert.strictEqual(shots.length,9);assert.ok(shots.every(s=>s.hole_number<=9));

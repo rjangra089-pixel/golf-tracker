@@ -1415,7 +1415,7 @@
     </style>
     <!-- Clubhouse design system (live scoring first; other screens migrate later) -->
     <link rel="stylesheet" href="css/tokens.css?v=1">
-    <link rel="stylesheet" href="css/play.css?v=2">
+    <link rel="stylesheet" href="css/play.css?v=3">
     <link rel="stylesheet" href="css/coach-review.css?v=1">
     <link rel="stylesheet" href="css/round-editor.css?v=1">
     <link rel="stylesheet" href="css/stats.css?v=1">
@@ -1822,25 +1822,17 @@
 
     <div class="play-scroll" id="play-scroll">
 
-        <!-- Always-visible numeric briefing; no generated advice. -->
-        <section class="caddie-briefing" id="caddie-briefing" aria-label="Caddie briefing">
-            <div class="caddie-briefing-header">
-                <span class="caddie-briefing-title">Your plan</span>
-                <span id="cb-difficulty" class="difficulty-badge"></span>
-                <span class="cb-danger-chip" id="cb-danger-chip" hidden>Danger hole</span>
-                <span class="caddie-goal-note" id="cb-goal-note" hidden></span>
-            </div>
-            <p id="cb-zone-cue" class="zone-cue"></p>
-            <p id="cb-coaching-advice" class="coaching-advice"></p>
+        <details class="caddie-briefing" id="caddie-briefing">
+            <summary class="caddie-briefing-title">Caddie Briefing</summary>
             <div class="caddie-briefing-body">
+                <span class="cb-danger-chip" id="cb-danger-chip" hidden>Danger hole</span>
                 <div class="caddie-stats-grid">
                     <div class="caddie-stat"><div class="caddie-stat-val" id="cb-target">—</div><div class="caddie-stat-lbl">HC Target</div></div>
                     <div class="caddie-stat caddie-goal"><div class="caddie-stat-val" id="cb-goal">—</div><div class="caddie-stat-lbl">Your challenge</div></div>
-                    <div class="caddie-stat" hidden><div class="caddie-stat-val" id="cb-shots">—</div><div class="caddie-stat-lbl">Shots HC</div></div>
                 </div>
 
             </div>
-        </section>
+        </details>
 
         <div class="play-status" id="play-status" aria-live="polite"></div>
 
@@ -1888,7 +1880,6 @@
 
           </div>
           <div class="observations-panel">
-            <h2 class="observation-title">How the hole unfolded</h2>
             <section class="entry-section stats-row" id="tee-gir-row">
                 <div id="fairway-group">
                     <div class="section-label">Fairway</div>
@@ -1899,7 +1890,7 @@
                         <button class="toggle-btn" onclick="selectFairway('X')" aria-label="Out of bounds">OB</button>
                     </div>
                 </div>
-                <div id="gir-group" hidden>
+                <div id="gir-group">
                     <div class="section-label">GIR</div>
                     <div class="toggle-group">
                         <button class="toggle-btn" onclick="selectGIR(true)">Yes</button>
@@ -1908,10 +1899,6 @@
                 </div>
             </section>
 
-            <section class="entry-section zone-position"><div class="entry-label-row"><div class="section-label" id="zone-position-label">Position after regulation shots</div><span id="zone-gir-status"></span></div>
-                <div class="zone-buttons" role="group" aria-labelledby="zone-position-label"><button type="button" data-zone="green" onclick="szSetPosition('green')">Green</button><button type="button" data-zone="50" onclick="szSetPosition('50')">≤50y</button><button type="button" data-zone="100" onclick="szSetPosition('100')">51–100y</button><button type="button" data-zone="outside" onclick="szSetPosition('outside')">&gt;100y</button></div>
-            </section>
-            <section class="entry-section zone-counts"><label>Penalty strokes<input id="entry-penalties" type="number" min="0" max="99" step="1" inputmode="numeric" placeholder="Not entered" onchange="szSetCount('penalties',this.value)"></label><label>Finish from 100y<input id="entry-inside100" type="number" min="0" max="99" step="1" inputmode="numeric" placeholder="Not entered" onchange="szSetCount('inside100',this.value)"></label><p class="zone-help">Finish: all remaining strokes once first within 100y, including putts and later penalties. Both counts are part of gross. Blank means unknown; 0 if holed from outside the zone.</p><p id="zone-entry-status" role="status"></p></section>
           </div>
             <!-- Optional, player-chosen stroke-costing errors. Never set automatically. -->
             <div class="tasp-section">
@@ -1986,14 +1973,14 @@
     <div class="cr-root" id="review-body"></div>
 </div>
 
-<script src="js/coach-review.js?v=1"></script>
+<script src="js/coach-review.js?v=2"></script>
 <script src="js/round-editor.js?v=1"></script>
 <script src="js/stats-model.js?v=1"></script>
 <script src="js/stats.js?v=1"></script>
 <script src="js/setup.js?v=1"></script>
 <script src="js/round-progress.js?v=1"></script>
-<script src="js/scoring-zones.js?v=1"></script>
-<script src="js/round-tools.js?v=1"></script>
+<script src="js/scoring-zones.js?v=2"></script>
+<script src="js/round-tools.js?v=2"></script>
 <script src="js/stats-insights.js?v=1"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
@@ -2801,7 +2788,6 @@ async function resumeRound() {
                     fairway: s.fairway || null,
                     gir:     s.gir     ?? null,
                     tags:    parseErrorTags(s.error_tags),
-                    position:szDecode(s.notes).position,penalties:szDecode(s.notes).penalties,inside100:szDecode(s.notes).inside100,
                 };
             }
         });
@@ -2851,14 +2837,11 @@ function renderHole(idx, fromPrev) {
     document.getElementById('progress-fill').style.width = `${(idx/HOLES.length)*100}%`;
 
     // Caddie briefing
-    const hStat   = holeStats[idx];
-    document.getElementById('cb-shots').textContent    = shotsRec;
     document.getElementById('cb-target').textContent   = h.par + shotsRec;
     const goal=rtLivePlan()?.[idx];
     document.getElementById('cb-goal').textContent=goal?.target ?? '—';
     document.getElementById('cb-goal').parentElement.hidden=HOLES.length===9;
     document.getElementById('cb-goal').title=goal?.shift ? 'One shot below HC Target on this hole' : 'Same as HC Target on this hole';
-    document.getElementById('cb-goal-note').textContent=idx<6 ? 'First 6 holes · challenge starts at hole 7' : goal?.shift ? '−1 here · −'+roundChallengeShots+' round goal' : '−'+roundChallengeShots+' round goal';
     document.getElementById('cb-target').title='Par '+h.par+' + '+shotsRec+' handicap strokes';
 
     document.getElementById('cb-danger-chip').hidden = !h.danger;
@@ -2883,12 +2866,14 @@ function renderHole(idx, fromPrev) {
 
     updatePointsDisplay(idx);
     renderErrorTags(idx);
-    szRender(idx);
 
     document.getElementById('btn-prev').style.visibility = 'visible';
     document.getElementById('btn-prev').disabled = idx===0;
     document.getElementById('btn-next').textContent = idx===HOLES.length-1 ? 'Finish round' : 'Next hole';
-    if(holeChanged)document.getElementById('play-scroll').scrollTo(0,0);
+    if (holeChanged) {
+        document.getElementById('caddie-briefing').open = false;
+        document.getElementById('play-scroll').scrollTo(0,0);
+    }
 }
 
 // ── Score / putts entry (fixed grids + compact steppers) ──────────
@@ -2980,7 +2965,6 @@ function selectScore(score) {
     renderScoreGrid(currentHole);
     updatePointsDisplay(currentHole);
     updatePlayTally();
-    szRender(currentHole);
     saveRoundStateToStorage(); // persist score immediately
 }
 
@@ -3003,8 +2987,6 @@ function selectFairway(val) {
 
 function selectGIR(val) {
     holeData[currentHole].gir = val;
-    if(holeData[currentHole].position!==undefined&&holeData[currentHole].position!==null&&((holeData[currentHole].position==='green')!==val))holeData[currentHole].position=null;
-    szRender(currentHole);
     const btns = document.querySelectorAll('#gir-group .toggle-btn');
     btns[0].classList.toggle('hit', val===true);
     btns[1].classList.toggle('hit', val===false);
@@ -3025,7 +3007,6 @@ async function autoSaveHoleNow(holeIdx) {
     if (!activeRoundId) { roundSyncSet('attention'); return; } // final Save is the fallback
     const d = JSON.parse(JSON.stringify(holeData[holeIdx]));
     if (!d.score) return; // nothing to save if no score entered
-    if(!szCheck(d)){roundSyncSet('attention');return;}
     roundSyncBusy++; roundSyncRender();
     const syncRevision = roundSyncRevision;
 
@@ -3036,7 +3017,7 @@ async function autoSaveHoleNow(holeIdx) {
         await sbFetch('shots?round_id=eq.' + activeRoundId + '&hole_number=eq.' + (holeIdx + 1), { method: 'DELETE', prefer: '' });
         await sbFetch('shots', { method: 'POST', body: JSON.stringify({
             round_id: activeRoundId, hole_id: holeId, hole_number: holeIdx + 1,
-            score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(holeIdx,d),
+            score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(holeIdx),
         })});
 
         // Update round totals
@@ -3072,7 +3053,7 @@ async function autoSaveHoleNow(holeIdx) {
             path: 'shots', method: 'POST',
             body: JSON.stringify({
                 round_id: activeRoundId, hole_id: holeId, hole_number: holeIdx + 1,
-                score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(holeIdx,d),
+                score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(holeIdx),
             }),
         });
 
@@ -3129,7 +3110,6 @@ function showSummary() {
 
     showSummaryView('summary');
     rpRender(document.getElementById('summary-quick-review'),rpReflection(rtLivePlan(),holeData));
-    szResults(document.getElementById('summary-quick-review'),[{round_status:'completed',shots:holeData.map((d,i)=>({...d,hole_number:i+1,notes:rtShotNote(i,d)}))}]);
     const list = document.getElementById('hole-summary-list');
     list.innerHTML = '';
     holeData.forEach((d,i) => {
@@ -3199,7 +3179,6 @@ async function saveRound() {
     roundSyncBusy++; roundSyncRender();
     try {
         await roundSyncHoleChain;
-        if(holeData.some(d=>!szCheck(d)))throw new Error('Penalty and inside-100y counts cannot exceed the gross score. Correct the entries first.');
         await flushWriteQueue();
         if (roundSyncQueue().length) throw new Error('Earlier changes still need to sync. Retry when connected.');
         let totalScore=0, totalPutts=0, totalGIR=0, totalPts=0;
@@ -3214,7 +3193,7 @@ async function saveRound() {
             await sbFetch('shots?round_id=eq.' + activeRoundId, { method: 'DELETE', prefer: '' });
             const shots = holeData.map((d,i) => ({
                 round_id: activeRoundId, hole_id: holeIds[i]||null,
-                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(i,d),
+                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(i),
             })).filter(s => s.score);
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
             await sbFetch('rounds?id=eq.' + activeRoundId, { method: 'PATCH', body: JSON.stringify({
@@ -3238,7 +3217,7 @@ async function saveRound() {
 
             const shots = holeData.map((d,i) => ({
                 round_id: activeRoundId, hole_id: holeIds[i]||null,
-                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(i,d),
+                hole_number: i+1, score: d.score, putts: d.putts, fairway: d.fairway, gir: d.gir, error_tags: normalizeErrorTags(d.tags), notes:rtShotNote(i),
             })).filter(s => s.score);
             if (shots.length) await sbFetch('shots', { method: 'POST', body: JSON.stringify(shots) });
         }
@@ -3279,7 +3258,10 @@ function showScreen(id) {
     roundSyncRender();
     // Update nav active state — matched by data-nav, not button position
     document.querySelectorAll('.bnav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === id));
-    if (id==='screen-play') document.getElementById('play-scroll').scrollTo(0,0);
+    if (id==='screen-play') {
+        document.getElementById('caddie-briefing').open = false;
+        document.getElementById('play-scroll').scrollTo(0,0);
+    }
     if (id==='screen-stats')   loadStats();
     if (id==='screen-profile') renderProfile();
     if (id==='screen-setup') {setupRefresh();szSetupPlan();rtRenderCoursePlan();}
@@ -3890,6 +3872,13 @@ function flushWriteQueue() {
                 if (op.userId && op.userId !== currentUser?.id) { roundSyncSet('attention'); return; }
                 try { await sbFetch(op.path, {method:op.method,body:op.body,prefer:op.prefer || ''}); }
                 catch(e) { roundSyncSet(navigator.onLine ? 'attention' : 'waiting'); return; }
+                // Carry forward historical notes written by pre-upgrade queues.
+                if (activeRoundId && op.path === 'shots' && op.method === 'POST' && op.body?.includes(SZ_NOTE)) {
+                    const shot = JSON.parse(op.body);
+                    if (shot.round_id === activeRoundId && typeof shot.notes === 'string' && shot.notes.startsWith(SZ_NOTE)) {
+                        roundShotNotes[shot.hole_number - 1] = shot.notes;
+                    }
+                }
                 // Re-read so writes appended during the request are preserved.
                 const remaining = roundSyncQueue(); remaining.shift();
                 if (remaining.length) localStorage.setItem(WRITE_QUEUE_KEY,JSON.stringify(remaining));
@@ -3938,6 +3927,28 @@ function clearRoundStateFromStorage() {
     localStorage.removeItem(ROUND_STATE_KEY);
 }
 
+function restoreLiveHoleData(savedHoles) {
+    const scoringFields = ({score, putts, fairway, gir, tags}) => ({score, putts, fairway, gir, tags});
+    // Drafts from older builds may hold the last synced note metadata in the
+    // score snapshot. Keep it opaque when the existing shot is replaced.
+    for (const [index, raw] of Object.entries(roundSyncHoles)) {
+        let synced;
+        try { synced = JSON.parse(raw); } catch { continue; }
+        if (!synced) continue;
+        const {position, penalties, inside100} = synced;
+        if (position != null || penalties != null || inside100 != null) {
+            const prior = rtShotNote(index);
+            const hole = HOLES[index];
+            roundShotNotes[index] = SZ_NOTE + JSON.stringify({
+                v: 1, note: szUnwrapNote(prior), position, penalties, inside100,
+                par: hole?.par, si: hole?.si, siScale: hole?.siScale ?? 18,
+            });
+        }
+        roundSyncHoles[index] = JSON.stringify(scoringFields(synced));
+    }
+    if (savedHoles) holeData = savedHoles.map(scoringFields);
+}
+
 function restoreRoundStateIfNeeded() {
     // Only called from visibilitychange — restores in-memory state if it was lost
     // (e.g. iOS cleared JS heap while screen was locked)
@@ -3959,7 +3970,7 @@ function restoreRoundStateIfNeeded() {
                 roundChallengePlan=rtValidSnapshot({v:1,shots:roundChallengeShots,plan:state.challengePlan})?state.challengePlan:null;
                 roundChallengeRecorded=!!state.challengeRecorded&&!!roundChallengePlan;roundShotNotes=state.shotNotes||{};roundDraftId=state.draftId||null;
         selectedTee        = state.selectedTee || selectedTee;
-        holeData           = state.holeData || holeData;
+        restoreLiveHoleData(state.holeData);
         console.log('[Golf Tracker] Restored round state from storage — hole', currentHole + 1);
         // If we were on the play screen, jump straight back to it
         showScreen('screen-play');
@@ -4002,10 +4013,10 @@ async function bootApp() {
                 roundChallengePlan=rtValidSnapshot({v:1,shots:roundChallengeShots,plan:state.challengePlan})?state.challengePlan:null;
                 roundChallengeRecorded=!!state.challengeRecorded&&!!roundChallengePlan;roundShotNotes=state.shotNotes||{};roundDraftId=state.draftId||null;
                 selectedTee       = state.selectedTee || selectedTee;
-                holeData          = state.holeData || holeData;
                 if (state.selectedCourseSlug && state.selectedCourseSlug !== selectedCourseSlug) {
                     await switchCourse(state.selectedCourseSlug);
                 }
+                restoreLiveHoleData(state.holeData);
                 if (!holeStats.length) await loadStats();
                 console.log('[Golf Tracker] Resumed round from storage on boot — hole', currentHole + 1);
                 showScreen('screen-play');
