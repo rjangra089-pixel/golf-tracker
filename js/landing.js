@@ -22,13 +22,43 @@
 
     back.addEventListener('click', () => moveTour(-1));
     next.addEventListener('click', () => moveTour(1));
-    for (const link of auth.querySelectorAll('[data-auth-tab]')) {
-        link.addEventListener('click', event => {
+    const landing = [auth.querySelector('.tour-header'), auth.querySelector('.tour-content')];
+    const heading = document.getElementById('auth-heading');
+    const returnButton = document.getElementById('tour-return');
+    let accountTrigger;
+    let landingScroll = 0;
+
+    for (const control of auth.querySelectorAll('[data-auth-tab]')) {
+        control.addEventListener('click', event => {
             event.preventDefault();
-            switchAuthTab(link.dataset.authTab);
-            const heading = document.getElementById('auth-heading');
-            heading.scrollIntoView({block: 'start'});
+            accountTrigger = control;
+            landingScroll = auth.scrollTop;
+            switchAuthTab(control.dataset.authTab);
+            landing.forEach(section => { section.hidden = true; });
+            returnButton.hidden = false;
+            auth.scrollTop = 0;
             heading.focus({preventScroll: true});
+        });
+    }
+
+    returnButton.addEventListener('click', () => {
+        landing.forEach(section => { section.hidden = false; });
+        returnButton.hidden = true;
+        auth.scrollTop = landingScroll;
+        accountTrigger.focus({preventScroll: true});
+    });
+
+    for (const group of auth.querySelectorAll('[data-practice]')) {
+        group.addEventListener('click', event => {
+            const choice = event.target.closest('button');
+            if (!choice) return;
+            if (group.dataset.practice === 'single') {
+                for (const option of group.querySelectorAll('button')) {
+                    option.setAttribute('aria-pressed', String(option === choice));
+                }
+            } else {
+                choice.setAttribute('aria-pressed', String(choice.getAttribute('aria-pressed') === 'false'));
+            }
         });
     }
 }

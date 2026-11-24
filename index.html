@@ -1413,7 +1413,7 @@
     <link rel="stylesheet" href="css/round-editor.css?v=1">
     <link rel="stylesheet" href="css/stats.css?v=1">
     <link rel="stylesheet" href="css/setup.css?v=2">
-    <link rel="stylesheet" href="css/landing.css?v=1">
+    <link rel="stylesheet" href="css/landing.css?v=2">
 <style>
 .round-sync { margin:6px 16px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; font:12px var(--font-body); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 #screen-play .round-sync{margin:0;padding:2px 0;border:0;font-size:11px;gap:4px}
@@ -1451,7 +1451,7 @@
         <section id="golf-tour" class="tour-guide" tabindex="-1" aria-labelledby="tour-guide-title">
             <div class="tour-guide-head">
                 <h2 id="tour-guide-title">From tee off to review</h2>
-                <span id="tour-progress" aria-live="polite">Step 1 of 4</span>
+                <span id="tour-progress" aria-live="polite">Step 1 of 5</span>
             </div>
             <div class="tour-card">
                 <article class="tour-step">
@@ -1476,15 +1476,57 @@
                         <p>Look at your handicap and challenge targets before playing the hole. Open <b>Caddie Briefing</b> for more detail when you need it.</p>
                     </div>
                 </article>
-                <article class="tour-step" hidden>
-                    <div class="tour-example">
-                        <span>Example hole</span>
-                        <strong>Hole 8 · Par 4</strong>
-                        <div class="tour-example-row"><span>Score <b>5</b></span><span>Putts <b>2</b></span></div>
-                    </div>
+                <article class="tour-step tour-practice" hidden>
                     <div class="tour-copy">
                         <h3 tabindex="-1">Score each hole</h3>
-                        <p>Enter your strokes and putts. You can also record fairways, greens, penalties and errors that actually cost you a shot.</p>
+                        <p>Try recording a 5 with 2 putts on this practice hole.</p>
+                    </div>
+                    <div class="tour-example tour-scorecard">
+                        <span>Practice scorecard · Nothing is saved</span>
+                        <strong>Hole 8 · Par 4</strong>
+                        <fieldset>
+                            <legend>Score</legend>
+                            <div class="tour-score-grid" data-practice="single">
+                                <button type="button" aria-pressed="false">1</button>
+                                <button type="button" aria-pressed="false">2</button>
+                                <button type="button" aria-pressed="false">3</button>
+                                <button type="button" aria-pressed="false">4</button>
+                                <button type="button" aria-pressed="false">5</button>
+                                <button type="button" aria-pressed="false">6</button>
+                                <button type="button" aria-pressed="false">7</button>
+                                <button type="button" aria-pressed="false">8</button>
+                                <button type="button" aria-pressed="false">9</button>
+                            </div>
+                        </fieldset>
+                        <fieldset>
+                            <legend>Putts</legend>
+                            <div class="tour-putts-grid" data-practice="single">
+                                <button type="button" aria-pressed="false">0</button>
+                                <button type="button" aria-pressed="false">1</button>
+                                <button type="button" aria-pressed="false">2</button>
+                                <button type="button" aria-pressed="false">3</button>
+                            </div>
+                        </fieldset>
+                    </div>
+                </article>
+                <article class="tour-step tour-practice" hidden>
+                    <div class="tour-copy">
+                        <h3 tabindex="-1">Tag the shots that cost you</h3>
+                        <p>Try tapping Tee and Putting. Tag each type of error that cost a stroke on that hole. Tap again to clear it.</p>
+                    </div>
+                    <div class="tour-example tour-scorecard">
+                        <span>Practice scorecard · Nothing is saved</span>
+                        <strong>Hole 8 · Par 4</strong>
+                        <fieldset>
+                            <legend>Stroke-costing errors</legend>
+                            <div class="tour-error-grid" data-practice="multiple">
+                                <button type="button" aria-pressed="false">Tee</button>
+                                <button type="button" aria-pressed="false">Approach</button>
+                                <button type="button" aria-pressed="false">Short game</button>
+                                <button type="button" aria-pressed="false">Bunker</button>
+                                <button type="button" aria-pressed="false">Putting</button>
+                            </div>
+                        </fieldset>
                     </div>
                 </article>
                 <article class="tour-step" hidden>
@@ -1501,13 +1543,14 @@
                 <div class="tour-controls">
                     <button id="tour-back" class="tour-link" type="button" disabled>Back</button>
                     <button id="tour-next" class="tour-primary" type="button">Next</button>
-                    <a id="tour-finish" class="tour-primary" href="#auth-access" data-auth-tab="signup" hidden>Get started</a>
+                    <button id="tour-finish" class="tour-primary" type="button" data-auth-tab="signup" hidden>Get started</button>
                 </div>
             </div>
         </section>
     </main>
 
     <section id="auth-access" class="auth-wrap" aria-labelledby="auth-heading">
+        <button id="tour-return" class="tour-link" type="button" hidden>Back to tour</button>
         <h2 id="auth-heading" tabindex="-1">Your Golf Tracker account</h2>
 
         <!-- Tab switcher -->
@@ -2054,7 +2097,7 @@
 <script src="js/stats-model.js?v=1"></script>
 <script src="js/stats.js?v=1"></script>
 <script src="js/setup.js?v=1"></script>
-<script src="js/landing.js?v=1"></script>
+<script src="js/landing.js?v=2"></script>
 <script src="js/round-progress.js?v=2"></script>
 <script src="js/scoring-zones.js?v=3"></script>
 <script src="js/round-tools.js?v=4"></script>

@@ -1676,18 +1676,42 @@ const t = async (name, fn) => {
       await ev(`document.getElementById('screen-auth').scrollTop=0;document.getAnimations().forEach(a=>a.finish())`);
       require('fs').writeFileSync(process.env.SHOTS+'/golf-tracker-tour.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
     }
-    for (const heading of ['Check your targets','Score each hole','Review and pick a focus']) {
-      await ev(`document.getElementById('tour-next').click()`);
-      assert.strictEqual(await ev(`document.querySelector('.tour-step:not([hidden]) h3').textContent`),heading);
+    async function tap(selector) {
+      const point = await ev(`(() => {
+        const button = document.querySelector(${JSON.stringify(selector)});
+        button.scrollIntoView({block:'center'});
+        const rect = button.getBoundingClientRect();
+        return {x:rect.left+rect.width/2,y:rect.top+rect.height/2};
+      })()`);
+      await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+      await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     }
-    assert.strictEqual(await ev(`document.getElementById('tour-progress').textContent`),'Step 4 of 4');
-    await ev(`document.getElementById('tour-back').click()`);
-    assert.strictEqual(await ev(`document.getElementById('tour-progress').textContent`),'Step 3 of 4');
-    await ev(`document.getElementById('tour-next').click();document.getElementById('tour-finish').click()`);
+    await tap('#tour-next');
+    await tap('#tour-next');
+    assert.strictEqual(await ev(`document.querySelector('.tour-step:not([hidden]) h3').textContent`),'Score each hole');
+    await tap('.tour-score-grid button:nth-child(4)');
+    await tap('.tour-score-grid button:nth-child(5)');
+    await tap('.tour-putts-grid button:nth-child(3)');
+    assert.deepStrictEqual(await ev(`[...document.querySelectorAll('.tour-practice button[aria-pressed="true"]')].map(b=>b.textContent)`),['5','2']);
+    await tap('#tour-next');
+    assert.strictEqual(await ev(`document.querySelector('.tour-step:not([hidden]) h3').textContent`),'Tag the shots that cost you');
+    await tap('.tour-error-grid button:first-child');
+    await tap('.tour-error-grid button:last-child');
+    await tap('.tour-error-grid button:first-child');
+    assert.deepStrictEqual(await ev(`[...document.querySelectorAll('.tour-error-grid button[aria-pressed="true"]')].map(b=>b.textContent)`),['Putting']);
+    await tap('#tour-next');
+    assert.strictEqual(await ev(`document.getElementById('tour-progress').textContent`),'Step 5 of 5');
+    await tap('#tour-back');
+    assert.strictEqual(await ev(`document.getElementById('tour-progress').textContent`),'Step 4 of 5');
+    await tap('#tour-next');
+    await tap('#tour-finish');
+    assert.strictEqual(await ev(`document.querySelector('.tour-content').hidden`),true);
     assert.strictEqual(await ev(`getComputedStyle(document.getElementById('auth-signup-form')).display`),'flex');
-    const focused = await ev(`document.activeElement.id`);
-    assert.strictEqual(focused,'auth-heading');
-    await ev(`document.querySelector('.tour-header [data-auth-tab="login"]').click()`);
+    assert.strictEqual(await ev(`document.activeElement.id`),'auth-heading');
+    assert.strictEqual(await ev(`document.getElementById('signup-name').getBoundingClientRect().bottom <= innerHeight`),true);
+    await tap('#tour-return');
+    assert.strictEqual(await ev(`document.getElementById('tour-progress').textContent`),'Step 5 of 5');
+    await tap('.tour-header [data-auth-tab="login"]');
     assert.strictEqual(await ev(`getComputedStyle(document.getElementById('auth-login-form')).display`),'flex');
     assert.strictEqual(await ev(`getComputedStyle(document.getElementById('auth-signup-form')).display`),'none');
   });
