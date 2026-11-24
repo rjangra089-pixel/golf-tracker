@@ -2051,9 +2051,9 @@ async function init() {
 
 async function loadCourseData(activate = true) {
     try {
-        const courses = await sbFetch('courses?select=id,name,slug,par,location,tee_options&order=name');
-        setupCourses = courses || [];
-        if (!courses || !courses.length) { setupRefresh(); return; }
+        const records = await sbFetch('courses?select=id,name,slug,par,location,tee_options&order=name');
+        const courses = (records || []).filter(c => !LEGACY_VILA_SOL_SLUGS.has(c.slug));
+        setupCourses = courses;
 
         // Built with DOM APIs + textContent: course names are database text and
         // must display literally, never be parsed as HTML.
@@ -2066,7 +2066,7 @@ async function loadCourseData(activate = true) {
             return opt;
         }));
 
-        if (activate) await switchCourse(courses.some(c => c.slug === selectedCourseSlug) ? selectedCourseSlug : courses[0].slug);
+        if (activate && courses.length) await switchCourse(courses.some(c => c.slug === selectedCourseSlug) ? selectedCourseSlug : courses[0].slug);
         setupRefresh();
     } catch(e) { console.warn('Course load:', e); }
 }
@@ -2707,7 +2707,7 @@ async function startRound() {
     const hcRaw = document.getElementById('setup-hc').value.trim(), hc = hcRaw === '' ? NaN : Number(hcRaw);
     if (!Number.isInteger(hc) || hc < -10 || hc > 99) { setupStatus('Enter a whole-number playing handicap from -10 to 99.',true); return; }
     if (!document.getElementById('setup-date').value) {setupStatus('Choose the round date.',true);return;}
-    if (setupLoading || !requested || requested !== selectedCourseSlug || ![9,18].includes(HOLES.length)) {setupStatus('Wait for a complete course scorecard to load before teeing off.',true);return;}
+    if (setupLoading || !requested || LEGACY_VILA_SOL_SLUGS.has(requested) || requested !== selectedCourseSlug || ![9,18].includes(HOLES.length)) {setupStatus('Wait for a complete course scorecard to load before teeing off.',true);return;}
     setupRoundBusy = true; setupRefresh();
     try {
     playerName = document.getElementById('setup-name').value.trim() || 'Golfer';

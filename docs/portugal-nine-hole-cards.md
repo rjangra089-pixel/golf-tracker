@@ -9,12 +9,28 @@ metres and stores nearest whole yards (metres / 0.9144) for existing app fields.
 Gramacho white is the 5,532m column, not the 6,107m championship column.
 Yellow is 5,212m. Both men’s ratings come from that scorecard.
 
-Vila Sol Prime / Challenge / Prestige are independent 9-hole layouts, par 36.
-Physical hole ranges are 1–9 / 10–18 / 19–27, with app hole numbers 1–9.
-Rank the printed odd/even stroke indexes within each nine to obtain SI 1–9.
-Prestige’s two published SI columns have the same relative ranking.
-Original physical numbers and printed SI remain in holes.tee_options._layout.
-This is standalone nine-hole stroke allocation, not an official new rating.
+## Vila Sol course selection
+
+All three selectable layouts are par 72. Each nine uses the existing White
+and Yellow tee distances, with app holes numbered in playing order.
+
+| Layout | App holes 1–9 | App holes 10–18 |
+| --- | --- | --- |
+| Vila Sol — Prestige / Prime | Prestige (club 19–27) | Prime (club 1–9) |
+| Vila Sol — Prime / Challenge | Prime (club 1–9) | Challenge (club 10–18) |
+| Vila Sol — Prestige / Challenge | Prestige (club 19–27) | Challenge (club 10–18) |
+
+Prestige uses the published even SI column with Prime and the odd SI column
+with Challenge. The combined cards use SI 1–18. The app retains physical
+hole numbers and the applied printed SI in `holes.tee_options._layout`.
+The existing loop records have no ratings to carry forward, so round setup
+uses a manually entered Playing Handicap.
+
+## Historical nine-hole rounds
+
+The old Prime, Challenge and Prestige cards are hidden in the new-round
+selector. Their database course and hole IDs, SI 1–9 and metadata remain
+available for resuming and reviewing existing rounds.
 
 No individual nine-hole Course/Slope Ratings are published on this card.
 Leave them null. The player must enter a club-confirmed **nine-hole Playing HC**;
@@ -43,6 +59,6 @@ There are no schema changes or migrations. Existing round/hole identities are
 not rewritten. The untracked RLS migration is not part of this release.
 
 Run tests/run-unit.sh and tests/run-browser.sh. The Portugal tests exercise
-published totals, unit conversion, nine-hole stroke allocation, legacy 18-hole
-isolation, permission checks, retries, corruption guards, resume/save/edit and
+published totals, physical hole mapping, unit conversion, 18-hole and historical
+nine-hole stroke allocation, permission checks, retries, corruption guards, resume/save/edit and
 375px light/dark layouts. All browser database traffic is mocked.

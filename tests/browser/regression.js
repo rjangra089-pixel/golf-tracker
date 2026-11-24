@@ -195,7 +195,7 @@ async function onMessage(raw) {
     }
     if (url.includes('/api/portugal-courses')) {
       if(!state.portugalCards)return fulfill(403,JSON.stringify({error:'No mock admin permission'}));
-      for(const c of state.portugalCards)if(!COURSES.some(x=>x.id===c.course.id))COURSES.push(c.course);
+      for(const c of state.portugalCards.filter(c=>c.holes.length===18))if(!COURSES.some(x=>x.id===c.course.id))COURSES.push(c.course);
       return fulfill(200,JSON.stringify({slugs:state.portugalCards.map(c=>c.course.slug)}));
     }
     if (url.includes('/api/courses')) {
@@ -1597,24 +1597,32 @@ const t = async (name, fn) => {
     assert.strictEqual(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)(?:\?|$)/.test(w.url)).length,0);
   });
 
-  await t('PORTUGAL: add verified cards, play/save nine, resume scoring, edit and separate history',async()=>{
+  await t('PORTUGAL: select 18-hole layouts and resume, score, save and edit a legacy nine',async()=>{
     await ev(`activeRoundId=null;completedRoundId=null;clearRoundStateFromStorage()`);await reloadHome('rich');
-    state.portugalCards=(await import(require('url').pathToFileURL(require('path').resolve(__dirname,'../../lib/portugal-scorecards.mjs')))).PORTUGAL_CARDS;
+    const {PORTUGAL_CARDS,LEGACY_VILA_SOL_CARDS}=await import(require('url').pathToFileURL(require('path').resolve(__dirname,'../../lib/portugal-scorecards.mjs')));
+    const legacy=LEGACY_VILA_SOL_CARDS[1];
+    state.portugalCards=[...PORTUGAL_CARDS,...LEGACY_VILA_SOL_CARDS];
+    for(const card of LEGACY_VILA_SOL_CARDS)COURSES.push(card.course);
     const before=state.writes.length;await ev(`setupAddPortugal()`);
     assert.strictEqual(await ev(`PORTUGAL_SLUGS.every(slug=>setupCourses.some(c=>c.slug===slug))`),true);
     assert.strictEqual(state.writes.length,before,'adding scorecards does not touch round data');
-    for(const card of state.portugalCards){
+    assert.deepStrictEqual(await ev(`[...document.querySelectorAll('#setup-course-select option')].map(o=>o.value).filter(s=>s.startsWith('pt-vila-sol'))`),PORTUGAL_CARDS.slice(1).map(c=>c.course.slug));
+    assert.strictEqual(await ev(`setupChooseCourse('pt-vila-sol-challenge-9')`),false);
+    await ev(`openCourseFinder()`);
+    assert.strictEqual(await ev(`document.querySelector('#su-library').textContent.includes('(9 holes)')`),false);
+    await ev(`document.querySelector('.su-dialog-head button').click()`);
+    for(const card of PORTUGAL_CARDS){
       await ev(`showScreen('screen-setup');setupChooseCourse(${JSON.stringify(card.course.slug)})`);
       assert.strictEqual(await ev(`HOLES.length`),card.holes.length);
+      assert.deepStrictEqual(await ev(`HOLES.map(h=>[h.num,h.physical,h.par,h.si,h.siScale])`),card.holes.map(h=>[h.hole_number,h.tee_options._layout.physical_hole,h.par,h.stroke_index,18]));
+      const model=await ev(`(()=>{const hc=25,plan=buildCaddieTargets(HOLES,hc,5);const holes=${JSON.stringify(card.holes)};const shots=plan.map((h,i)=>({hole_number:i+1,score:h.hcTarget,putts:2}));const round={round_status:'completed',playing_handicap:hc,courses:{holes},shots};return [plan.length,plan.reduce((n,h)=>n+h.shots,0),stSummary(round).points,crBuildReview({status:'completed',holes,shots}).holeCount];})()`);
+      assert.deepStrictEqual(model,[18,25,36,18]);
       for(const tee of ['white','yellow']){
         await ev(`selectTee('${tee}')`);assert.strictEqual(await ev(`HOLES[0].yards[selectedTee]`),card.holes[0].tee_options[tee].yardage);
         assert.strictEqual(await ev(`document.getElementById('setup-start').disabled`),false);
       }
     }
-    await ev(`setupChooseCourse('pt-vila-sol-challenge-9')`);
-    assert.match(await ev(`document.getElementById('setup-hc-hint').textContent`),/for these 9 holes/);
-    assert.strictEqual(await ev(`document.getElementById('setup-hc').value`),'','do not reuse 18-hole HC');
-    await ev(`currentUser.user_metadata.golf_challenge_shots=5;document.getElementById('setup-hc').value='13';document.getElementById('setup-date').value='2026-11-19';startRound()`);
+    await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,opts)=>path.startsWith('shots?select=*&round_id=eq.')?[]:old(path,opts);currentUser.user_metadata.golf_challenge_shots=5;window._inProgressRound={id:'new-round',course_id:${JSON.stringify(legacy.course.id)},date:'2026-11-19',playing_handicap:13,tee_color:'yellow'};await resumeRound();}finally{sbFetch=old;}})()`);
     assert.strictEqual(await ev(`holeData.length`),9);assert.match(await ev(`document.getElementById('tb-hole').textContent`),/club 10/);
     assert.strictEqual(await ev(`HOLES.reduce((s,h,i)=>s+getShotsReceived(i),0)`),13);assert.strictEqual(await ev(`roundChallengeShots`),3);
     assert.strictEqual(await ev(`document.getElementById('cb-goal').parentElement.hidden`),false);
@@ -1622,7 +1630,7 @@ const t = async (name, fn) => {
     assert.deepStrictEqual(await ev(`rtLivePlan().map(h=>h.hcTarget-h.target)`),[0,0,0,0,0,0,1,1,1]);
     await ev(`selectScore(6);selectPutts(0);selectGIR(false);const input=document.getElementById('entry-penalties');input.value='2';selectPenalties(input);autoSaveHole(0)`);
     const first=state.writes.filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).map(w=>JSON.parse(w.body)).flat().filter(s=>s.hole_number===1).at(-1);
-    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,opts)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([first])}:old(path,opts);window._inProgressRound={id:'new-round',course_id:${JSON.stringify(state.portugalCards[2].course.id)},date:'2026-11-19',playing_handicap:13,tee_color:'yellow'};await resumeRound();return {n:holeData.length,zero:holeData[0].putts,gir:holeData[0].gir,penalties:holeData[0].penalties,goal:roundChallengePlan.length};}finally{sbFetch=old;}})()`);
+    const restored=await ev(`(async()=>{const old=sbFetch;try{sbFetch=async(path,opts)=>path.startsWith('shots?select=*&round_id=eq.')?${JSON.stringify([first])}:old(path,opts);window._inProgressRound={id:'new-round',course_id:${JSON.stringify(legacy.course.id)},date:'2026-11-19',playing_handicap:13,tee_color:'yellow'};await resumeRound();return {n:holeData.length,zero:holeData[0].putts,gir:holeData[0].gir,penalties:holeData[0].penalties,goal:roundChallengePlan.length};}finally{sbFetch=old;}})()`);
     assert.deepStrictEqual(restored,{n:9,zero:0,gir:false,penalties:2,goal:9});
     await ev(`for(let i=0;i<9;i++){renderHole(i);selectScore(HOLES[i].par+getShotsReceived(i));selectPutts(i===0?0:2);}renderHole(8)`);
     assert.strictEqual(await ev(`document.getElementById('btn-next').textContent`),'Finish round');
@@ -1640,7 +1648,7 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`activeRoundId===null&&completedRoundId==='new-round'`),true);
     const shots=state.writes.slice(saveStart).filter(w=>w.method==='POST'&&/\/rest\/v1\/shots$/.test(w.url)).flatMap(w=>JSON.parse(w.body));assert.strictEqual(shots.length,9);assert.ok(shots.every(s=>s.hole_number<=9));
     assert.ok(state.writes.slice(before).filter(w=>/\/rest\/v1\/(rounds|shots)\?/.test(w.url)).every(w=>w.url.includes('new-round')),'only this mock new round is mutated');
-    state.editRound={id:'nine-saved',user_id:'u-test',round_status:'completed',date:'2026-11-19',course_id:state.portugalCards[2].course.id,tee_color:'yellow',...saved,courses:{name:state.portugalCards[2].course.name,holes:state.portugalCards[2].holes}};
+    state.editRound={id:'nine-saved',user_id:'u-test',round_status:'completed',date:'2026-11-19',course_id:legacy.course.id,tee_color:'yellow',...saved,courses:{name:legacy.course.name,holes:legacy.holes}};
     const summary=await ev(`stSummary(${JSON.stringify(state.editRound)})`);assert.strictEqual(summary.points,18);assert.strictEqual(summary.complete,false);
     assert.strictEqual(await ev(`stProgress([${JSON.stringify(state.editRound)}]).full`),0);
     await ev(`statsRows=[${JSON.stringify(state.editRound)}];statsState.tab='rounds';statsState.course='all';statsState.tee='all';statsState.search='';statsRender()`);

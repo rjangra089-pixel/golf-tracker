@@ -3,7 +3,8 @@ let setupCourses=[],setupTees={},setupLoading=false,setupRoundBusy=false,setupSw
 const suEl=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
 const teeLabel=(key,options=setupTees)=>options?.[key]?.name || String(key||'yellow').replace(/-/g,' ').replace(/^./,c=>c.toUpperCase());
 function setupStatus(text,error=false){const e=document.getElementById('setup-status');if(e){e.textContent=text;e.classList.toggle('is-error',error);} }
-const PORTUGAL_SLUGS=['pt-gramacho','pt-vila-sol-prime-9','pt-vila-sol-challenge-9','pt-vila-sol-prestige-9'];
+const PORTUGAL_SLUGS=['pt-gramacho','pt-vila-sol-prestige-prime','pt-vila-sol-prime-challenge','pt-vila-sol-prestige-challenge'];
+const LEGACY_VILA_SOL_SLUGS=new Set(['pt-vila-sol-prime-9','pt-vila-sol-challenge-9','pt-vila-sol-prestige-9']);
 let portugalSetupBusy=false;
 async function setupAddPortugal(){
  if(portugalSetupBusy)return;portugalSetupBusy=true;
@@ -15,7 +16,7 @@ async function setupAddPortugal(){
   const result=await response.json();if(!response.ok)throw new Error(result.error||'Course setup failed. Please retry.');
   await loadCourseData(false);
   if(PORTUGAL_SLUGS.some(slug=>!setupCourses.some(c=>c.slug===slug)))throw new Error('Scorecards are still loading. Please retry.');
-  status.textContent='Gramacho and all three Vila Sol nines are ready in the course library.';
+  status.textContent='Gramacho and all three Vila Sol layouts are ready in the course library.';
  }catch(e){status.textContent=e.message;document.getElementById('portugal-setup').hidden=false;}
  finally{portugalSetupBusy=false;button.disabled=false;}
 }
@@ -53,7 +54,7 @@ function setupRefresh(){
  (keys.length?keys:['yellow','white']).forEach(key=>{const b=suEl('button','tee-btn',teeLabel(key));b.type='button';b.id='tee-btn-'+key;b.setAttribute('aria-pressed',String(selectedTee===key));if(selectedTee===key)b.classList.add('is-selected');b.onclick=()=>selectTee(key);buttons.append(b);});
  const selected=setupTees[selectedTee];
  document.getElementById('setup-tee-meta').textContent=HOLES.length===9?'9-hole SI 1–9 ranked from the printed club card. Distances shown in yards. Enter the club’s nine-hole Playing HC.':selected ? [selected.rating?'Rating '+selected.rating:null,selected.slope?'Slope '+selected.slope:null].filter(Boolean).join(' · ')||'Check your playing handicap against the club scorecard.':'Check your playing handicap against the club scorecard.';
- document.getElementById('setup-start').disabled=setupLoading||setupRoundBusy||![9,18].includes(HOLES.length);
+ document.getElementById('setup-start').disabled=setupLoading||setupRoundBusy||LEGACY_VILA_SOL_SLUGS.has(selectedCourseSlug)||![9,18].includes(HOLES.length);
  const recent=document.getElementById('setup-recent');recent.replaceChildren();
  const ids=[...new Set((recentRounds||[]).map(r=>r.course_id))];
  const found=ids.map(id=>setupCourses.find(c=>c.id===id)).filter(Boolean).slice(0,3);
@@ -61,6 +62,7 @@ function setupRefresh(){
  found.forEach(c=>{const b=suEl('button','su-recent',c.name);b.type='button';b.setAttribute('aria-pressed',String(c.slug===selectedCourseSlug));b.onclick=()=>setupChooseCourse(c.slug);recent.append(b);});
 }
 async function setupChooseCourse(slug){
+ if(LEGACY_VILA_SOL_SLUGS.has(slug))return false;
  if(activeRoundId&&localStorage.getItem(ROUND_STATE_KEY)){
   // Old clients left completed round IDs in device storage. Check read-only
   // before treating one as a live round; never discard an unfinished draft.
