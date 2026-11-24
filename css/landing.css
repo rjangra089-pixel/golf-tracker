@@ -1,0 +1,106 @@
+#screen-auth {
+    --tour-green: #123e2d;
+    --tour-mint: #d7f4b7;
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    background: var(--cl-bg);
+    color: var(--cl-text);
+    font-family: var(--cl-font);
+}
+#screen-auth [hidden] { display: none; }
+.tour-header, .tour-content {
+    width: min(100%, 760px);
+    margin-inline: auto;
+    padding-inline: clamp(16px, 4vw, 32px);
+    flex: none;
+}
+.tour-header, .tour-guide-head, .tour-example-row, .tour-controls, .tour-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.tour-header { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: 12px; }
+.tour-brand { font-weight: 760; font-size: 1.125rem; letter-spacing: -.03em; }
+.tour-hero {
+    padding: clamp(24px, 6vw, 52px);
+    border-radius: 24px;
+    background: radial-gradient(ellipse at 100% 0%, #265f42, transparent 78%), var(--tour-green);
+    color: #fff;
+}
+.tour-hero h1 {
+    font-size: clamp(2rem, 7vw, 3.75rem);
+    line-height: 1.03;
+    letter-spacing: -.055em;
+    margin: 0;
+}
+.tour-hero p, .tour-copy p {
+    font-size: 1rem;
+    line-height: 1.5;
+    margin: 12px 0 0;
+}
+.tour-hero p { color: #dfede4; max-width: 37ch; }
+.tour-actions { justify-content: flex-start; flex-wrap: wrap; margin-top: 18px; }
+.tour-primary, .tour-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    border: 0;
+    padding: 8px 14px;
+    border-radius: 11px;
+    font: 700 .9375rem var(--cl-font);
+    text-decoration: none;
+    cursor: pointer;
+}
+.tour-primary { background: var(--tour-green); color: #fff; }
+.tour-link { background: transparent; color: var(--cl-accent); }
+.tour-hero .tour-primary { background: var(--tour-mint); color: #112a1c; }
+.tour-hero .tour-link { color: #fff; padding-inline: 2px; }
+.tour-link:disabled { color: var(--cl-text-3); cursor: default; opacity: .65; }
+#screen-auth :focus-visible { outline: 3px solid var(--cl-accent); outline-offset: 3px; }
+.tour-hero :focus-visible { outline-color: var(--tour-mint) !important; }
+.tour-guide { margin-top: 28px; scroll-margin-top: 16px; }
+.tour-guide-head { flex-wrap: wrap; margin-bottom: 12px; }
+.tour-guide h2, #auth-heading { font-size: 1.25rem; letter-spacing: -.025em; margin: 0; }
+#tour-progress { color: var(--cl-text-2); font-size: .875rem; }
+.tour-card {
+    background: var(--cl-surface);
+    border: 1px solid var(--cl-border);
+    border-radius: 20px;
+    padding: clamp(14px, 3vw, 24px);
+}
+.tour-step {
+    display: grid;
+    gap: 16px;
+    align-items: center;
+}
+.tour-copy h3 { font-size: 1.125rem; margin: 0; }
+.tour-copy p { color: var(--cl-text-2); margin: 5px 0 0; }
+.tour-example {
+    padding: 14px;
+    background: var(--cl-bg);
+    border: 1px solid var(--cl-border);
+    border-radius: 14px;
+    color: var(--cl-text-2);
+    font-size: .875rem;
+}
+.tour-example strong { display: block; color: var(--cl-text); font-size: 1.125rem; margin-top: 5px; }
+.tour-example-row { margin-top: 10px; flex-wrap: wrap; justify-content: flex-start; }
+.tour-example-row b {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-left: 2px;
+    background: var(--cl-surface);
+    color: var(--cl-accent);
+}
+.tour-controls { margin-top: 16px; }
+#auth-access { flex: none; align-self: center; padding-bottom: max(40px, env(safe-area-inset-bottom)); }
+#auth-heading { margin-bottom: 16px; text-align: center; }
+#auth-access .auth-tab, #auth-access .auth-form > button { min-height: 44px; }
+@media (min-width: 620px) {
+    .tour-step { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+}

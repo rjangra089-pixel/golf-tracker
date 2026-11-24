@@ -1403,13 +1403,6 @@
             font-weight: 500;
         }
 
-        .auth-footer {
-            margin-top: 24px;
-            font-size: 14px;
-            color: var(--gray);
-            opacity: 0.6;
-        }
-
         /* Sign out button in home */
 
     </style>
@@ -1420,6 +1413,7 @@
     <link rel="stylesheet" href="css/round-editor.css?v=1">
     <link rel="stylesheet" href="css/stats.css?v=1">
     <link rel="stylesheet" href="css/setup.css?v=2">
+    <link rel="stylesheet" href="css/landing.css?v=1">
 <style>
 .round-sync { margin:6px 16px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; font:12px var(--font-body); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 #screen-play .round-sync{margin:0;padding:2px 0;border:0;font-size:11px;gap:4px}
@@ -1439,10 +1433,82 @@
      SCREEN: AUTH (Login / Signup)
 ══════════════════════════════════════ -->
 <div id="screen-auth" class="screen active">
-    <div class="auth-wrap">
-        <div class="auth-logo">⛳</div>
-        <div class="auth-title">GOLF TRACKER</div>
-        <div class="auth-sub">Track. Analyse. Improve.</div>
+    <header class="tour-header">
+        <span class="tour-brand">Golf Tracker</span>
+        <a class="tour-link" href="#auth-access" data-auth-tab="login">Sign in</a>
+    </header>
+
+    <main class="tour-content">
+        <section class="tour-hero" aria-labelledby="tour-title">
+            <h1 id="tour-title">Track your round.<br>See where shots go.</h1>
+            <p>Keep score on the course and use your rounds to decide what to work on next.</p>
+            <div class="tour-actions">
+                <a class="tour-primary" href="#golf-tour">Take the tour</a>
+                <a class="tour-link" href="#auth-access" data-auth-tab="signup">Create account</a>
+            </div>
+        </section>
+
+        <section id="golf-tour" class="tour-guide" tabindex="-1" aria-labelledby="tour-guide-title">
+            <div class="tour-guide-head">
+                <h2 id="tour-guide-title">From tee off to review</h2>
+                <span id="tour-progress" aria-live="polite">Step 1 of 4</span>
+            </div>
+            <div class="tour-card">
+                <article class="tour-step">
+                    <div class="tour-example">
+                        <span>Example round setup</span>
+                        <strong>Course · Yellow tees</strong>
+                        <div class="tour-example-row"><span>Playing handicap</span><b>25</b></div>
+                    </div>
+                    <div class="tour-copy">
+                        <h3 tabindex="-1">Set up your round</h3>
+                        <p>Open <b>Play</b>, choose your course and tees, and check your Playing Handicap before you tee off.</p>
+                    </div>
+                </article>
+                <article class="tour-step" hidden>
+                    <div class="tour-example">
+                        <span>Example Caddie Briefing</span>
+                        <strong>Hole 8 targets</strong>
+                        <div class="tour-example-row"><span>Handicap <b>6</b></span><span>Challenge <b>5</b></span></div>
+                    </div>
+                    <div class="tour-copy">
+                        <h3 tabindex="-1">Check your targets</h3>
+                        <p>Look at your handicap and challenge targets before playing the hole. Open <b>Caddie Briefing</b> for more detail when you need it.</p>
+                    </div>
+                </article>
+                <article class="tour-step" hidden>
+                    <div class="tour-example">
+                        <span>Example hole</span>
+                        <strong>Hole 8 · Par 4</strong>
+                        <div class="tour-example-row"><span>Score <b>5</b></span><span>Putts <b>2</b></span></div>
+                    </div>
+                    <div class="tour-copy">
+                        <h3 tabindex="-1">Score each hole</h3>
+                        <p>Enter your strokes and putts. You can also record fairways, greens, penalties and errors that actually cost you a shot.</p>
+                    </div>
+                </article>
+                <article class="tour-step" hidden>
+                    <div class="tour-example">
+                        <span>Example Coach Review</span>
+                        <strong>Round saved</strong>
+                        <div class="tour-example-row"><span>Gross <b>96</b></span><span>Stableford <b>37</b></span></div>
+                    </div>
+                    <div class="tour-copy">
+                        <h3 tabindex="-1">Review and pick a focus</h3>
+                        <p>Save your round and open <b>Coach Review</b> to see what cost you shots. Use <b>Stats</b> to see what repeats across rounds.</p>
+                    </div>
+                </article>
+                <div class="tour-controls">
+                    <button id="tour-back" class="tour-link" type="button" disabled>Back</button>
+                    <button id="tour-next" class="tour-primary" type="button">Next</button>
+                    <a id="tour-finish" class="tour-primary" href="#auth-access" data-auth-tab="signup" hidden>Get started</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <section id="auth-access" class="auth-wrap" aria-labelledby="auth-heading">
+        <h2 id="auth-heading" tabindex="-1">Your Golf Tracker account</h2>
 
         <!-- Tab switcher -->
         <div class="auth-tabs">
@@ -1453,11 +1519,11 @@
         <!-- Login form -->
         <div id="auth-login-form" class="auth-form">
             <div class="auth-field">
-                <div class="field-label">Email</div>
+                <label class="field-label" for="login-email">Email</label>
                 <input class="field-input" id="login-email" type="email" placeholder="your@email.com" autocomplete="email">
             </div>
             <div class="auth-field">
-                <div class="field-label">Password</div>
+                <label class="field-label" for="login-password">Password</label>
                 <input class="field-input" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
             </div>
             <div class="auth-error" id="login-error"></div>
@@ -1468,23 +1534,22 @@
         <!-- Signup form -->
         <div id="auth-signup-form" class="auth-form" style="display:none">
             <div class="auth-field">
-                <div class="field-label">Your Name</div>
+                <label class="field-label" for="signup-name">Your Name</label>
                 <input class="field-input" id="signup-name" type="text" placeholder="e.g. Rajiv">
             </div>
             <div class="auth-field">
-                <div class="field-label">Email</div>
+                <label class="field-label" for="signup-email">Email</label>
                 <input class="field-input" id="signup-email" type="email" placeholder="your@email.com" autocomplete="email">
             </div>
             <div class="auth-field">
-                <div class="field-label">Password</div>
+                <label class="field-label" for="signup-password">Password</label>
                 <input class="field-input" id="signup-password" type="password" placeholder="Min. 6 characters" autocomplete="new-password">
             </div>
             <div class="auth-error" id="signup-error"></div>
             <button class="btn-teeoff" id="btn-signup" onclick="doSignup()">CREATE ACCOUNT</button>
         </div>
 
-        <div class="auth-footer">Golf Tracker Pro · Beta</div>
-    </div>
+    </section>
 </div>
 
 <!-- ══════════════════════════════════════
@@ -1989,6 +2054,7 @@
 <script src="js/stats-model.js?v=1"></script>
 <script src="js/stats.js?v=1"></script>
 <script src="js/setup.js?v=1"></script>
+<script src="js/landing.js?v=1"></script>
 <script src="js/round-progress.js?v=2"></script>
 <script src="js/scoring-zones.js?v=3"></script>
 <script src="js/round-tools.js?v=4"></script>

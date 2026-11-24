@@ -1665,6 +1665,33 @@ const t = async (name, fn) => {
     assert.strictEqual(await ev(`window.__signedOut === true && officialHI === null && currentUser === null`), true);
   });
 
+  await t('LANDING: public mobile tour and direct account access', async () => {
+    for (const width of [320, 375, 430]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:667,deviceScaleFactor:2,mobile:true});
+      assert.strictEqual(await ev(`document.getElementById('screen-auth').scrollWidth <= innerWidth`), true);
+    }
+    assert.strictEqual(await ev(`document.querySelector('.tour-step:not([hidden]) h3').textContent`),'Set up your round');
+    if (process.env.SHOTS) {
+      await send('Emulation.setDeviceMetricsOverride',{width:375,height:800,deviceScaleFactor:2,mobile:true});
+      await ev(`document.getElementById('screen-auth').scrollTop=0;document.getAnimations().forEach(a=>a.finish())`);
+      require('fs').writeFileSync(process.env.SHOTS+'/golf-tracker-tour.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    }
+    for (const heading of ['Check your targets','Score each hole','Review and pick a focus']) {
+      await ev(`document.getElementById('tour-next').click()`);
+      assert.strictEqual(await ev(`document.querySelector('.tour-step:not([hidden]) h3').textContent`),heading);
+    }
+    assert.strictEqual(await ev(`document.getElementById('tour-progress').textContent`),'Step 4 of 4');
+    await ev(`document.getElementById('tour-back').click()`);
+    assert.strictEqual(await ev(`document.getElementById('tour-progress').textContent`),'Step 3 of 4');
+    await ev(`document.getElementById('tour-next').click();document.getElementById('tour-finish').click()`);
+    assert.strictEqual(await ev(`getComputedStyle(document.getElementById('auth-signup-form')).display`),'flex');
+    const focused = await ev(`document.activeElement.id`);
+    assert.strictEqual(focused,'auth-heading');
+    await ev(`document.querySelector('.tour-header [data-auth-tab="login"]').click()`);
+    assert.strictEqual(await ev(`getComputedStyle(document.getElementById('auth-login-form')).display`),'flex');
+    assert.strictEqual(await ev(`getComputedStyle(document.getElementById('auth-signup-form')).display`),'none');
+  });
+
   await t('No uncaught exceptions or console errors during the run', async () => {
     assert.deepStrictEqual(errors, []);
   });
